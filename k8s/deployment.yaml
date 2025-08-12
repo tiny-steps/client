@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ts-client-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+      - name: client
+        image: subhankarm2312/client
+        ports:
+        - containerPort: 5173
+        envFrom:
+            - secretRef:
+                name: ts-client-secret
+
