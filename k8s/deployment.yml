@@ -6,16 +6,16 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ts-client
+      app: client
   template:
     metadata:
       labels:
-        app: ts-client
+        app: client
     spec:
       containers:
-      - name: ts-client
+      - name: client
         image: subhankarm2312/ts-client
         ports:
         - containerPort: 5173
-        command: ["vite preview"]
+        command: ["vite", "preview"]
 
