@@ -17,7 +17,4 @@ spec:
         image: subhankarm2312/client
         ports:
         - containerPort: 5173
-        envFrom:
-            - secretRef:
-                name: ts-client-secret
 
