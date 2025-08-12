@@ -68,7 +68,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.DOCKERHUB_USERNAME }}/ts-client:${{ env.IMAGE_TAG }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ts-client:${{ env.IMAGE_TAG }}
 
       # -----------------------------
       # Kubernetes Deploy
@@ -84,5 +84,5 @@ jobs:
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
           kubectl apply -f k8s/ingress.yaml || true
-          kubectl set image deployment/ts-react-client ts-react-client=${{ env.DOCKERHUB_USERNAME }}/ts-react-client:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/ts-react-client ts-react-client=${{ secrets.DOCKERHUB_USERNAME }}/ts-react-client:${{ env.IMAGE_TAG }}
           kubectl rollout status deployment/ts-react-client
