@@ -17,4 +17,5 @@ spec:
         image: subhankarm2312/ts-client
         ports:
         - containerPort: 5173
+        command: ["vite preview"]
 
