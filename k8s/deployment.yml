@@ -17,5 +17,5 @@ spec:
         image: subhankarm2312/ts-client
         ports:
         - containerPort: 5173
-        command: ["npx","vite", "preview"]
+        command: ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
 
