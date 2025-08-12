@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: client
-        image: subhankarm2312/client
+        image: subhankarm2312/ts-client
         ports:
         - containerPort: 5173
 
