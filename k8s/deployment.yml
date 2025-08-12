@@ -1,21 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ts-client-deployment
+  name: ts-react-client         # was vite-react-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: client
+      app: ts-react-client       # update label
   template:
     metadata:
       labels:
-        app: client
+        app: ts-react-client     # update label
     spec:
       containers:
-      - name: client
-        image: subhankarm2312/ts-client
+      - name: ts-react-client    # update container name
+        image: subhankarm2312/ts-react-client:latest
         ports:
         - containerPort: 5173
-        command: ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
-
