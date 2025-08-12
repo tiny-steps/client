@@ -80,9 +80,9 @@ jobs:
 
       - name: Apply Kubernetes Manifests
         run: |
-          kubectl apply -f k8s/cluster-issuer.yaml || true
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/ingress.yaml || true
+          kubectl apply -f k8s/cluster-issuer.yml || true
+          kubectl apply -f k8s/deployment.yml
+          kubectl apply -f k8s/service.yml
+          kubectl apply -f k8s/ingress.yml || true
           kubectl set image deployment/ts-react-client ts-react-client=${{ secrets.DOCKERHUB_USERNAME }}/ts-react-client:${{ env.IMAGE_TAG }}
           kubectl rollout status deployment/ts-react-client
