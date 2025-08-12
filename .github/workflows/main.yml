@@ -68,7 +68,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ts-client:${{ env.IMAGE_TAG }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ts-react-client:${{ env.IMAGE_TAG }}
 
       # -----------------------------
       # Kubernetes Deploy
