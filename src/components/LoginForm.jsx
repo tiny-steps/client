@@ -23,7 +23,7 @@ const formSchema = z.object({
     message: "Password must be at least 8 characters long.",
   }),
 });
-const LoginForm = ({ setIsLoggedIn }) => {
+const LoginForm = ({ onLoginSuccess }) => {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -38,9 +38,12 @@ const LoginForm = ({ setIsLoggedIn }) => {
       scale: 0.1,
       duration: 0.8,
       opacity: 0,
-
       onComplete: () => {
-        setIsLoggedIn(true);
+        // Call the parent callback with user data
+        onLoginSuccess({
+          email: values.email,
+          name: values.email.split("@")[0], // Simple name extraction
+        });
       },
     });
   }
@@ -49,9 +52,10 @@ const LoginForm = ({ setIsLoggedIn }) => {
       <Card className="w-full max-w-sm mx-4 bg-white">
         <div className="h-20 w-full"></div>
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center mt-10">
-            Login
+          <CardTitle className="text-2xl font-bold text-center mt-10">
+            Welcome to Admin Panel
           </CardTitle>
+          <p className="text-sm text-center mt-2">Please login to continue.</p>
         </CardHeader>
         <CardContent>
           <Form {...form}>
