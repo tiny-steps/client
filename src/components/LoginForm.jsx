@@ -27,7 +27,7 @@ const formSchema = z.object({
 
 // Login API function
 const loginUser = async ({ email, password }) => {
-  const response = await fetch("http://194.164.150.134:8080/api/auth/login", {
+  const response = await fetch("/api/auth/login", {
     method: "POST",
     credentials: "include",
     headers: {

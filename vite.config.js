@@ -14,6 +14,15 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://194.164.150.134:8080", // Or http://localhost:8080 if your gateway is local
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
   // server: {
   //   proxy: {
   //     "/api": {

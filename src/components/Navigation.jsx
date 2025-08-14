@@ -8,7 +8,7 @@ import ThemeToggle from "./ThemeToggle";
 
 // API call function for logging out
 const logoutUser = async () => {
-  const response = await fetch("http://194.164.150.134:8080/api/auth/logout", {
+  const response = await fetch("/api/auth/logout", {
     method: "POST",
     credentials: "include",
     headers: {
