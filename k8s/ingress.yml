@@ -11,12 +11,12 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization,Content-Type"
     nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
 spec:
-  tls:
-    - hosts:
-        - example.com
-      secretName: vite-react-app-tls
+  # tls:
+  #   - hosts:
+  #       - example.com
+  #     secretName: vite-react-app-tls
   rules:
-    - host: example.com
+    # - host: example.com
       http:
         paths:
           # 👇 ADD THIS NEW RULE FOR THE API GATEWAY 👇
