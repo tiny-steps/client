@@ -14,25 +14,25 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  server: {
-    proxy: {
-      "/api": {
-        target: "http://194.164.150.134:8080",
-        changeOrigin: true,
-        secure: false,
-        cookieDomainRewrite: "localhost",
-        configure: (proxy, options) => {
-          proxy.on("proxyReq", (proxyReq, req, res) => {
-            // Keep original cookies instead of overriding origin
-            if (req.headers.cookie) {
-              proxyReq.setHeader("Cookie", req.headers.cookie);
-            }
-          });
-          proxy.on("proxyRes", (proxyRes, req, res) => {});
-        },
-      },
-    },
-  },
+  // server: {
+  //   proxy: {
+  //     "/api": {
+  //       target: "http://194.164.150.134:8080",
+  //       changeOrigin: true,
+  //       secure: false,
+  //       // cookieDomainRewrite: "localhost",
+  //       // configure: (proxy, options) => {
+  //       //   proxy.on("proxyReq", (proxyReq, req, res) => {
+  //       //     // Keep original cookies instead of overriding origin
+  //       //     if (req.headers.cookie) {
+  //       //       proxyReq.setHeader("Cookie", req.headers.cookie);
+  //       //     }
+  //       //   });
+  //       //   proxy.on("proxyRes", (proxyRes, req, res) => {});
+  //       // },
+  //     },
+  //   },
+  // },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

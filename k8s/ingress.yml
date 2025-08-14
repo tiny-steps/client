@@ -3,21 +3,41 @@ kind: Ingress
 metadata:
   name: ts-react-client-ingress
   annotations:
+    # Use the Nginx Ingress class
     kubernetes.io/ingress.class: "nginx"
+    # Use cert-manager to issue a TLS certificate
     cert-manager.io/cluster-issuer: "letsencrypt-production"
+    # This annotation is crucial: it strips the /api prefix from the request
+    # before forwarding it to your backend.
+    # e.g., a request to /api/auth/login becomes /auth/login
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   tls:
-    - hosts:
-        - example.com
-      secretName: vite-react-app-tls
+  - hosts:
+    - tinysteps.in
+    secretName: tinysteps-in-tls
   rules:
-    - host: example.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: ts-react-client-service
-                port:
-                  number: 5173
+  - host: tinysteps.in
+    http:
+      paths:
+      # Rule 1: API Traffic (This rule MUST come first)
+      # Any request starting with /api/ will be sent to the api-gateway-service.
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            # This must match the name of your API gateway's service
+            name: api-gateway-service
+            port:
+              # This must match the port your API gateway service is exposed on
+              number: 8080
+
+      # Rule 2: Frontend Traffic
+      # All other requests will be sent to your React application.
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client
+            port:
+              number: 5173
