@@ -11,23 +11,16 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization,Content-Type"
     nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
 spec:
-  # tls:
-  #   - hosts:
-  #       - example.com
-  #     secretName: vite-react-app-tls
   rules:
-    # - host: example.com
-      http:
+    - http:
         paths:
-          # 👇 ADD THIS NEW RULE FOR THE API GATEWAY 👇
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: ts-api-gateway # The name of your api-gateway service
+                name: ts-api-gateway
                 port:
                   number: 8080
-          # 👇 YOUR EXISTING RULE FOR THE FRONTEND 👇
           - path: /
             pathType: Prefix
             backend:
