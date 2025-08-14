@@ -7,12 +7,12 @@ metadata:
     # This annotation is important for path-based routing
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
-  tls:
-    - hosts:
-        - example.com
-      secretName: vite-react-app-tls
+  # tls:
+  #   - hosts:
+  #       - example.com
+  #     secretName: vite-react-app-tls
   rules:
-    - host: example.com
+    # - host: example.com
       http:
         paths:
           # ADD THIS NEW PATH for the API Gateway
