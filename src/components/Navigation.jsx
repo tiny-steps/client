@@ -5,22 +5,10 @@ import { authStore, authActions } from "../store/authStore";
 import gsap from "gsap";
 import BurgerMorphIcon from "./BurgerMorphIcon";
 import ThemeToggle from "./ThemeToggle";
+import { useGSAP } from "@gsap/react";
+import { logoutUser } from "../service/authService";
 
 // API call function for logging out
-const logoutUser = async () => {
-  const response = await fetch("/api/auth/logout", {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Logout failed");
-  }
-  return response.json();
-};
 
 const Navigation = () => {
   const navigate = useNavigate();
@@ -52,45 +40,48 @@ const Navigation = () => {
   });
 
   // Handle the animation logic
-  useLayoutEffect(() => {
-    if (!navRef.current || !logoutButtonRef.current) return;
+  // ... inside your Navigation component
 
-    if (authState.isAuthenticated) {
-      // Only add to the animation timeline on the initial login
-      if (authActions.shouldAnimate()) {
-        // Set the initial, hidden state of the navbar elements
-        gsap.set(navRef.current, { y: -100, opacity: 0 });
-        gsap.set(logoutButtonRef.current, { y: 20, opacity: 0 });
+  useGSAP(
+    () => {
+      // Ensure the DOM elements are ready
+      if (!navRef.current) return;
 
-        // Add animations to the *shared timeline*. They will run automatically
-        // after any preceding animations (like the logo).
-        timeline
-          .to(navRef.current, {
+      if (authState.isAuthenticated) {
+        if (authActions.shouldAnimate()) {
+          gsap.set(navRef.current, { y: -100, opacity: 0 });
+          gsap.set(".nav-item", { y: -20, opacity: 0 });
+
+          timeline.to(navRef.current, {
             y: 0,
             opacity: 1,
             duration: 0.8,
             ease: "power3.out",
-          })
-          .to(
-            logoutButtonRef.current,
-            {
-              y: 0,
-              opacity: 1,
-              duration: 0.6,
-              ease: "power3.out",
+            onComplete: () => {
+              gsap.to(
+                ".nav-item",
+                {
+                  y: 0,
+                  opacity: 1,
+                  duration: 0.4,
+                  ease: "elastic.out(1, 0.3)",
+                  stagger: 0.25,
+                },
+                "+=0.2"
+              );
             },
-            "-=0.5" // Overlap animations for a smoother effect
-          );
+          });
+        } else {
+          gsap.set(navRef.current, { y: 0, opacity: 1 });
+          gsap.set(".nav-item", { y: 0, opacity: 1 });
+        }
       } else {
-        // If not animating (e.g., page refresh), show the navbar instantly
-        gsap.set(navRef.current, { y: 0, opacity: 1 });
-        gsap.set(logoutButtonRef.current, { y: 0, opacity: 1 });
+        gsap.set(navRef.current, { y: -100, opacity: 0 });
+        gsap.set(".nav-item", { y: -20, opacity: 0 });
       }
-    } else {
-      // If not authenticated, ensure the navbar is hidden
-      gsap.set(navRef.current, { y: -100, opacity: 0 });
-    }
-  }, [authState.isAuthenticated, authState.isLoggingIn, timeline]);
+    },
+    { scope: navRef, dependencies: [authState.isAuthenticated] }
+  );
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -105,11 +96,12 @@ const Navigation = () => {
 
   return (
     <nav
-      ref={navRef}
+      ref={navRef} // The ref is on the main container
       className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgba(255,255,255,0.4)] shadow-2xl border-b px-10"
     >
+      {/* Add the common class "nav-item" to each element to be staggered */}
       <div
-        className="max-w-min fixed cursor-pointer rounded-sm my-4"
+        className="nav-item max-w-min fixed cursor-pointer rounded-sm my-4"
         onClick={handleMenuClick}
       >
         <BurgerMorphIcon />
@@ -117,14 +109,13 @@ const Navigation = () => {
 
       <div className="flex items-center justify-end gap-3">
         <button
-          ref={logoutButtonRef}
-          className="text-gray-700 hover:text-blue-600 transition-colors disabled:opacity-50"
+          className="nav-item text-gray-700 hover:text-blue-600 transition-colors disabled:opacity-50"
           onClick={handleLogout}
           disabled={logoutMutation.isPending}
         >
           {logoutMutation.isPending ? "Logging out..." : "Logout"}
         </button>
-        <div className="max-w-min cursor-pointer my-4">
+        <div className="nav-item max-w-min cursor-pointer my-4">
           <ThemeToggle />
         </div>
       </div>
