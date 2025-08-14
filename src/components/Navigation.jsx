@@ -1,10 +1,28 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useEffect, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { authStore, authActions } from "../store/authStore";
 import gsap from "gsap";
 import logo from "../assets/tiny-steps-logo.webp";
+const logoutUser = async () => {
+  const response = await fetch("/api/auth/logout", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Logout failed");
+  }
+
+  return response.json();
+};
 
 const Navigation = () => {
+  const navigate = useNavigate();
   const navRef = useRef(null);
   const [authState, setAuthState] = useState(authStore.state);
 
@@ -13,8 +31,22 @@ const Navigation = () => {
     const unsubscribe = authStore.subscribe(() => {
       setAuthState(authStore.state);
     });
+
     return unsubscribe;
   }, []);
+
+  // Use mutation at component level (NOT inside handleLogout)
+  const logoutMutation = useMutation({
+    mutationFn: logoutUser,
+    onSuccess: (data) => {
+      authActions.logout();
+      navigate("/");
+    },
+    onError: (error) => {
+      // Still logout locally even if server request fails
+      authActions.logout();
+    },
+  });
 
   useLayoutEffect(() => {
     if (!navRef.current) return;
@@ -48,7 +80,7 @@ const Navigation = () => {
   }, [authState.isAuthenticated, authState.isLoggingIn]);
 
   const handleLogout = () => {
-    authActions.logout();
+    logoutMutation.mutate();
   };
 
   if (!authState.isAuthenticated) return null;
@@ -59,13 +91,13 @@ const Navigation = () => {
       className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgb(255,255,255,0.4)]  shadow-2xl border-b px-10"
     >
       <div className="flex items-center justify-end px-6 py-5.5">
-        <Link
-          to="/"
-          className="text-gray-700 hover:text-blue-600 transition-colors"
+        <button
+          className="text-gray-700 hover:text-blue-600 transition-colors disabled:opacity-50"
           onClick={handleLogout}
+          disabled={logoutMutation.isPending}
         >
-          Logout
-        </Link>
+          {logoutMutation.isPending ? "Logging out..." : "Logout"}
+        </button>
       </div>
     </nav>
   );

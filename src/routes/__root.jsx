@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import { authStore, authActions } from "../store/authStore";
@@ -12,6 +12,7 @@ export const Route = createRootRoute({
 function PersistentLogo() {
   const [authState, setAuthState] = useState(authStore.state);
   const logoRef = useRef(null);
+  const navigate = useNavigate();
 
   // Subscribe to auth store changes
   useEffect(() => {
@@ -55,7 +56,7 @@ function PersistentLogo() {
       }
     } else {
       // Hide logo when not authenticated
-      gsap.set(logoRef.current, { opacity: 0 });
+      navigate({ to: "/" });
     }
   }, [authState.isAuthenticated, authState.isLoggingIn, authState.hasAnimated]);
 

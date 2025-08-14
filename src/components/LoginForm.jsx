@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { gsap } from "gsap";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -16,13 +17,35 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const formSchema = z.object({
-  email: z.string().email({
+  email: z.email({
     message: "Please enter a valid email address.",
   }),
   password: z.string().min(8, {
     message: "Password must be at least 8 characters long.",
   }),
 });
+
+// Login API function
+const loginUser = async ({ email, password }) => {
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Login failed");
+  }
+
+  const data = await response.json();
+
+  return data;
+};
+
 const LoginForm = ({ onLoginSuccess }) => {
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -32,19 +55,39 @@ const LoginForm = ({ onLoginSuccess }) => {
     },
   });
 
+  // Use mutation for login API call
+  const loginMutation = useMutation({
+    mutationFn: loginUser,
+    onSuccess: (data) => {
+      // Animate form out on success
+      gsap.to(".login-form", {
+        scale: 0.1,
+        duration: 0.8,
+        opacity: 0,
+        onComplete: () => {
+          // Call the parent callback with user data from API response
+          onLoginSuccess({
+            email: data.user?.email || form.getValues().email,
+            name: data.user?.name || form.getValues().email.split("@")[0],
+            ...data.user, // Include any other user data from API
+          });
+        },
+      });
+    },
+    onError: (error) => {
+      // You can show error message to user here
+      form.setError("root", {
+        type: "manual",
+        message: error.message || "Login failed. Please try again.",
+      });
+    },
+  });
+
   function onSubmit(values) {
-    console.log("Form submitted with values:", values);
-    gsap.to(".login-form", {
-      scale: 0.1,
-      duration: 0.8,
-      opacity: 0,
-      onComplete: () => {
-        // Call the parent callback with user data
-        onLoginSuccess({
-          email: values.email,
-          name: values.email.split("@")[0], // Simple name extraction
-        });
-      },
+    // Trigger the login mutation
+    loginMutation.mutate({
+      email: values.email,
+      password: values.password,
     });
   }
   return (
@@ -98,8 +141,20 @@ const LoginForm = ({ onLoginSuccess }) => {
                   Forgot password?
                 </a>
               </div>
-              <Button type="submit" className="mt-2">
-                Login
+
+              {/* Display API error */}
+              {form.formState.errors.root && (
+                <div className="text-red-600 text-sm text-center">
+                  {form.formState.errors.root.message}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="mt-2"
+                disabled={loginMutation.isPending}
+              >
+                {loginMutation.isPending ? "Logging in..." : "Login"}
               </Button>
             </form>
           </Form>
