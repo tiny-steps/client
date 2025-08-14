@@ -3,6 +3,8 @@ import { useLayoutEffect, useRef, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { authStore, authActions } from "../store/authStore";
 import gsap from "gsap";
+import BurgerMorphIcon from "./BurgerMorphIcon";
+import ThemeToggle from "./ThemeToggle";
 
 // API call function for logging out
 const logoutUser = async () => {
@@ -97,12 +99,23 @@ const Navigation = () => {
   // Do not render the component if the user is not authenticated
   if (!authState.isAuthenticated) return null;
 
+  const handleMenuClick = () => {
+    // Handle menu click logic here
+  };
+
   return (
     <nav
       ref={navRef}
       className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgba(255,255,255,0.4)] shadow-2xl border-b px-10"
     >
-      <div className="flex items-center justify-end px-6 py-5.5">
+      <div
+        className="max-w-min fixed cursor-pointer rounded-sm my-4"
+        onClick={handleMenuClick}
+      >
+        <BurgerMorphIcon />
+      </div>
+
+      <div className="flex items-center justify-end gap-3">
         <button
           ref={logoutButtonRef}
           className="text-gray-700 hover:text-blue-600 transition-colors disabled:opacity-50"
@@ -111,6 +124,9 @@ const Navigation = () => {
         >
           {logoutMutation.isPending ? "Logging out..." : "Logout"}
         </button>
+        <div className="max-w-min cursor-pointer my-4">
+          <ThemeToggle />
+        </div>
       </div>
     </nav>
   );
