@@ -49,14 +49,24 @@ function LoginPage() {
 export const Route = createFileRoute("/")({
   // Redirect authenticated users to dashboard
   beforeLoad: ({ search }) => {
-    const authState = authStore.state;
+    try {
+      const authState = authStore.state;
+      console.log("Login beforeLoad - Auth state:", authState);
 
-    if (authState.isAuthenticated && !authState.isLoggingIn) {
-      // If user is already authenticated and not in the middle of logging in,
-      // redirect them to dashboard (or to where they were trying to go)
-      throw redirect({
-        to: search.redirect || "/dashboard",
-      });
+      if (authState.isAuthenticated && !authState.isLoggingIn) {
+        // If user is already authenticated and not in the middle of logging in,
+        // redirect them to dashboard (or to where they were trying to go)
+        throw redirect({
+          to: search.redirect || "/dashboard",
+        });
+      }
+    } catch (error) {
+      if (error.redirect) {
+        // Re-throw redirect errors
+        throw error;
+      }
+      console.error("Error in login beforeLoad:", error);
+      // If there's any other error, stay on login page
     }
   },
   component: LoginPage,

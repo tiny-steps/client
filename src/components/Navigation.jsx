@@ -1,9 +1,10 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { authStore, authActions } from "../store/authStore";
 import gsap from "gsap";
-import logo from "../assets/tiny-steps-logo.webp";
+
+// API call function for logging out
 const logoutUser = async () => {
   const response = await fetch("/api/auth/logout", {
     method: "POST",
@@ -12,86 +13,98 @@ const logoutUser = async () => {
       "Content-Type": "application/json",
     },
   });
-
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.message || "Logout failed");
   }
-
   return response.json();
 };
 
 const Navigation = () => {
   const navigate = useNavigate();
   const navRef = useRef(null);
+  const logoutButtonRef = useRef(null);
   const [authState, setAuthState] = useState(authStore.state);
+  const timeline = authStore.state.timeline; // Get the shared timeline from the store
 
-  // Subscribe to auth store changes
+  // Subscribe to the auth store to keep the component's state in sync
   useEffect(() => {
     const unsubscribe = authStore.subscribe(() => {
       setAuthState(authStore.state);
     });
-
     return unsubscribe;
   }, []);
 
-  // Use mutation at component level (NOT inside handleLogout)
+  // Set up the mutation for the logout API call
   const logoutMutation = useMutation({
     mutationFn: logoutUser,
-    onSuccess: (data) => {
+    onSuccess: () => {
       authActions.logout();
       navigate("/");
     },
     onError: (error) => {
-      // Still logout locally even if server request fails
+      console.error("Logout failed:", error);
+      // Log out on the client-side even if the server call fails
       authActions.logout();
     },
   });
 
+  // Handle the animation logic
   useLayoutEffect(() => {
-    if (!navRef.current) return;
-
-    // Set initial navbar state (hidden above screen)
-    gsap.set(navRef.current, {
-      y: -100,
-      opacity: 0,
-    });
+    if (!navRef.current || !logoutButtonRef.current) return;
 
     if (authState.isAuthenticated) {
-      if (authState.isLoggingIn) {
-        // Coming from login - wait for logo animation to complete
-        gsap.to(navRef.current, {
-          y: 0,
-          opacity: 1,
-          duration: 0.6,
-          ease: "power2.out",
-          delay: 1.2, // Wait for logo animation to complete
-        });
+      // Only add to the animation timeline on the initial login
+      if (authActions.shouldAnimate()) {
+        // Set the initial, hidden state of the navbar elements
+        gsap.set(navRef.current, { y: -100, opacity: 0 });
+        gsap.set(logoutButtonRef.current, { y: 20, opacity: 0 });
+
+        // Add animations to the *shared timeline*. They will run automatically
+        // after any preceding animations (like the logo).
+        timeline
+          .to(navRef.current, {
+            y: 0,
+            opacity: 1,
+            duration: 0.8,
+            ease: "power3.out",
+          })
+          .to(
+            logoutButtonRef.current,
+            {
+              y: 0,
+              opacity: 1,
+              duration: 0.6,
+              ease: "power3.out",
+            },
+            "-=0.5" // Overlap animations for a smoother effect
+          );
       } else {
-        // Direct navigation or refresh - show navbar immediately
-        gsap.to(navRef.current, {
-          y: 0,
-          opacity: 1,
-          duration: 0.3,
-          ease: "power2.out",
-        });
+        // If not animating (e.g., page refresh), show the navbar instantly
+        gsap.set(navRef.current, { y: 0, opacity: 1 });
+        gsap.set(logoutButtonRef.current, { y: 0, opacity: 1 });
       }
+    } else {
+      // If not authenticated, ensure the navbar is hidden
+      gsap.set(navRef.current, { y: -100, opacity: 0 });
     }
-  }, [authState.isAuthenticated, authState.isLoggingIn]);
+  }, [authState.isAuthenticated, authState.isLoggingIn, timeline]);
 
   const handleLogout = () => {
     logoutMutation.mutate();
   };
 
+  // Do not render the component if the user is not authenticated
   if (!authState.isAuthenticated) return null;
 
   return (
     <nav
       ref={navRef}
-      className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgb(255,255,255,0.4)]  shadow-2xl border-b px-10"
+      className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgba(255,255,255,0.4)] shadow-2xl border-b px-10"
     >
       <div className="flex items-center justify-end px-6 py-5.5">
         <button
+          ref={logoutButtonRef}
           className="text-gray-700 hover:text-blue-600 transition-colors disabled:opacity-50"
           onClick={handleLogout}
           disabled={logoutMutation.isPending}

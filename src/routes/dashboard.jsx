@@ -44,16 +44,27 @@ function DashboardPage() {
 export const Route = createFileRoute("/dashboard")({
   // Add authentication guard
   beforeLoad: ({ location }) => {
-    const authState = authStore.state;
+    try {
+      const authState = authStore.state;
+      console.log("Dashboard beforeLoad - Auth state:", authState);
 
-    if (!authState.isAuthenticated) {
-      throw redirect({
-        to: "/",
-        search: {
-          // Optionally save where they were trying to go
-          redirect: location.href,
-        },
-      });
+      if (!authState.isAuthenticated) {
+        throw redirect({
+          to: "/",
+          search: {
+            // Optionally save where they were trying to go
+            redirect: location.href,
+          },
+        });
+      }
+    } catch (error) {
+      if (error.redirect) {
+        // Re-throw redirect errors
+        throw error;
+      }
+      console.error("Error in dashboard beforeLoad:", error);
+      // If there's any other error, redirect to login as a fallback
+      throw redirect({ to: "/" });
     }
   },
   component: DashboardPage,

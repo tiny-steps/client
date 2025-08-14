@@ -13,8 +13,8 @@ function PersistentLogo() {
   const [authState, setAuthState] = useState(authStore.state);
   const logoRef = useRef(null);
   const navigate = useNavigate();
+  const timeline = authStore.state.timeline;
 
-  // Subscribe to auth store changes
   useEffect(() => {
     const unsubscribe = authStore.subscribe(() => {
       setAuthState(authStore.state);
@@ -27,8 +27,8 @@ function PersistentLogo() {
 
     if (authState.isAuthenticated) {
       if (authActions.shouldAnimate()) {
-        // First time login - animate using the same approach as your original
-        gsap.to(logoRef.current, {
+        // Add logo animation to the shared timeline
+        timeline.to(logoRef.current, {
           scale: 0.4,
           duration: 0.8,
           top: 0,
@@ -36,9 +36,10 @@ function PersistentLogo() {
           xPercent: 50,
           yPercent: -20,
           position: "fixed",
-          ease: "linear",
+          ease: "power4.in",
           onComplete: () => {
-            authActions.completeLogin();
+            // Use the correct action name
+            authActions.completeLoginAnimation();
           },
         });
       } else {
@@ -55,10 +56,14 @@ function PersistentLogo() {
         });
       }
     } else {
-      // Hide logo when not authenticated
       navigate({ to: "/" });
     }
-  }, [authState.isAuthenticated, authState.isLoggingIn, authState.hasAnimated]);
+  }, [
+    authState.isAuthenticated,
+    authState.isLoggingIn,
+    authState.hasAnimated,
+    timeline,
+  ]);
 
   if (!authState.isAuthenticated) return null;
 
@@ -73,10 +78,22 @@ function PersistentLogo() {
 }
 
 function RootComponent() {
-  // Initialize auth on app start
+  const timeline = authStore.state.timeline;
+
+  // This useEffect hook is no longer needed and has been removed.
+  // The auth store initializes automatically when the app loads.
+
+  // Play the animation timeline when logging in
   useEffect(() => {
-    authActions.initializeAuth();
-  }, []);
+    const unsubscribe = authStore.subscribe(() => {
+      const state = authStore.state;
+      // Play the timeline only during the "in-flight" login state
+      if (state.isLoggingIn && !state.hasAnimated) {
+        timeline.play();
+      }
+    });
+    return unsubscribe;
+  }, [timeline]);
 
   return (
     <>
