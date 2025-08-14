@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { loginUser } from "../service/authService";
 
 const formSchema = z.object({
   email: z.email({
@@ -24,27 +25,6 @@ const formSchema = z.object({
     message: "Password must be at least 8 characters long.",
   }),
 });
-
-// Login API function
-const loginUser = async ({ email, password }) => {
-  const response = await fetch("http://194.164.150.134:8080/api/auth/login", {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email, password }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Login failed");
-  }
-
-  const data = await response.json();
-
-  return data;
-};
 
 const LoginForm = ({ onLoginSuccess }) => {
   const form = useForm({
