@@ -1,12 +1,54 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { authStore } from "../store/authStore";
+import { authActions, authStore } from "../store/authStore";
 import Navigation from "../components/Navigation";
+import { useRef, useState } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { da } from "zod/v4/locales";
 
 function DashboardPage() {
+  const dashboardRef = useRef(null);
+  const timeline = authStore.state.timeline;
+  const [authState, setAuthState] = useState(authStore.state);
+  const [isNavAnimated, setIsNavAnimated] = useState(false);
+
+  useGSAP(
+    () => {
+      if (!dashboardRef.current) return;
+
+      if (authState.isAuthenticated) {
+        if (authActions.shouldAnimate()) {
+          if (!isNavAnimated) {
+            gsap.set(dashboardRef.current, { scale: 0, opacity: 0 });
+            timeline.to(
+              dashboardRef.current,
+              {
+                scale: 1,
+                opacity: 1,
+                duration: 0.8,
+                ease: "power3.out",
+                transformOrigin: "center center",
+              },
+              "+=1"
+            );
+          }
+        } else {
+          gsap.set(dashboardRef.current, { scale: 1, opacity: 1 });
+        }
+      } else {
+        gsap.set(dashboardRef.current, { scale: 0, opacity: 0 });
+      }
+    },
+    { scope: dashboardRef, dependencies: [authState.isAuthenticated] }
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation />
-      <div className="pt-20 px-6">
+    <div className="h-[200vh] bg-gray-50">
+      <Navigation
+        isAnimated={isNavAnimated}
+        setIsNavAnimated={setIsNavAnimated}
+      />
+      <div className="pt-20 px-6" ref={dashboardRef}>
         {" "}
         {/* Add top padding to account for fixed navbar */}
         <div className="max-w-7xl mx-auto">

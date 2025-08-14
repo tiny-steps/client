@@ -10,7 +10,7 @@ import { logoutUser } from "../service/authService";
 
 // API call function for logging out
 
-const Navigation = () => {
+const Navigation = ({ isAnimated, setIsNavAnimated }) => {
   const navigate = useNavigate();
   const navRef = useRef(null);
   const logoutButtonRef = useRef(null);
@@ -58,17 +58,13 @@ const Navigation = () => {
             duration: 0.8,
             ease: "power3.out",
             onComplete: () => {
-              gsap.to(
-                ".nav-item",
-                {
-                  y: 0,
-                  opacity: 1,
-                  duration: 0.4,
-                  ease: "elastic.out(1, 0.3)",
-                  stagger: 0.25,
-                },
-                "+=0.2"
-              );
+              gsap.to(".nav-item", {
+                y: 0,
+                opacity: 1,
+                duration: 0.4,
+                ease: "elastic.out(1, 0.3)",
+                stagger: 0.25,
+              });
             },
           });
         } else {
@@ -97,7 +93,7 @@ const Navigation = () => {
   return (
     <nav
       ref={navRef} // The ref is on the main container
-      className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgba(255,255,255,0.4)] shadow-2xl border-b px-10"
+      className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgba(255,255,255,0.6)] backdrop-blur-sm shadow-2xl border-b px-10"
     >
       {/* Add the common class "nav-item" to each element to be staggered */}
       <div
