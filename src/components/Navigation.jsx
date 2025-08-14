@@ -5,7 +5,22 @@ import { authStore, authActions } from "../store/authStore";
 import gsap from "gsap";
 import BurgerMorphIcon from "./BurgerMorphIcon";
 import ThemeToggle from "./ThemeToggle";
-import { logoutUser } from "../service/authService";
+
+// API call function for logging out
+const logoutUser = async () => {
+  const response = await fetch("http://194.164.150.134:8080/api/auth/logout", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Logout failed");
+  }
+  return response.json();
+};
 
 const Navigation = () => {
   const navigate = useNavigate();
