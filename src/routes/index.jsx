@@ -19,7 +19,11 @@ function LoginPage() {
 
   // Handle successful login
   useLayoutEffect(() => {
-    if (authState.isAuthenticated && authState.isLoggingIn) {
+    // Using the new state from the store
+    if (
+      authStore.state.isAuthenticated &&
+      !authStore.state.hasAnimationPlayed
+    ) {
       // Hide the login page logo since the persistent logo will take over
       gsap.set(".login-logo", { opacity: 0 });
 
@@ -28,7 +32,7 @@ function LoginPage() {
         navigate({ to: "/dashboard" });
       }, 100);
     }
-  }, [authState.isAuthenticated, authState.isLoggingIn, navigate]);
+  }, [authState.isAuthenticated, navigate]);
 
   const handleLoginSuccess = (userData) => {
     authActions.login(userData);
@@ -49,24 +53,13 @@ function LoginPage() {
 export const Route = createFileRoute("/")({
   // Redirect authenticated users to dashboard
   beforeLoad: ({ search }) => {
-    try {
-      const authState = authStore.state;
-      console.log("Login beforeLoad - Auth state:", authState);
-
-      if (authState.isAuthenticated && !authState.isLoggingIn) {
-        // If user is already authenticated and not in the middle of logging in,
-        // redirect them to dashboard (or to where they were trying to go)
-        throw redirect({
-          to: search.redirect || "/dashboard",
-        });
-      }
-    } catch (error) {
-      if (error.redirect) {
-        // Re-throw redirect errors
-        throw error;
-      }
-      console.error("Error in login beforeLoad:", error);
-      // If there's any other error, stay on login page
+    const authState = authStore.state;
+    // If user is already authenticated and not in the middle of the login animation
+    if (authState.isAuthenticated && authState.hasAnimationPlayed) {
+      // Redirect them to dashboard
+      throw redirect({
+        to: search.redirect || "/dashboard",
+      });
     }
   },
   component: LoginPage,

@@ -1,14 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Monomakh:wght@400;600;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 body {
+  font-family: "Monomakh", sans-serif; /* Change this line */
   width: 100dvw;
   overflow-x: hidden;
   background: linear-gradient(135deg, #e3f0ff 0%, #f9f1ff 100%);
-  /* dark & {
-    background: linear-gradient(135deg, #1a1a1a 0%, #23262b 100%);
-  } */
 }
 
 @theme inline {

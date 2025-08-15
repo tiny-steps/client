@@ -10,9 +10,9 @@ const initializeAuthState = () => {
       return {
         isAuthenticated: authData.isAuthenticated || false,
         user: authData.user || null,
-        isLoggingIn: false, // This should always be false on initialization
-        hasAnimated: authData.hasAnimated || false,
-        isSideNavOpen: false, // Add isSideNavOpen to the initial state
+        isSideNavOpen: false,
+        // Restore animation state from storage
+        hasAnimationPlayed: authData.hasAnimationPlayed || false,
       };
     }
   } catch (error) {
@@ -23,14 +23,11 @@ const initializeAuthState = () => {
   return {
     isAuthenticated: false,
     user: null,
-    isLoggingIn: false,
-    hasAnimated: false,
-    isSideNavOpen: false, // Add isSideNavOpen to the default state
+    isSideNavOpen: false,
+    hasAnimationPlayed: false,
   };
 };
 
-// Create a single, shared GSAP timeline that is initially paused.
-// This timeline will manage the entire login animation sequence.
 const loginAnimationTimeline = gsap.timeline({ paused: true });
 
 // Create the auth store with the initial state and the shared timeline
@@ -42,36 +39,33 @@ export const authStore = new Store({
 // Define actions to update the store's state
 export const authActions = {
   login: (userData) => {
-    // When a user logs in, set isAuthenticated and isLoggingIn to true.
-    // This begins the login sequence.
+    const hasAnimationPlayed = false; // Always reset on a new login
     authStore.setState((state) => ({
       ...state,
       isAuthenticated: true,
       user: userData,
-      isLoggingIn: true,
-      hasAnimated: false,
+      hasAnimationPlayed,
     }));
 
-    // Persist the core authentication state to localStorage.
+    // Persist the initial login state to localStorage
     localStorage.setItem(
       "auth-storage",
       JSON.stringify({
         isAuthenticated: true,
         user: userData,
-        hasAnimated: false, // Ensure hasAnimated is reset
+        hasAnimationPlayed,
       })
     );
   },
 
   completeLoginAnimation: () => {
-    // This action is called when the login animation sequence is finished.
+    const hasAnimationPlayed = true;
     authStore.setState((state) => ({
       ...state,
-      isLoggingIn: false, // The "in-flight" login state is now over
-      hasAnimated: true, // Mark that the animation has been shown
+      hasAnimationPlayed,
     }));
 
-    // Update localStorage to reflect that the animation is complete for this session.
+    // Update localStorage to reflect that the animation is complete
     const currentAuth = JSON.parse(
       localStorage.getItem("auth-storage") || "{}"
     );
@@ -79,31 +73,26 @@ export const authActions = {
       "auth-storage",
       JSON.stringify({
         ...currentAuth,
-        hasAnimated: true,
+        hasAnimationPlayed,
       })
     );
   },
 
   logout: () => {
-    // Reset the entire authentication state on logout.
     authStore.setState((state) => ({
       ...state,
       isAuthenticated: false,
       user: null,
-      isLoggingIn: false,
-      hasAnimated: false,
+      hasAnimationPlayed: false,
     }));
 
-    // Clear the authentication data from localStorage.
     localStorage.removeItem("auth-storage");
-    // Rewind the timeline to be ready for the next login
     loginAnimationTimeline.seek(0).pause();
   },
 
-  // This action determines if the one-time login animation should run.
   shouldAnimate: () => {
     const state = authStore.state;
-    return state.isAuthenticated && state.isLoggingIn && !state.hasAnimated;
+    return state.isAuthenticated && !state.hasAnimationPlayed;
   },
   toggleSideNav: () => {
     authStore.setState((state) => ({

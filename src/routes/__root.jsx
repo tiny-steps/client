@@ -12,7 +12,6 @@ export const Route = createRootRoute({
 function PersistentLogo() {
   const [authState, setAuthState] = useState(authStore.state);
   const logoRef = useRef(null);
-  const navigate = useNavigate();
   const timeline = authStore.state.timeline;
 
   useEffect(() => {
@@ -25,26 +24,42 @@ function PersistentLogo() {
   useLayoutEffect(() => {
     if (!logoRef.current) return;
 
+    const logoElement = logoRef.current;
+
+    // Set to invisible initially to prevent any flash
+    gsap.set(logoElement, { opacity: 0 });
+
     if (authState.isAuthenticated) {
       if (authActions.shouldAnimate()) {
-        // Add logo animation to the shared timeline
-        timeline.to(logoRef.current, {
-          scale: 0.4,
-          duration: 0.8,
-          top: 0,
-          left: 0,
-          xPercent: 42,
-          yPercent: -20,
-          position: "fixed",
-          ease: "power4.in",
-          onComplete: () => {
-            // Use the correct action name
-            authActions.completeLoginAnimation();
-          },
+        // Let GSAP set the initial state completely to prevent any CSS/JS conflict
+        gsap.set(logoElement, {
+          position: "absolute",
+          top: "30%",
+          left: "50%",
+          xPercent: -50, // GSAP's equivalent of -translate-x-1/2
+          yPercent: -50, // GSAP's equivalent of -translate-y-1/2
+          scale: 1,
+          opacity: 1, // Make it visible now that it's positioned
         });
+
+        // Add animations to the shared timeline
+        timeline
+          // 1. Pause for 0.5s after login
+          .to({}, { duration: 0.5 })
+          // 2. Animate logo to its final corner position
+          .to(logoElement, {
+            scale: 0.4,
+            duration: 0.8,
+            top: 0,
+            left: 0,
+            xPercent: 42,
+            yPercent: -20,
+            position: "fixed",
+            ease: "power4.in",
+          });
       } else {
-        // Already logged in (refresh) - show in final position immediately
-        gsap.set(logoRef.current, {
+        // If already logged in (e.g., on refresh), set the logo to its final position immediately
+        gsap.set(logoElement, {
           position: "fixed",
           top: 0,
           left: 0,
@@ -55,23 +70,14 @@ function PersistentLogo() {
           opacity: 1,
         });
       }
-    } else {
-      navigate({ to: "/" });
     }
-  }, [
-    authState.isAuthenticated,
-    authState.isLoggingIn,
-    authState.hasAnimated,
-    timeline,
-  ]);
+  }, [authState.isAuthenticated, timeline]);
 
   if (!authState.isAuthenticated) return null;
 
   return (
-    <div
-      ref={logoRef}
-      className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1000]"
-    >
+    // All positioning and styling is now handled by GSAP in the effect above
+    <div ref={logoRef} className="z-[1000] bg-white rounded-full">
       <img src={logo} alt="Logo" className="h-30 w-30" />
     </div>
   );
@@ -79,30 +85,37 @@ function PersistentLogo() {
 
 function RootComponent() {
   const timeline = authStore.state.timeline;
+  const [authState, setAuthState] = useState(authStore.state);
 
-  // This useEffect hook is no longer needed and has been removed.
-  // The auth store initializes automatically when the app loads.
+  useEffect(() => {
+    const unsubscribe = authStore.subscribe(() => {
+      setAuthState(authStore.state);
+    });
+    return unsubscribe;
+  }, []);
 
   // Play the animation timeline when logging in
   useEffect(() => {
-    const unsubscribe = authStore.subscribe(() => {
-      const state = authStore.state;
-      // Play the timeline only during the "in-flight" login state
-      if (state.isLoggingIn && !state.hasAnimated) {
-        timeline.play();
-      }
-    });
-    return unsubscribe;
-  }, [timeline]);
+    if (authActions.shouldAnimate()) {
+      timeline.play();
+    }
+  }, [authState.isAuthenticated, timeline]);
 
   return (
     <>
       <PersistentLogo />
+      {/* This div creates the blurred background overlay when the sidenav is open */}
       <div
-        className={`transition-all duration-300 ease-in-out ${
-          authStore.state.isSideNavOpen ? "ml-64" : "ml-20"
+        className={`fixed inset-0 bg-black/20 backdrop-blur-sm z-[49] transition-opacity duration-300 ${
+          authState.isSideNavOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
         }`}
-      >
+        // Clicking the overlay will close the sidenav
+        onClick={() => authActions.toggleSideNav()}
+      />
+      {/* The main content area no longer shifts */}
+      <div className="relative">
         <Outlet />
       </div>
       <TanStackRouterDevtools />
