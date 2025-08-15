@@ -77,14 +77,14 @@ const Navigation = () => {
   return (
     <nav
       ref={navRef}
-      className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgba(255,255,255,0.6)] backdrop-blur-sm shadow-2xl border-b px-10"
+      className="fixed top-0 left-0 right-0 h-18 z-40 bg-white/60 dark:bg-gray-900/80 backdrop-blur-sm shadow-2xl border-b border-gray-200 dark:border-gray-700 px-10 transition-colors duration-200"
     >
-      <div className="flex items-center justify-between w-full">
-        <div className="text-lg font-semibold text-center w-full flex items-center justify-center leading-1 ml-40">
+      <div className="flex items-center justify-between w-full h-full">
+        <div className="text-lg font-semibold text-center w-full flex items-center justify-center leading-1 ml-40 text-gray-900 dark:text-white">
           Welcome to Tiny Steps CDC Admin Dashboard
         </div>
         <div className="flex items-center justify-end gap-3">
-          <div className="nav-item max-w-min cursor-pointer my-4">
+          <div className="nav-item max-w-min cursor-pointer my-4 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
             <UserCircle size={32} />
           </div>
           <div className="nav-item max-w-min cursor-pointer my-4">

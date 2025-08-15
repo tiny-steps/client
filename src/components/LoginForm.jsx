@@ -71,14 +71,16 @@ const LoginForm = ({ onLoginSuccess }) => {
     });
   }
   return (
-    <div className="login-form bg-slate-200 min-h-screen w-full flex items-center justify-center font-sans">
-      <Card className="w-full max-w-sm mx-4 bg-white">
+    <div className="login-form bg-gray-100 dark:bg-gray-900 min-h-screen w-full flex items-center justify-center font-sans transition-colors duration-200">
+      <Card className="w-full max-w-sm mx-4 bg-white dark:bg-gray-800 shadow-xl">
         <div className="h-20 w-full"></div>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center mt-10">
+          <CardTitle className="text-2xl font-bold text-center mt-10 text-gray-900 dark:text-white">
             Welcome to Admin Panel
           </CardTitle>
-          <p className="text-sm text-center mt-2">Please login to continue.</p>
+          <p className="text-sm text-center mt-2 text-gray-600 dark:text-gray-300">
+            Please login to continue.
+          </p>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -116,7 +118,7 @@ const LoginForm = ({ onLoginSuccess }) => {
               <div className="text-right -mt-2">
                 <a
                   href="#"
-                  className="text-sm font-medium text-blue-600 hover:underline"
+                  className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                 >
                   Forgot password?
                 </a>
@@ -131,8 +133,8 @@ const LoginForm = ({ onLoginSuccess }) => {
 
               <Button
                 type="submit"
-                className="mt-2"
                 disabled={loginMutation.isPending}
+                className="mt-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white transition-colors"
               >
                 {loginMutation.isPending ? "Logging in..." : "Login"}
               </Button>

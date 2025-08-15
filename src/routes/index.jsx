@@ -28,9 +28,7 @@ function LoginPage() {
       gsap.set(".login-logo", { opacity: 0 });
 
       // Navigate to dashboard after a brief delay to let animation start
-      setTimeout(() => {
-        navigate({ to: "/dashboard" });
-      }, 100);
+      navigate({ to: "/dashboard" });
     }
   }, [authState.isAuthenticated, navigate]);
 
