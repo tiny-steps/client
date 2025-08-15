@@ -75,10 +75,7 @@ function PersistentLogo() {
 
   return (
     // This container gets the background styling for dark mode
-    <div
-      ref={logoRef}
-      className="z-[1000] rounded-full transition-[background-color,padding] duration-500 dark:bg-white/10 dark:p-1 dark:backdrop-blur-sm"
-    >
+    <div ref={logoRef} className="z-[1000] rounded-full bg-white duration-500">
       <img src={logo} alt="Logo" className="h-30 w-30" />
     </div>
   );
