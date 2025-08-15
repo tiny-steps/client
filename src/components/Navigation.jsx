@@ -80,10 +80,19 @@ const Navigation = () => {
       className="fixed top-0 left-0 right-0 h-18 z-40 bg-white/60 dark:bg-gray-900/80 backdrop-blur-sm shadow-2xl border-b border-gray-200 dark:border-gray-700 px-10 transition-colors duration-200"
     >
       <div className="flex items-center justify-between w-full h-full">
-        <div className="text-lg font-semibold text-center w-full flex items-center justify-center leading-1 ml-40 text-gray-900 dark:text-white">
-          Welcome to Tiny Steps CDC Admin Dashboard
+        <div className="absolute left-1/2 transform -translate-x-1/2 text-center text-gray-900 dark:text-white font-semibold">
+          <div className="hidden lg:block text-lg whitespace-nowrap">
+            Tiny Steps Child Development Center
+          </div>
+          <div className="hidden md:block lg:hidden text-base whitespace-nowrap">
+            Tiny Steps CDC
+          </div>
+          <div className="block md:hidden text-sm">
+            <div>Tiny Steps</div>
+            <div className="text-xs leading-tight">CDC</div>
+          </div>
         </div>
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 ml-auto">
           <div className="nav-item max-w-min cursor-pointer my-4 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
             <UserCircle size={32} />
           </div>

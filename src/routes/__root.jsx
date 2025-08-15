@@ -44,9 +44,7 @@ function PersistentLogo() {
 
         // Add animations to the shared timeline
         timeline
-          // 1. Pause for 0.5s after login
-          .to({}, { duration: 0.5 })
-          // 2. Animate logo to its final corner position
+          // Animate logo to its final corner position immediately
           .to(logoElement, {
             scale: 0.4,
             duration: 0.8,
@@ -76,8 +74,11 @@ function PersistentLogo() {
   if (!authState.isAuthenticated) return null;
 
   return (
-    // All positioning and styling is now handled by GSAP in the effect above
-    <div ref={logoRef} className="z-[1000] bg-white rounded-full">
+    // This container gets the background styling for dark mode
+    <div
+      ref={logoRef}
+      className="z-[1000] rounded-full transition-[background-color,padding] duration-500 dark:bg-white/10 dark:p-1 dark:backdrop-blur-sm"
+    >
       <img src={logo} alt="Logo" className="h-30 w-30" />
     </div>
   );
