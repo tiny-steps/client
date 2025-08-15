@@ -12,6 +12,7 @@ const initializeAuthState = () => {
         user: authData.user || null,
         isLoggingIn: false, // This should always be false on initialization
         hasAnimated: authData.hasAnimated || false,
+        isSideNavOpen: false, // Add isSideNavOpen to the initial state
       };
     }
   } catch (error) {
@@ -24,6 +25,7 @@ const initializeAuthState = () => {
     user: null,
     isLoggingIn: false,
     hasAnimated: false,
+    isSideNavOpen: false, // Add isSideNavOpen to the default state
   };
 };
 
@@ -102,5 +104,11 @@ export const authActions = {
   shouldAnimate: () => {
     const state = authStore.state;
     return state.isAuthenticated && state.isLoggingIn && !state.hasAnimated;
+  },
+  toggleSideNav: () => {
+    authStore.setState((state) => ({
+      ...state,
+      isSideNavOpen: !state.isSideNavOpen,
+    }));
   },
 };

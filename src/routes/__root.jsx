@@ -33,7 +33,7 @@ function PersistentLogo() {
           duration: 0.8,
           top: 0,
           left: 0,
-          xPercent: 50,
+          xPercent: 42,
           yPercent: -20,
           position: "fixed",
           ease: "power4.in",
@@ -48,7 +48,7 @@ function PersistentLogo() {
           position: "fixed",
           top: 0,
           left: 0,
-          xPercent: 50,
+          xPercent: 42,
           yPercent: -20,
           scale: 0.4,
           zIndex: 1000,
@@ -98,7 +98,13 @@ function RootComponent() {
   return (
     <>
       <PersistentLogo />
-      <Outlet />
+      <div
+        className={`transition-all duration-300 ease-in-out ${
+          authStore.state.isSideNavOpen ? "ml-64" : "ml-20"
+        }`}
+      >
+        <Outlet />
+      </div>
       <TanStackRouterDevtools />
     </>
   );

@@ -1,45 +1,107 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { authActions, authStore } from "../store/authStore";
 import Navigation from "../components/Navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { da } from "zod/v4/locales";
+import SideNav from "../components/SideNav";
+import {
+  Settings,
+  User,
+  LogOut,
+  Stethoscope,
+  Baby,
+  Clock,
+  BookOpen,
+  Calendar,
+  ClipboardPlus,
+} from "lucide-react"; // Example icons
+import { useMutation } from "@tanstack/react-query";
+import { logoutUser } from "../service/authService";
 
 function DashboardPage() {
   const dashboardRef = useRef(null);
   const timeline = authStore.state.timeline;
   const [authState, setAuthState] = useState(authStore.state);
   const [isNavAnimated, setIsNavAnimated] = useState(false);
+  const [isDashboardAnimated, setIsDashboardAnimated] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = authStore.subscribe(() => {
+      setAuthState(authStore.state);
+    });
+    return unsubscribe;
+  }, []);
+
+  const logoutMutation = useMutation({
+    mutationFn: logoutUser,
+    onSuccess: () => {
+      authActions.logout();
+      navigate("/");
+    },
+    onError: (error) => {
+      console.error("Logout failed:", error);
+      // Log out on the client-side even if the server call fails
+      authActions.logout();
+    },
+  });
+
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
 
   useGSAP(
     () => {
       if (!dashboardRef.current) return;
 
-      if (authState.isAuthenticated) {
-        if (authActions.shouldAnimate()) {
-          if (!isNavAnimated) {
-            gsap.set(dashboardRef.current, { scale: 0, opacity: 0 });
-            timeline.to(
-              dashboardRef.current,
-              {
-                scale: 1,
-                opacity: 1,
-                duration: 0.8,
-                ease: "power3.out",
-                transformOrigin: "center center",
-              },
-              "+=1"
-            );
-          }
-        } else {
-          gsap.set(dashboardRef.current, { scale: 1, opacity: 1 });
+      if (authActions.shouldAnimate()) {
+        if (isNavAnimated) {
+          gsap.set(dashboardRef.current, { scale: 0, opacity: 0 });
+          timeline.to(dashboardRef.current, {
+            scale: 1,
+            opacity: 1,
+            duration: 0.8,
+            ease: "power3.out",
+            transformOrigin: "center center",
+            onComplete: () => {
+              setIsDashboardAnimated(true);
+            },
+          });
         }
       } else {
-        gsap.set(dashboardRef.current, { scale: 0, opacity: 0 });
+        gsap.set(dashboardRef.current, { scale: 1, opacity: 1 });
+        setIsDashboardAnimated(true);
       }
     },
-    { scope: dashboardRef, dependencies: [authState.isAuthenticated] }
+    { scope: dashboardRef, dependencies: [isNavAnimated] }
+  );
+
+  const navItems = [
+    { name: "Doctor", icon: Stethoscope, subItems: null },
+    { name: "Patient", icon: Baby, subItems: null },
+    { name: "Timing", icon: Clock, subItems: null },
+    { name: "Session", icon: BookOpen, subItems: null },
+    { name: "Schedule", icon: Calendar, subItems: null },
+    { name: "Report", icon: ClipboardPlus, subItems: null },
+
+    {
+      name: "Settings",
+      icon: Settings,
+      subItems: [
+        { name: "Profile", icon: User },
+        { name: "Account", icon: User },
+      ],
+    },
+  ];
+
+  const bottomContent = (
+    <button
+      className="flex items-center p-2 rounded-lg w-full text-left mb-10"
+      onClick={handleLogout}
+    >
+      <LogOut className="mr-4" />
+      <span>Logout</span>
+    </button>
   );
 
   return (
@@ -48,7 +110,16 @@ function DashboardPage() {
         isAnimated={isNavAnimated}
         setIsNavAnimated={setIsNavAnimated}
       />
-      <div className="pt-20 px-6" ref={dashboardRef}>
+      <SideNav
+        items={navItems}
+        bottomContent={bottomContent}
+        containerClassName="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 shadow-lg"
+        itemClassName="hover:bg-gray-200 dark:hover:bg-gray-700"
+        iconClassName="text-gray-500 dark:text-gray-400"
+        subItemClassName="hover:bg-gray-200 dark:hover:bg-gray-700"
+        isDashboardAnimated={isDashboardAnimated}
+      />
+      <div className="pt-24 px-6" ref={dashboardRef}>
         {" "}
         {/* Add top padding to account for fixed navbar */}
         <div className="max-w-7xl mx-auto">

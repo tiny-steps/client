@@ -1,21 +1,17 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import { gsap } from "gsap";
 import { MorphSVGPlugin } from "gsap/MorphSVGPlugin";
 gsap.registerPlugin(MorphSVGPlugin);
 
-const BurgerMorphIcon = () => {
-  const [isCross, setIsCross] = useState(false);
+const BurgerMorphIcon = ({ isOpen }) => {
   const topLine = useRef(null);
   const middleLine = useRef(null);
   const bottomLine = useRef(null);
   const crossLine1 = useRef(null);
   const crossLine2 = useRef(null);
 
-  const handleClick = () => {
-    setIsCross((prev) => !prev);
-    console.log("icon clicked"); // Log action
-
-    if (!isCross) {
+  useEffect(() => {
+    if (isOpen) {
       // Morph to cross
       gsap.to(topLine.current, {
         duration: 0.5,
@@ -50,10 +46,10 @@ const BurgerMorphIcon = () => {
         ease: "power2.inOut",
       });
     }
-  };
+  }, [isOpen]);
 
   return (
-    <svg width="40" height="40" viewBox="0 0 100 100" onClick={handleClick}>
+    <svg width="40" height="40" viewBox="0 0 100 100">
       {/* Hamburger lines */}
       <path
         id="topLine"

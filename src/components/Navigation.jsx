@@ -3,10 +3,11 @@ import { useLayoutEffect, useRef, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { authStore, authActions } from "../store/authStore";
 import gsap from "gsap";
-import BurgerMorphIcon from "./BurgerMorphIcon";
 import ThemeToggle from "./ThemeToggle";
 import { useGSAP } from "@gsap/react";
 import { logoutUser } from "../service/authService";
+import { Home, Settings, User, LogOut } from "lucide-react"; // Example icons
+import logo from "../assets/tiny-steps-logo.webp"; // Import the logo
 
 // API call function for logging out
 
@@ -64,6 +65,10 @@ const Navigation = ({ isAnimated, setIsNavAnimated }) => {
                 duration: 0.4,
                 ease: "elastic.out(1, 0.3)",
                 stagger: 0.25,
+                onComplete: () => {
+                  // Animation complete callback
+                  setIsNavAnimated(true);
+                },
               });
             },
           });
@@ -86,36 +91,30 @@ const Navigation = ({ isAnimated, setIsNavAnimated }) => {
   // Do not render the component if the user is not authenticated
   if (!authState.isAuthenticated) return null;
 
-  const handleMenuClick = () => {
-    // Handle menu click logic here
-  };
-
   return (
-    <nav
-      ref={navRef} // The ref is on the main container
-      className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgba(255,255,255,0.6)] backdrop-blur-sm shadow-2xl border-b px-10"
-    >
-      {/* Add the common class "nav-item" to each element to be staggered */}
-      <div
-        className="nav-item max-w-min fixed cursor-pointer rounded-sm my-4"
-        onClick={handleMenuClick}
+    <>
+      <nav
+        ref={navRef} // The ref is on the main container
+        className="fixed top-0 left-0 right-0 h-18 z-40 bg-[rgba(255,255,255,0.6)] backdrop-blur-sm shadow-2xl border-b px-10"
       >
-        <BurgerMorphIcon />
-      </div>
-
-      <div className="flex items-center justify-end gap-3">
-        <button
-          className="nav-item text-gray-700 hover:text-blue-600 transition-colors disabled:opacity-50"
-          onClick={handleLogout}
-          disabled={logoutMutation.isPending}
-        >
-          {logoutMutation.isPending ? "Logging out..." : "Logout"}
-        </button>
-        <div className="nav-item max-w-min cursor-pointer my-4">
-          <ThemeToggle />
+        {/* Add the common class "nav-item" to each element to be staggered */}
+        <div className="flex items-center justify-between w-full">
+          <div></div>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              className="nav-item text-gray-700 hover:text-blue-600 transition-colors disabled:opacity-50"
+              onClick={handleLogout}
+              disabled={logoutMutation.isPending}
+            >
+              {logoutMutation.isPending ? "Logging out..." : "Logout"}
+            </button>
+            <div className="nav-item max-w-min cursor-pointer my-4">
+              <ThemeToggle />
+            </div>
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </>
   );
 };
 
