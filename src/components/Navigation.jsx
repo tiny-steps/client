@@ -6,7 +6,7 @@ import gsap from "gsap";
 import ThemeToggle from "./ThemeToggle";
 import { useGSAP } from "@gsap/react";
 import { logoutUser } from "../service/authService";
-import { UserCircle } from "lucide-react";
+import { BellDot, UserCircle } from "lucide-react";
 
 const Navigation = () => {
   const navigate = useNavigate();
@@ -94,7 +94,7 @@ const Navigation = () => {
         </div>
         <div className="flex items-center justify-end gap-3 ml-auto">
           <div className="nav-item max-w-min cursor-pointer my-4 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
-            <UserCircle size={32} />
+            <BellDot size={32} />
           </div>
           <div className="nav-item max-w-min cursor-pointer my-4">
             <ThemeToggle />

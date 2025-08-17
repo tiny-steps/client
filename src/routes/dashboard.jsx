@@ -17,6 +17,8 @@ import {
   ClipboardPlus,
   CheckCircle,
   XCircle,
+  UserCircle,
+  LayoutDashboardIcon,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { logoutUser } from "../service/authService";
@@ -25,12 +27,15 @@ import FlippableCard from "../components/FlipableCard";
 import CalendarView from "../components/CalendarView";
 
 function DashboardPage() {
+  const user = authStore.state.user;
   const dashboardRef = useRef(null);
   const timeline = authStore.state.timeline;
   const navigate = useNavigate();
   const [isSideNavOpen, setIsSideNavOpen] = useState(
     authStore.state.isSideNavOpen
   );
+  // ✨ ADDED: State to manage the active navigation item
+  const [activeItem, setActiveItem] = useState("Dashboard");
 
   const [appointments, setAppointments] = useState({
     total: 4,
@@ -130,30 +135,74 @@ function DashboardPage() {
   );
 
   const navItems = [
-    { name: "Doctor", icon: Stethoscope, subItems: null },
-    { name: "Patient", icon: Baby, subItems: null },
-    { name: "Timing", icon: Clock, subItems: null },
-    { name: "Session", icon: BookOpen, subItems: null },
-    { name: "Schedule", icon: Calendar, subItems: null },
-    { name: "Report", icon: ClipboardPlus, subItems: null },
     {
-      name: "Settings",
-      icon: Settings,
-      subItems: [
-        { name: "Profile", icon: User },
-        { name: "Account", icon: User },
-      ],
+      name: "Dashboard",
+      route: "/dashboard",
+      icon: LayoutDashboardIcon,
+      subItems: null,
     },
+    {
+      name: "Doctor",
+      route: "/dashboard/doctors",
+      icon: Stethoscope,
+      subItems: null,
+    },
+    {
+      name: "Patient",
+      route: "/dashboard/patients",
+      icon: Baby,
+      subItems: null,
+    },
+    { name: "Timing", route: "/dashboard/timing", icon: Clock, subItems: null },
+    {
+      name: "Session",
+      route: "/dashboard/session",
+      icon: BookOpen,
+      subItems: null,
+    },
+    {
+      name: "Schedule",
+      route: "/dashboard/schedule",
+      icon: Calendar,
+      subItems: null,
+    },
+    {
+      name: "Report",
+      route: "/dashboard/report",
+      icon: ClipboardPlus,
+      subItems: null,
+    },
+    // {
+    //   name: "Profile",
+    //   icon: UserCircle,
+    //   subItems: [
+    //     { name: "Profile", icon: User },
+    //     { name: "Account", icon: User },
+    //   ],
+    // },
   ];
 
   const bottomContent = (
-    <button
-      className={`flex item-center justify-center gap-4 mb-10 ml-3`}
-      onClick={handleLogout}
-    >
-      <LogOut />
-      <span className="nav-item-name">Logout</span>
-    </button>
+    <div className="mb-20">
+      <button className="flex item-center justify-center gap-4  mb-6 ml-3 flex-row">
+        <div className="flex items-center justify-center pt-1">
+          <UserCircle size={32} />
+        </div>
+        <span className="nav-item-name flex flex-col gap-2 items-start justify-center ">
+          Profile
+          <span className="text-sm leading-2 font-light text-green-700 italic ">
+            {user.email}
+          </span>
+        </span>
+      </button>
+      <button
+        className={`flex item-center justify-center gap-4 ml-4`}
+        onClick={handleLogout}
+      >
+        <LogOut size={32} />
+        <span className="nav-item-name mt-1">Logout</span>
+      </button>
+    </div>
   );
 
   const getStatusColor = (status) => {
@@ -333,12 +382,21 @@ function DashboardPage() {
     </div>
   );
 
+  const handleItemClick = (item) => {
+    setActiveItem(item.name);
+    // Navigate to the selected item's route
+    navigate({ to: item.route });
+  };
+
   return (
-    <div className="h-full w-full bg-gray-50 md:mx-10 md:p-10 px-20 ">
+    <div className="h-full w-full bg-[linear-gradient(135deg, #e3f0ff 0%, #f9f1ff 100%)] dark:bg-[linear-gradient(135deg,#1e1e2f 0%,#2e2e3f 100%)] md:mx-10 md:p-10 px-20">
       <Navigation />
       <SideNav
         items={navItems}
         bottomContent={bottomContent}
+        // ✨ UPDATED: Pass active state and handler to SideNav
+        activeItem={activeItem}
+        onItemClick={handleItemClick}
         containerClassName="bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-200"
         itemClassName="hover:bg-gray-200 dark:hover:bg-gray-700"
         iconClassName="text-gray-500 dark:text-gray-400"

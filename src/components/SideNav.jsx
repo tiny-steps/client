@@ -9,9 +9,12 @@ import { authActions, authStore } from "../store/authStore";
 // Register GSAP plugins once at the module level
 gsap.registerPlugin(SplitText);
 
+// ✨ Define the props your component will accept, including the new ones
 const SideNav = ({
   items,
   bottomContent,
+  activeItem,
+  onItemClick,
   containerClassName = "",
   itemClassName = "",
   iconClassName = "",
@@ -26,6 +29,10 @@ const SideNav = ({
     !authActions.shouldAnimate()
   );
 
+  // ✨ Define the CSS classes for the active item
+  const activeItemStyles =
+    "bg-blue-100 dark:bg-gray-700 text-blue-600 dark:text-white";
+
   useEffect(() => {
     const unsubscribe = authStore.subscribe(() => {
       setIsOpen(authStore.state.isSideNavOpen);
@@ -33,7 +40,7 @@ const SideNav = ({
     return unsubscribe;
   }, []);
 
-  // Initial animation on login
+  // Initial animation on login (no changes here)
   useGSAP(
     () => {
       if (authActions.shouldAnimate()) {
@@ -47,7 +54,7 @@ const SideNav = ({
             ease: "power3.out",
           })
           .to(navRef.current, {
-            width: 80, // Reverted to original collapsed width
+            width: 80,
             duration: 0.4,
             ease: "power2.inOut",
           })
@@ -66,14 +73,13 @@ const SideNav = ({
       } else {
         gsap.set(navRef.current, { x: "0%", width: 80 });
         gsap.set(".nav-item-name", { opacity: 0 });
-        // If not animating, the intro is already complete
         setIntroAnimationComplete(true);
       }
     },
     { scope: navRef, dependencies: [] }
   );
 
-  // Animation for opening/closing the sidenav on burger click
+  // Animation for opening/closing the sidenav (no changes here)
   useGSAP(
     () => {
       if (!isIntroAnimationComplete) return;
@@ -90,26 +96,23 @@ const SideNav = ({
         delay: isOpen ? 0.1 : 0,
       });
 
-      // Animate the "Tiny Steps" title with SplitText
       const title = navRef.current.querySelector(".sidenav-title");
       const split = new SplitText(title, { type: "chars" });
 
       if (isOpen) {
-        // Set the parent's opacity to 1 so the children can animate into view
         gsap.set(title, { opacity: 1 });
         gsap.from(split.chars, {
           opacity: 0,
           x: -35,
           stagger: 0.1,
           duration: 0.4,
-          delay: 0.2, // Stagger after the sidebar starts expanding
+          delay: 0.2,
           ease: "power3.out",
         });
       } else {
         gsap.to(title, { opacity: 0, duration: 0.1 });
       }
 
-      // Cleanup the SplitText instance
       return () => {
         if (split.revert) {
           split.revert();
@@ -154,7 +157,6 @@ const SideNav = ({
       >
         <BurgerMorphIcon isOpen={isOpen} />
       </div>
-      {/* "Tiny Steps" title, positioned next to the burger icon */}
       <div className="sidenav-title text-gray-700 dark:text-gray-200 font-semibold fixed top-4 left-35">
         Tiny Steps
         <span className="text-gray-700 dark:text-gray-200 flex items-center justify-center">
@@ -163,41 +165,55 @@ const SideNav = ({
       </div>
       <div className="h-full flex flex-col pt-20">
         <div className="flex-grow p-4">
-          {items.map((item, idx) => (
-            <div key={idx} className="mb-2">
-              <div
-                className={`flex items-center p-2 justify-start gap-4 rounded-lg cursor-pointer ${itemClassName}`}
-                onClick={() => item.subItems && handleSubMenuToggle(idx)}
-              >
-                <item.icon className={`${iconClassName} flex-shrink-0`} />
-                <span className="flex-grow nav-item-name whitespace-nowrap">
-                  {item.name}
-                </span>
-                {item.subItems && (
-                  <ChevronDown
-                    className={`transition-transform duration-200 nav-item-name flex-shrink-0 ${
-                      openSubMenu === idx ? "rotate-180" : ""
-                    }`}
-                  />
-                )}
+          {items.map((item, idx) => {
+            // ✨ Determine if the current item is the active one
+            const isActive = item.name === activeItem;
+
+            return (
+              <div key={idx} className="mb-2">
+                <div
+                  // ✨ Conditionally add the active styles
+                  className={`flex items-center p-2 justify-start gap-4 rounded-lg cursor-pointer ${itemClassName} ${
+                    isActive ? activeItemStyles : ""
+                  }`}
+                  // ✨ Update the click handler
+                  onClick={() => {
+                    onItemClick(item.name); // Update the active state in the parent
+                    if (item.subItems) {
+                      handleSubMenuToggle(idx); // Also toggle submenu if it exists
+                    }
+                  }}
+                >
+                  <item.icon className={`${iconClassName} flex-shrink-0`} />
+                  <span className="flex-grow nav-item-name whitespace-nowrap">
+                    {item.name}
+                  </span>
+                  {item.subItems && (
+                    <ChevronDown
+                      className={`transition-transform duration-200 nav-item-name flex-shrink-0 ${
+                        openSubMenu === idx ? "rotate-180" : ""
+                      }`}
+                    />
+                  )}
+                </div>
+                <div
+                  ref={(el) => (subMenuRefs.current[idx] = el)}
+                  className="pl-8 mt-2 overflow-hidden"
+                  style={{ height: 0 }}
+                >
+                  {item.subItems &&
+                    item.subItems.map((subItem, subIdx) => (
+                      <div
+                        key={subIdx}
+                        className={`p-2 rounded-lg cursor-pointer ${subItemClassName}`}
+                      >
+                        {subItem.name}
+                      </div>
+                    ))}
+                </div>
               </div>
-              <div
-                ref={(el) => (subMenuRefs.current[idx] = el)}
-                className="pl-8 mt-2 overflow-hidden"
-                style={{ height: 0 }}
-              >
-                {item.subItems &&
-                  item.subItems.map((subItem, subIdx) => (
-                    <div
-                      key={subIdx}
-                      className={`p-2 rounded-lg cursor-pointer ${subItemClassName}`}
-                    >
-                      {subItem.name}
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         {bottomContent && <div className="p-4">{bottomContent}</div>}
       </div>
