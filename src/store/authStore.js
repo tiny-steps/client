@@ -84,6 +84,7 @@ export const authActions = {
       isAuthenticated: false,
       user: null,
       hasAnimationPlayed: false,
+      isSideNavOpen: false,
     }));
 
     localStorage.removeItem("auth-storage");
