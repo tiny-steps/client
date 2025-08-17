@@ -40,7 +40,7 @@ const SideNav = ({
     return unsubscribe;
   }, []);
 
-  // Initial animation on login (no changes here)
+  // Initial animation on login
   useGSAP(
     () => {
       if (authActions.shouldAnimate()) {
@@ -48,14 +48,18 @@ const SideNav = ({
         gsap.set(".nav-item-name", { opacity: 1 });
 
         timeline
-          .to(navRef.current, {
-            x: "0%",
-            duration: 0.8,
-            ease: "power3.out",
-          })
+          .to(
+            navRef.current,
+            {
+              x: "0%",
+              duration: 0.6, // Reduced duration
+              ease: "power3.out",
+            },
+            "navAnimationEnd" // Start after navbar and nav items complete
+          )
           .to(navRef.current, {
             width: 80,
-            duration: 0.4,
+            duration: 0.3, // Faster width animation
             ease: "power2.inOut",
           })
           .to(
@@ -178,7 +182,7 @@ const SideNav = ({
                   }`}
                   // ✨ Update the click handler
                   onClick={() => {
-                    onItemClick(item.name); // Update the active state in the parent
+                    onItemClick(item); // Pass the full item object (includes route)
                     if (item.subItems) {
                       handleSubMenuToggle(idx); // Also toggle submenu if it exists
                     }

@@ -47,14 +47,15 @@ function PersistentLogo() {
           // Animate logo to its final corner position immediately
           .to(logoElement, {
             scale: 0.4,
-            duration: 0.8,
+            duration: 0.6, // Reduced from 0.8 for faster animation
             top: 0,
             left: 0,
             xPercent: 42,
             yPercent: -20,
             position: "fixed",
-            ease: "power4.in",
-          });
+            ease: "power3.out", // Changed to power3.out for smoother finish
+          })
+          .addLabel("logoAnimationEnd"); // Add this label
       } else {
         // If already logged in (e.g., on refresh), set the logo to its final position immediately
         gsap.set(logoElement, {
@@ -104,11 +105,14 @@ function RootComponent() {
       <PersistentLogo />
       {/* This div creates the blurred background overlay when the sidenav is open */}
       <div
-        className={`fixed inset-0 bg-black/20 backdrop-blur-sm z-[49] transition-opacity duration-300 ${
+        className={`fixed top-0 bottom-0 right-0 bg-black/20 backdrop-blur-sm z-[49] transition-all duration-300 ${
           authState.isSideNavOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         }`}
+        style={{
+          left: authState.isSideNavOpen ? "256px" : "80px", // Start after the sidenav
+        }}
         // Clicking the overlay will close the sidenav
         onClick={() => authActions.toggleSideNav()}
       />

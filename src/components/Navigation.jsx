@@ -43,19 +43,24 @@ const Navigation = () => {
           gsap.set(".nav-item", { y: -20, opacity: 0 });
 
           timeline
-            .to(navRef.current, {
-              y: 0,
-              opacity: 1,
-              duration: 0.8,
-              ease: "power3.out",
-            })
+            .to(
+              navRef.current,
+              {
+                y: 0,
+                opacity: 1,
+                duration: 0.6, // Reduced duration for snappier animation
+                ease: "power3.out",
+              },
+              "dashboardAnimationEnd" // Start after dashboard appears
+            )
             .to(".nav-item", {
               y: 0,
               opacity: 1,
-              duration: 0.4,
+              duration: 0.3, // Faster nav item animations
               ease: "elastic.out(1, 0.3)",
-              stagger: 0.25,
-            });
+              stagger: 0.15, // Reduced stagger for faster sequence
+            })
+            .addLabel("navAnimationEnd"); // Add this label for sidenav
         } else {
           gsap.set(navRef.current, { y: 0, opacity: 1 });
           gsap.set(".nav-item", { y: 0, opacity: 1 });
