@@ -37,8 +37,8 @@ export const useGetAllDoctors = (params = {}) => {
       console.log("📡 Making API call to getAllDoctors with:", params);
       return doctorService.getAllDoctors(params);
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    cacheTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 0, // Always consider data stale so it refetches on param changes
+    cacheTime: 1000 * 60 * 5, // 5 minutes cache
     enabled: true, // Always enabled for now
   });
 };
@@ -128,11 +128,24 @@ export const useCreateDoctor = () => {
 
   return useMutation({
     mutationFn: (doctorData) => doctorService.createDoctor(doctorData),
-    onSuccess: (newDoctor) => {
-      // Invalidate and refetch doctors lists
+    onSuccess: (response) => {
+      // Handle the wrapped API response - extract the doctor data
+      const newDoctor = response.data || response;
+
+      console.log("✅ Doctor created successfully:", newDoctor);
+
+      // Invalidate all doctor queries to force refetch
+      queryClient.invalidateQueries({ queryKey: doctorKeys.all });
+
+      // Also invalidate specific list queries
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
-      // Add the new doctor to the cache
-      queryClient.setQueryData(doctorKeys.detail(newDoctor.id), newDoctor);
+
+      // Add the new doctor to the cache if we have the id
+      if (newDoctor?.id) {
+        queryClient.setQueryData(doctorKeys.detail(newDoctor.id), newDoctor);
+      }
+
+      console.log("🔄 Cache invalidated for doctor queries");
     },
     onError: (error) => {
       console.error("Error creating doctor:", error);

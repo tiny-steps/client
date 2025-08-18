@@ -25,6 +25,7 @@ const DoctorForm = ({
       name: initialData?.name || "",
       email: initialData?.email || "",
       phone: initialData?.phone || "",
+      password: initialData?.password || "",
       slug: initialData?.slug || "",
       gender: initialData?.gender || "MALE",
       summary: initialData?.summary || "",
@@ -50,6 +51,7 @@ const DoctorForm = ({
           await createDoctorMutation.mutateAsync(validatedData);
         }
 
+        // Only call onSubmit after everything is done
         await onSubmit?.(validatedData);
       } catch (error) {
         console.error("Form submission error:", error);
@@ -189,6 +191,38 @@ const DoctorForm = ({
             </div>
           )}
         </form.Field>
+
+        {/* Password Field - Only show for create mode */}
+        {!isEdit && (
+          <form.Field
+            name="password"
+            validators={{
+              onChange: ({ value }) => validateField("password", value),
+            }}
+          >
+            {(field) => (
+              <div>
+                <Label htmlFor="password">Password *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Enter password (min 8 characters)"
+                  className={
+                    field.state.meta.errors.length > 0 ? "border-red-500" : ""
+                  }
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {field.state.meta.errors[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+        )}
 
         {/* Slug Field */}
         <form.Field

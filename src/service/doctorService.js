@@ -78,7 +78,8 @@ class DoctorService {
       method: "POST",
       body: JSON.stringify(validatedData),
     });
-    return DoctorResponseSchema.parse(response);
+    // Return the full API response (with status, message, data structure)
+    return response;
   }
 
   // Get doctor by ID
@@ -90,17 +91,24 @@ class DoctorService {
 
   // Get all doctors with pagination
   async getAllDoctors(params = {}) {
+    console.log("🔧 DoctorService.getAllDoctors called with params:", params);
     const validatedParams = GetAllDoctorsSchema.parse(params);
+    console.log("✅ Validated params:", validatedParams);
+
     const searchParams = new URLSearchParams();
 
     Object.entries(validatedParams).forEach(([key, value]) => {
-      if (value !== undefined) {
+      if (value !== undefined && value !== null && value !== "") {
         searchParams.append(key, value.toString());
       }
     });
 
-    const response = await this.request(`/doctors?${searchParams.toString()}`);
+    const urlWithParams = `/doctors?${searchParams.toString()}`;
+    console.log("🌐 Constructed URL:", urlWithParams);
+
+    const response = await this.request(urlWithParams);
     const validatedResponse = ApiResponseSchema.parse(response);
+    console.log("📦 API Response:", validatedResponse);
     return validatedResponse.data;
   }
 

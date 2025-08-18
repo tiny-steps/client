@@ -16,6 +16,10 @@ export const CreateDoctorSchema = z.object({
     .string()
     .min(1, "Phone is required")
     .max(20, "Phone must not exceed 20 characters"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100, "Password must not exceed 100 characters"),
   slug: z
     .string()
     .max(200, "Slug must not exceed 200 characters")
@@ -212,8 +216,41 @@ export const PaginationSchema = z.object({
   sort: z.string().optional().default("name,asc"),
 });
 
-// Schema for getting all doctors
-export const GetAllDoctorsSchema = PaginationSchema;
+// Schema for getting all doctors with search and filter capabilities
+export const GetAllDoctorsSchema = z
+  .object({
+    name: z.string().min(1, "Name must not be empty").optional(),
+    speciality: z.string().min(1, "Speciality must not be empty").optional(),
+    isVerified: z.boolean().optional(),
+    minRating: z.number().min(0).max(5).optional(),
+    gender: GenderEnum.optional(),
+    status: StatusEnum.optional(),
+    minExperience: z.number().int().min(0).optional(),
+    maxExperience: z.number().int().min(0).optional(),
+    page: z.number().int().min(0, "Page must be non-negative").default(0),
+    size: z
+      .number()
+      .int()
+      .min(1, "Size must be at least 1")
+      .max(100, "Size must not exceed 100")
+      .default(20),
+    sort: z.string().optional().default("name,asc"),
+  })
+  .refine(
+    (data) => {
+      if (
+        data.minExperience !== undefined &&
+        data.maxExperience !== undefined
+      ) {
+        return data.minExperience <= data.maxExperience;
+      }
+      return true;
+    },
+    {
+      message: "Min experience must be less than or equal to max experience",
+      path: ["minExperience"],
+    }
+  );
 
 // Schema for doctor search parameters
 export const SearchDoctorsSchema = z
@@ -372,8 +409,29 @@ export const DoctorResponseSchema = z.object({
   ratingAverage: z.number(),
   reviewCount: z.number().int(),
   status: StatusEnum,
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z
+    .string()
+    .refine(
+      (val) => val === "" || z.string().datetime().safeParse(val).success,
+      "Invalid datetime format"
+    ),
+  updatedAt: z
+    .string()
+    .refine(
+      (val) => val === "" || z.string().datetime().safeParse(val).success,
+      "Invalid datetime format"
+    ),
+  // Add missing fields from the API response
+  awards: z.array(z.any()).optional(),
+  memberships: z.array(z.any()).optional(),
+  organizations: z.array(z.any()).optional(),
+  photos: z.array(z.any()).optional(),
+  practices: z.array(z.any()).optional(),
+  qualifications: z.array(z.any()).optional(),
+  recommendations: z.array(z.any()).optional(),
+  registrations: z.array(z.any()).optional(),
+  sessionPricings: z.array(z.any()).optional(),
+  specializations: z.array(z.any()).optional(),
 });
 
 export const PaginatedDoctorsResponseSchema = z.object({

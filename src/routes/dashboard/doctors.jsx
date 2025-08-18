@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import {
@@ -16,8 +16,11 @@ import { Card } from "../../components/ui/card.jsx";
 
 function DoctorsPage() {
   const pageRef = useRef(null);
+  const formRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [doctorToDelete, setDoctorToDelete] = useState(null);
 
   // Get store state and actions
   const { searchQuery, filters, pagination } = useDoctorStore((state) => ({
@@ -28,28 +31,91 @@ function DoctorsPage() {
 
   const doctorActions = useDoctorActions();
 
-  // Query params for API call
-  const queryParams = {
-    page: pagination.page,
-    size: pagination.size,
-    sort: pagination.sort,
-    ...(searchQuery && { name: searchQuery }),
-    ...(filters.status !== "all" && { status: filters.status }),
-    ...(filters.gender !== "all" && { gender: filters.gender }),
-    ...(filters.isVerified !== "all" && {
-      isVerified: filters.isVerified === "true",
-    }),
-    ...(filters.minRating > 0 && { minRating: filters.minRating }),
-    ...(filters.speciality && { speciality: filters.speciality }),
-  };
-
-  // Fetch doctors data
+  // Fetch ALL doctors without any filters - let the client handle filtering
   const {
     data: doctorsData,
     isLoading,
     error,
     refetch,
-  } = useGetAllDoctors(queryParams);
+  } = useGetAllDoctors({
+    page: 0,
+    size: 100, // Get a large number to have all doctors for client-side filtering
+  });
+
+  // Client-side filtering using useMemo for performance
+  const filteredDoctors = useMemo(() => {
+    if (!doctorsData?.content) return [];
+
+    let filtered = [...doctorsData.content];
+
+    // Filter by search query (name)
+    if (searchQuery && searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((doctor) =>
+        doctor.name.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by status
+    if (filters.status !== "all") {
+      filtered = filtered.filter((doctor) => doctor.status === filters.status);
+    }
+
+    // Filter by gender
+    if (filters.gender !== "all") {
+      filtered = filtered.filter((doctor) => doctor.gender === filters.gender);
+    }
+
+    // Filter by verification status
+    if (filters.isVerified !== "all") {
+      const isVerified = filters.isVerified === "true";
+      filtered = filtered.filter((doctor) => doctor.isVerified === isVerified);
+    }
+
+    // Filter by minimum rating
+    if (filters.minRating > 0) {
+      filtered = filtered.filter(
+        (doctor) => doctor.ratingAverage >= filters.minRating
+      );
+    }
+
+    // Filter by speciality
+    if (filters.speciality && filters.speciality.trim() !== "") {
+      const speciality = filters.speciality.toLowerCase().trim();
+      filtered = filtered.filter((doctor) =>
+        doctor.specializations?.some((spec) =>
+          spec.name?.toLowerCase().includes(speciality)
+        )
+      );
+    }
+
+    return filtered;
+  }, [doctorsData?.content, searchQuery, filters]);
+
+  // Implement client-side pagination
+  const paginatedDoctors = useMemo(() => {
+    const startIndex = pagination.page * pagination.size;
+    const endIndex = startIndex + pagination.size;
+    return filteredDoctors.slice(startIndex, endIndex);
+  }, [filteredDoctors, pagination.page, pagination.size]);
+
+  // Calculate total pages for pagination
+  const totalPages = Math.ceil(filteredDoctors.length / pagination.size);
+
+  // Debug the current state
+  useEffect(() => {
+    console.log("🔍 Current searchQuery:", searchQuery);
+    console.log("🎛️ Current filters:", filters);
+    console.log("👥 All doctors:", doctorsData?.content?.length || 0);
+    console.log("� Filtered doctors:", filteredDoctors.length);
+    console.log("📄 Paginated doctors:", paginatedDoctors.length);
+  }, [
+    searchQuery,
+    filters,
+    doctorsData?.content,
+    filteredDoctors,
+    paginatedDoctors,
+  ]);
 
   // Mutations
   const deleteDoctorMutation = useDeleteDoctor();
@@ -85,14 +151,46 @@ function DoctorsPage() {
     setShowForm(true);
   };
 
-  const handleDeleteDoctor = async (doctorId) => {
-    if (window.confirm("Are you sure you want to delete this doctor?")) {
+  // Add form animation when it appears
+  useGSAP(() => {
+    if (showForm && formRef.current) {
+      gsap.fromTo(
+        formRef.current,
+        {
+          scale: 0,
+          opacity: 0,
+          transformOrigin: "center center",
+        },
+        {
+          scale: 1,
+          opacity: 1,
+          duration: 0.6,
+          ease: "power3.out",
+        }
+      );
+    }
+  }, [showForm]);
+
+  const handleDeleteDoctor = (doctor) => {
+    setDoctorToDelete(doctor);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteDoctor = async () => {
+    if (doctorToDelete) {
       try {
-        await deleteDoctorMutation.mutateAsync(doctorId);
+        await deleteDoctorMutation.mutateAsync(doctorToDelete.id);
+        setShowDeleteModal(false);
+        setDoctorToDelete(null);
       } catch (error) {
         console.error("Error deleting doctor:", error);
       }
     }
+  };
+
+  const cancelDeleteDoctor = () => {
+    setShowDeleteModal(false);
+    setDoctorToDelete(null);
   };
 
   const handleToggleStatus = async (doctor) => {
@@ -108,9 +206,22 @@ function DoctorsPage() {
   };
 
   const handleFormSuccess = () => {
-    setShowForm(false);
-    setEditingDoctor(null);
-    refetch();
+    // Animate form out
+    if (formRef.current) {
+      gsap.to(formRef.current, {
+        scale: 0,
+        opacity: 0,
+        duration: 0.4,
+        ease: "power3.in",
+        onComplete: () => {
+          setShowForm(false);
+          setEditingDoctor(null);
+        },
+      });
+    } else {
+      setShowForm(false);
+      setEditingDoctor(null);
+    }
   };
 
   const handleFormCancel = () => {
@@ -120,10 +231,14 @@ function DoctorsPage() {
 
   const handleSearchChange = (e) => {
     doctorActions.setSearchQuery(e.target.value);
+    // Reset to first page when searching
+    doctorActions.setPage(0);
   };
 
   const handleStatusFilter = (status) => {
     doctorActions.setFilter("status", status);
+    // Reset to first page when filtering
+    doctorActions.setPage(0);
   };
 
   const getStatusColor = (status) => {
@@ -159,15 +274,19 @@ function DoctorsPage() {
   if (showForm) {
     return (
       <div ref={pageRef} className="p-6">
-        <DoctorForm
-          initialData={editingDoctor}
-          isEdit={!!editingDoctor}
-          onSubmit={async (data) => {
-            // The form component will handle the API call
-            handleFormSuccess();
-          }}
-          onCancel={handleFormCancel}
-        />
+        <div ref={formRef}>
+          <DoctorForm
+            initialData={editingDoctor}
+            isEdit={!!editingDoctor}
+            onSubmit={async (data) => {
+              // Wait for the form submission to complete
+              // The form component handles the API call and cache invalidation
+              // Only after that is done, we proceed with the success handling
+              handleFormSuccess();
+            }}
+            onCancel={handleFormCancel}
+          />
+        </div>
       </div>
     );
   }
@@ -251,10 +370,10 @@ function DoctorsPage() {
         )}
 
         {/* Doctors List */}
-        {!isLoading && !error && doctorsData && (
+        {!isLoading && !error && (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {doctorsData.content && doctorsData.content.length > 0 ? (
-              doctorsData.content.map((doctor) => (
+            {paginatedDoctors && paginatedDoctors.length > 0 ? (
+              paginatedDoctors.map((doctor) => (
                 <Card key={doctor.id} className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
@@ -331,7 +450,7 @@ function DoctorsPage() {
                       {doctor.status === "ACTIVE" ? "Deactivate" : "Activate"}
                     </Button>
                     <Button
-                      onClick={() => handleDeleteDoctor(doctor.id)}
+                      onClick={() => handleDeleteDoctor(doctor)}
                       variant="outline"
                       size="sm"
                       className="text-red-600 hover:bg-red-50"
@@ -343,15 +462,41 @@ function DoctorsPage() {
               ))
             ) : (
               <div className="col-span-full text-center py-12">
-                <p className="text-gray-500 mb-4">No doctors found.</p>
-                <Button onClick={handleAddDoctor}>Add Your First Doctor</Button>
+                {searchQuery ||
+                filters.status !== "all" ||
+                filters.gender !== "all" ? (
+                  <>
+                    <p className="text-gray-500 mb-4">
+                      No doctors found matching your search criteria.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        doctorActions.setSearchQuery("");
+                        doctorActions.setFilter("status", "all");
+                        doctorActions.setFilter("gender", "all");
+                        doctorActions.setFilter("isVerified", "all");
+                        doctorActions.setFilter("minRating", 0);
+                        doctorActions.setFilter("speciality", "");
+                      }}
+                      variant="outline"
+                      className="mr-2"
+                    >
+                      Clear Filters
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-500 mb-4">No doctors found.</p>
+                  </>
+                )}
+                <Button onClick={handleAddDoctor}>Add New Doctor</Button>
               </div>
             )}
           </div>
         )}
 
         {/* Pagination */}
-        {!isLoading && !error && doctorsData && doctorsData.totalPages > 1 && (
+        {!isLoading && !error && filteredDoctors.length > pagination.size && (
           <div className="flex justify-center mt-8">
             <div className="flex space-x-2">
               <Button
@@ -365,15 +510,15 @@ function DoctorsPage() {
                 Previous
               </Button>
               <span className="px-4 py-2 text-sm">
-                Page {pagination.page + 1} of {doctorsData.totalPages}
+                Page {pagination.page + 1} of {totalPages}
               </span>
               <Button
                 onClick={() =>
                   doctorActions.setPage(
-                    Math.min(doctorsData.totalPages - 1, pagination.page + 1)
+                    Math.min(totalPages - 1, pagination.page + 1)
                   )
                 }
-                disabled={pagination.page >= doctorsData.totalPages - 1}
+                disabled={pagination.page >= totalPages - 1}
                 variant="outline"
                 size="sm"
               >
@@ -382,7 +527,56 @@ function DoctorsPage() {
             </div>
           </div>
         )}
+
+        {/* Results Summary */}
+        {!isLoading && !error && (
+          <div className="mt-4 text-center text-sm text-gray-500">
+            Showing {paginatedDoctors.length} of {filteredDoctors.length}{" "}
+            doctors
+            {filteredDoctors.length !== doctorsData?.content?.length &&
+              ` (filtered from ${doctorsData?.content?.length} total)`}
+          </div>
+        )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Delete Doctor
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete{" "}
+              <span className="font-medium">{doctorToDelete?.name}</span>? This
+              action cannot be undone.
+            </p>
+            <div className="flex space-x-3 justify-end">
+              <Button
+                onClick={cancelDeleteDoctor}
+                variant="outline"
+                disabled={deleteDoctorMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDeleteDoctor}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={deleteDoctorMutation.isPending}
+              >
+                {deleteDoctorMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Doctor"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
