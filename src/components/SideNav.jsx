@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
 import gsap from "gsap";
 import {useGSAP} from "@gsap/react";
@@ -115,3 +115,4 @@ export default function SideNav({
         </div>
     );
 }
+
