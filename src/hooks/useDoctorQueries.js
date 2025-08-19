@@ -1,295 +1,137 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { doctorService } from "../service/doctorService.js";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { doctorService } from '../services/doctorService.js';
 
-// Query keys for better cache management
+// Query keys for consistent cache management
 export const doctorKeys = {
-  all: ["doctors"],
-  lists: () => [...doctorKeys.all, "list"],
+  all: ['doctors'],
+  lists: () => [...doctorKeys.all, 'list'],
   list: (filters) => [...doctorKeys.lists(), { filters }],
-  details: () => [...doctorKeys.all, "detail"],
+  details: () => [...doctorKeys.all, 'detail'],
   detail: (id) => [...doctorKeys.details(), id],
-  search: (params) => [...doctorKeys.all, "search", params],
-  topRated: (params) => [...doctorKeys.all, "top-rated", params],
-  byStatus: (status, params) => [...doctorKeys.all, "status", status, params],
-  byVerification: (isVerified, params) => [
-    ...doctorKeys.all,
-    "verification",
-    isVerified,
-    params,
-  ],
-  byGender: (gender, params) => [...doctorKeys.all, "gender", gender, params],
-  byMinRating: (minRating, params) => [
-    ...doctorKeys.all,
-    "min-rating",
-    minRating,
-    params,
-  ],
-  profileCompleteness: (id) => [...doctorKeys.all, "profile-completeness", id],
 };
 
-// Hook to get all doctors with pagination
-export const useGetAllDoctors = (params = {}) => {
-  console.log("🔍 useGetAllDoctors called with params:", params);
-
+// Get all doctors with pagination and filters
+export const useGetAllDoctors = (params = {}, options = {}) => {
   return useQuery({
     queryKey: doctorKeys.list(params),
-    queryFn: () => {
-      console.log("📡 Making API call to getAllDoctors with:", params);
-      return doctorService.getAllDoctors(params);
-    },
-    staleTime: 0, // Always consider data stale so it refetches on param changes
-    cacheTime: 1000 * 60 * 5, // 5 minutes cache
-    enabled: true, // Always enabled for now
+    queryFn: () => doctorService.getAllDoctors(params),
+    ...options,
   });
 };
 
-// Hook to get doctor by ID
-export const useGetDoctorById = (doctorId) => {
+// Get single doctor by ID
+export const useGetDoctorById = (id, options = {}) => {
   return useQuery({
-    queryKey: doctorKeys.detail(doctorId),
-    queryFn: () => doctorService.getDoctorById(doctorId),
-    enabled: !!doctorId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryKey: doctorKeys.detail(id),
+    queryFn: () => doctorService.getDoctorById(id),
+    enabled: !!id,
+    ...options,
   });
 };
 
-// Hook to search doctors
-export const useSearchDoctors = (searchParams = {}) => {
+// Search doctors
+export const useSearchDoctors = (searchParams, options = {}) => {
   return useQuery({
-    queryKey: doctorKeys.search(searchParams),
+    queryKey: doctorKeys.list(searchParams),
     queryFn: () => doctorService.searchDoctors(searchParams),
     enabled: Object.keys(searchParams).length > 0,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    ...options,
   });
 };
 
-// Hook to get top rated doctors
-export const useGetTopRatedDoctors = (params = {}) => {
+// Get verified doctors
+export const useGetVerifiedDoctors = (params = {}, options = {}) => {
   return useQuery({
-    queryKey: doctorKeys.topRated(params),
-    queryFn: () => doctorService.getTopRatedDoctors(params),
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    queryKey: doctorKeys.list({ ...params, verified: true }),
+    queryFn: () => doctorService.getVerifiedDoctors(params),
+    ...options,
   });
 };
 
-// Hook to get doctors by status
-export const useGetDoctorsByStatus = (status, params = {}) => {
-  return useQuery({
-    queryKey: doctorKeys.byStatus(status, params),
-    queryFn: () => doctorService.getDoctorsByStatus(status, params),
-    enabled: !!status,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-};
-
-// Hook to get doctors by verification status
-export const useGetDoctorsByVerification = (isVerified, params = {}) => {
-  return useQuery({
-    queryKey: doctorKeys.byVerification(isVerified, params),
-    queryFn: () => doctorService.getDoctorsByVerification(isVerified, params),
-    enabled: typeof isVerified === "boolean",
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-};
-
-// Hook to get doctors by gender
-export const useGetDoctorsByGender = (gender, params = {}) => {
-  return useQuery({
-    queryKey: doctorKeys.byGender(gender, params),
-    queryFn: () => doctorService.getDoctorsByGender(gender, params),
-    enabled: !!gender,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-};
-
-// Hook to get doctors by minimum rating
-export const useGetDoctorsByMinRating = (minRating, params = {}) => {
-  return useQuery({
-    queryKey: doctorKeys.byMinRating(minRating, params),
-    queryFn: () => doctorService.getDoctorsByMinRating(minRating, params),
-    enabled: typeof minRating === "number",
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-};
-
-// Hook to get profile completeness
-export const useGetProfileCompleteness = (doctorId) => {
-  return useQuery({
-    queryKey: doctorKeys.profileCompleteness(doctorId),
-    queryFn: () => doctorService.getProfileCompleteness(doctorId),
-    enabled: !!doctorId,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-  });
-};
-
-// Mutation hooks
+// Create doctor mutation
 export const useCreateDoctor = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (doctorData) => doctorService.createDoctor(doctorData),
-    onSuccess: (response) => {
-      // Handle the wrapped API response - extract the doctor data
-      const newDoctor = response.data || response;
-
-      console.log("✅ Doctor created successfully:", newDoctor);
-
-      // Invalidate all doctor queries to force refetch
-      queryClient.invalidateQueries({ queryKey: doctorKeys.all });
-
-      // Also invalidate specific list queries
+    mutationFn: doctorService.createDoctor,
+    onSuccess: () => {
+      // Invalidate and refetch all doctor lists
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
-
-      // Add the new doctor to the cache if we have the id
-      if (newDoctor?.id) {
-        queryClient.setQueryData(doctorKeys.detail(newDoctor.id), newDoctor);
-      }
-
-      console.log("🔄 Cache invalidated for doctor queries");
     },
     onError: (error) => {
-      console.error("Error creating doctor:", error);
+      console.error('Error creating doctor:', error);
     },
   });
 };
 
+// Update doctor mutation
 export const useUpdateDoctor = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ doctorId, doctorData }) =>
-      doctorService.updateDoctor(doctorId, doctorData),
-    onSuccess: (updatedDoctor, { doctorId }) => {
-      // Update the specific doctor in cache
-      queryClient.setQueryData(doctorKeys.detail(doctorId), updatedDoctor);
-      // Invalidate lists to ensure they're updated
+    mutationFn: ({ id, data }) => doctorService.updateDoctor(id, data),
+    onSuccess: (data, { id }) => {
+      // Invalidate specific doctor detail
+      queryClient.invalidateQueries({ queryKey: doctorKeys.detail(id) });
+      // Invalidate all doctor lists to refresh the data
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error("Error updating doctor:", error);
+      console.error('Error updating doctor:', error);
     },
   });
 };
 
-export const usePartialUpdateDoctor = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ doctorId, doctorData }) =>
-      doctorService.partialUpdateDoctor(doctorId, doctorData),
-    onSuccess: (updatedDoctor, { doctorId }) => {
-      // Update the specific doctor in cache
-      queryClient.setQueryData(doctorKeys.detail(doctorId), updatedDoctor);
-      // Invalidate lists to ensure they're updated
-      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
-    },
-    onError: (error) => {
-      console.error("Error partially updating doctor:", error);
-    },
-  });
-};
-
+// Delete doctor mutation
 export const useDeleteDoctor = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (doctorId) => doctorService.deleteDoctor(doctorId),
-    onSuccess: (_, doctorId) => {
-      // Remove the doctor from cache
-      queryClient.removeQueries({ queryKey: doctorKeys.detail(doctorId) });
-      // Invalidate lists to ensure they're updated
+    mutationFn: doctorService.deleteDoctor,
+    onSuccess: (data, deletedId) => {
+      // Remove the deleted doctor from cache
+      queryClient.removeQueries({ queryKey: doctorKeys.detail(deletedId) });
+      // Invalidate all doctor lists to refresh the data
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error("Error deleting doctor:", error);
+      console.error('Error deleting doctor:', error);
     },
   });
 };
 
+// Activate doctor mutation
 export const useActivateDoctor = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (doctorId) => doctorService.activateDoctor(doctorId),
-    onSuccess: (updatedDoctor, doctorId) => {
-      // Update the specific doctor in cache
-      queryClient.setQueryData(doctorKeys.detail(doctorId), updatedDoctor);
-      // Invalidate lists to ensure they're updated
+    mutationFn: (id) => doctorService.activateDoctor(id),
+    onSuccess: (data, id) => {
+      // Invalidate specific doctor detail
+      queryClient.invalidateQueries({ queryKey: doctorKeys.detail(id) });
+      // Invalidate all doctor lists to refresh the data
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error("Error activating doctor:", error);
+      console.error('Error activating doctor:', error);
     },
   });
 };
 
+// Deactivate doctor mutation
 export const useDeactivateDoctor = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (doctorId) => doctorService.deactivateDoctor(doctorId),
-    onSuccess: (updatedDoctor, doctorId) => {
-      // Update the specific doctor in cache
-      queryClient.setQueryData(doctorKeys.detail(doctorId), updatedDoctor);
-      // Invalidate lists to ensure they're updated
+    mutationFn: (id) => doctorService.deactivateDoctor(id),
+    onSuccess: (data, id) => {
+      // Invalidate specific doctor detail
+      queryClient.invalidateQueries({ queryKey: doctorKeys.detail(id) });
+      // Invalidate all doctor lists to refresh the data
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error("Error deactivating doctor:", error);
+      console.error('Error deactivating doctor:', error);
     },
   });
-};
-
-export const useVerifyDoctor = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (doctorId) => doctorService.verifyDoctor(doctorId),
-    onSuccess: (updatedDoctor, doctorId) => {
-      // Update the specific doctor in cache
-      queryClient.setQueryData(doctorKeys.detail(doctorId), updatedDoctor);
-      // Invalidate lists to ensure they're updated
-      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
-    },
-    onError: (error) => {
-      console.error("Error verifying doctor:", error);
-    },
-  });
-};
-
-export const useCreateBatchDoctors = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (doctorsData) => doctorService.createBatchDoctors(doctorsData),
-    onSuccess: () => {
-      // Invalidate all doctor lists to ensure they're updated
-      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
-    },
-    onError: (error) => {
-      console.error("Error creating batch doctors:", error);
-    },
-  });
-};
-
-// Utility hook for prefetching doctor data
-export const usePrefetchDoctor = () => {
-  const queryClient = useQueryClient();
-
-  return (doctorId) => {
-    queryClient.prefetchQuery({
-      queryKey: doctorKeys.detail(doctorId),
-      queryFn: () => doctorService.getDoctorById(doctorId),
-      staleTime: 1000 * 60 * 5, // 5 minutes
-    });
-  };
-};
-
-// Hook for invalidating all doctor queries
-export const useInvalidateDoctorQueries = () => {
-  const queryClient = useQueryClient();
-
-  return () => {
-    queryClient.invalidateQueries({ queryKey: doctorKeys.all });
-  };
 };
