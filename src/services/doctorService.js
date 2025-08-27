@@ -4,21 +4,22 @@ class DoctorService {
   async getAllDoctors(params = {}) {
     const searchParams = new URLSearchParams();
 
-    if (params.page !== undefined) searchParams.append('page', params.page);
-    if (params.size !== undefined) searchParams.append('size', params.size);
-    if (params.name) searchParams.append('name', params.name);
-    if (params.speciality) searchParams.append('speciality', params.speciality);
-    if (params.minExperience) searchParams.append('minExperience', params.minExperience);
+    if (params.page !== undefined) searchParams.append("page", params.page);
+    if (params.size !== undefined) searchParams.append("size", params.size);
+    if (params.name) searchParams.append("name", params.name);
+    if (params.speciality) searchParams.append("speciality", params.speciality);
+    if (params.minExperience)
+      searchParams.append("minExperience", params.minExperience);
 
     const response = await fetch(`/api/v1/doctors?${searchParams}`, {
+      credentials: "include",
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch doctors');
+      throw new Error("Failed to fetch doctors");
     }
 
     return response.json();
@@ -26,14 +27,14 @@ class DoctorService {
 
   async getDoctorById(id) {
     const response = await fetch(`/api/v1/doctors/${id}`, {
+      credentials: "include",
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch doctor');
+      throw new Error("Failed to fetch doctor");
     }
 
     return response.json();
@@ -41,17 +42,17 @@ class DoctorService {
 
   async createDoctor(doctorData) {
     const response = await fetch(`/api/v1/doctors/register`, {
-      method: 'POST',
+      method: "POST",
+      credentials: "include",
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(doctorData),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Failed to create doctor');
+      throw new Error(error.message || "Failed to create doctor");
     }
 
     return response.json();
@@ -59,17 +60,17 @@ class DoctorService {
 
   async updateDoctor(id, doctorData) {
     const response = await fetch(`/api/v1/doctors/${id}`, {
-      method: 'PUT',
+      method: "PUT",
+      credentials: "include",
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(doctorData),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Failed to update doctor');
+      throw new Error(error.message || "Failed to update doctor");
     }
 
     return response.json();
@@ -77,16 +78,16 @@ class DoctorService {
 
   async deleteDoctor(id) {
     const response = await fetch(`/api/v1/doctors/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
+      credentials: "include",
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Failed to delete doctor');
+      throw new Error(error.message || "Failed to delete doctor");
     }
 
     return response.ok;
@@ -94,16 +95,16 @@ class DoctorService {
 
   async activateDoctor(id) {
     const response = await fetch(`/api/v1/doctors/${id}/activate`, {
-      method: 'PUT',
+      method: "PUT",
+      credentials: "include",
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Failed to activate doctor');
+      throw new Error(error.message || "Failed to activate doctor");
     }
 
     return response.json();
@@ -111,16 +112,16 @@ class DoctorService {
 
   async deactivateDoctor(id) {
     const response = await fetch(`/api/v1/doctors/${id}/deactivate`, {
-      method: 'PUT',
+      method: "PUT",
+      credentials: "include",
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Failed to deactivate doctor');
+      throw new Error(error.message || "Failed to deactivate doctor");
     }
 
     return response.json();
