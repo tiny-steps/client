@@ -139,7 +139,7 @@ class TimingService {
     return response.json();
   }
 
-  async deleteDuration(availabilityId, durationId) {
+  async deleteDuration(doctorId, availabilityId, durationId) {
     const response = await fetch(
       `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/durations/${durationId}`,
       {

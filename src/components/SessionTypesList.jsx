@@ -1,84 +1,120 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { sessionService } from '../services/sessionService.js';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card.jsx';
-import { Button } from './ui/button.jsx';
-import { Input } from './ui/input.jsx';
-import { ConfirmModal } from './ui/confirm-modal.jsx';
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router";
+import {
+  useGetAllSessionTypes,
+  useDeleteSessionType,
+  useActivateSessionType,
+  useDeactivateSessionType,
+} from "../hooks/useSessionQueries.js";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
+import { Button } from "./ui/button.jsx";
+import { Input } from "./ui/input.jsx";
+import { ConfirmModal } from "./ui/confirm-modal.jsx";
 
 const SessionTypesList = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(10);
-  const [searchParams, setSearchParams] = useState({});
-  const [deleteModal, setDeleteModal] = useState({ open: false, sessionType: null });
+  const [searchInputs, setSearchInputs] = useState({
+    name: "",
+    isActive: "",
+    isTelemedicineAvailable: "",
+  });
+  const [deleteModal, setDeleteModal] = useState({
+    open: false,
+    sessionType: null,
+  });
 
-  // Fetch session types with current filters
-  const {
-    data,
-    isLoading,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['sessionTypes', currentPage, searchParams],
-    queryFn: () => sessionService.getSessionTypes({
-      page: currentPage,
+  // Fetch session types
+  const { data, isLoading, error, refetch } = useGetAllSessionTypes({
+    page: currentPage,
+    size: 1000, // Fetch all for client-side filtering
+  });
+
+  // Mutations
+  const deleteSessionType = useDeleteSessionType();
+  const activateSessionType = useActivateSessionType();
+  const deactivateSessionType = useDeactivateSessionType();
+
+  // Client-side filtering
+  const filteredSessionTypes = useMemo(() => {
+    const allSessionTypes = data?.content || [];
+
+    if (
+      !searchInputs.name &&
+      !searchInputs.isActive &&
+      !searchInputs.isTelemedicineAvailable
+    ) {
+      return allSessionTypes;
+    }
+
+    return allSessionTypes.filter((sessionType) => {
+      // Name filter
+      if (searchInputs.name) {
+        const nameMatch = sessionType.name
+          ?.toLowerCase()
+          .includes(searchInputs.name.toLowerCase());
+        if (!nameMatch) return false;
+      }
+
+      // Active status filter
+      if (searchInputs.isActive !== "") {
+        const activeMatch =
+          sessionType.isActive === (searchInputs.isActive === "true");
+        if (!activeMatch) return false;
+      }
+
+      // Telemedicine filter
+      if (searchInputs.isTelemedicineAvailable !== "") {
+        const telemedicineMatch =
+          sessionType.isTelemedicineAvailable ===
+          (searchInputs.isTelemedicineAvailable === "true");
+        if (!telemedicineMatch) return false;
+      }
+
+      return true;
+    });
+  }, [data?.content, searchInputs]);
+
+  // Client-side pagination
+  const paginatedSessionTypes = useMemo(() => {
+    const startIndex = currentPage * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredSessionTypes.slice(startIndex, endIndex);
+  }, [filteredSessionTypes, currentPage, pageSize]);
+
+  // Pagination info
+  const pagination = useMemo(
+    () => ({
+      currentPage,
+      totalPages: Math.ceil(filteredSessionTypes.length / pageSize),
+      totalElements: filteredSessionTypes.length,
       size: pageSize,
-      ...searchParams,
     }),
-  });
+    [filteredSessionTypes.length, currentPage, pageSize]
+  );
 
-  // Delete session type mutation
-  const deleteSessionType = useMutation({
-    mutationFn: (id) => sessionService.deleteSessionType(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['sessionTypes']);
-      setDeleteModal({ open: false, sessionType: null });
-    },
-  });
-
-  // Toggle active status mutation
-  const toggleActiveStatus = useMutation({
-    mutationFn: ({ id, isActive }) => {
-      return isActive 
-        ? sessionService.deactivateSessionType(id)
-        : sessionService.activateSessionType(id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['sessionTypes']);
-    },
-  });
+  // Reset to first page when search changes
+  React.useEffect(() => {
+    setCurrentPage(0);
+  }, [searchInputs]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const newSearchParams = {};
-
-    if (formData.get('name')) {
-      newSearchParams.name = formData.get('name');
-    }
-    if (formData.get('isActive')) {
-      newSearchParams.isActive = formData.get('isActive') === 'true';
-    }
-    if (formData.get('isTelemedicineAvailable')) {
-      newSearchParams.isTelemedicineAvailable = formData.get('isTelemedicineAvailable') === 'true';
-    }
-    if (formData.get('minDuration')) {
-      newSearchParams.minDuration = parseInt(formData.get('minDuration'));
-    }
-    if (formData.get('maxDuration')) {
-      newSearchParams.maxDuration = parseInt(formData.get('maxDuration'));
-    }
-
-    setSearchParams(newSearchParams);
-    setCurrentPage(0);
+    setSearchInputs({
+      name: formData.get("name") || "",
+      isActive: formData.get("isActive") || "",
+      isTelemedicineAvailable: formData.get("isTelemedicineAvailable") || "",
+    });
   };
 
   const clearSearch = () => {
-    setSearchParams({});
-    setCurrentPage(0);
+    setSearchInputs({
+      name: "",
+      isActive: "",
+      isTelemedicineAvailable: "",
+    });
   };
 
   const handleDeleteClick = (sessionType) => {
@@ -89,17 +125,19 @@ const SessionTypesList = () => {
     if (deleteModal.sessionType) {
       try {
         await deleteSessionType.mutateAsync(deleteModal.sessionType.id);
+        setDeleteModal({ open: false, sessionType: null });
       } catch (error) {
-        console.error('Failed to delete session type:', error);
+        console.error("Failed to delete session type:", error);
       }
     }
   };
 
   const handleToggleActive = (sessionType) => {
-    toggleActiveStatus.mutate({
-      id: sessionType.id,
-      isActive: sessionType.isActive,
-    });
+    if (sessionType.isActive) {
+      deactivateSessionType.mutate(sessionType.id);
+    } else {
+      activateSessionType.mutate(sessionType.id);
+    }
   };
 
   const handlePageChange = (newPage) => {
@@ -119,7 +157,9 @@ const SessionTypesList = () => {
     return (
       <div className="p-6">
         <Card className="p-6 bg-red-50 border-red-200">
-          <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Session Types</h3>
+          <h3 className="text-lg font-semibold text-red-800 mb-2">
+            Error Loading Session Types
+          </h3>
           <p className="text-red-600 mb-4">{error.message}</p>
           <Button onClick={() => refetch()} variant="destructive">
             Try Again
@@ -129,26 +169,18 @@ const SessionTypesList = () => {
     );
   }
 
-  // Backend returns Page<SessionType> directly (not wrapped in ResponseModel)
-  const sessionTypes = data?.content || [];
-  const pagination = {
-    currentPage: data?.number || 0,
-    totalPages: data?.totalPages || 0,
-    totalElements: data?.totalElements || 0,
-    size: data?.size || pageSize
-  };
+  // Use filtered and paginated data
+  const sessionTypes = paginatedSessionTypes;
 
   const getStatusColor = (isActive) => {
-    return isActive 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-red-100 text-red-800';
+    return isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
   };
 
   return (
     <div className="p-6 h-full w-full">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Session Types</h1>
-        <Button onClick={() => navigate('/session-types/create')}>
+        <Button onClick={() => navigate("/session-types/create")}>
           Add New Session Type
         </Button>
       </div>
@@ -166,7 +198,7 @@ const SessionTypesList = () => {
                 <Input
                   name="name"
                   placeholder="Search by name..."
-                  defaultValue={searchParams.name || ''}
+                  defaultValue={searchInputs.name || ""}
                 />
               </div>
               <div>
@@ -174,7 +206,7 @@ const SessionTypesList = () => {
                 <select
                   name="isActive"
                   className="w-full px-3 py-2 border rounded-md"
-                  defaultValue={searchParams.isActive?.toString() || ''}
+                  defaultValue={searchInputs.isActive || ""}
                 >
                   <option value="">All Status</option>
                   <option value="true">Active</option>
@@ -182,11 +214,13 @@ const SessionTypesList = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Telemedicine</label>
+                <label className="block text-sm font-medium mb-1">
+                  Telemedicine
+                </label>
                 <select
                   name="isTelemedicineAvailable"
                   className="w-full px-3 py-2 border rounded-md"
-                  defaultValue={searchParams.isTelemedicineAvailable?.toString() || ''}
+                  defaultValue={searchInputs.isTelemedicineAvailable || ""}
                 >
                   <option value="">All Types</option>
                   <option value="true">Available</option>
@@ -194,20 +228,12 @@ const SessionTypesList = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Duration Range</label>
+                <label className="block text-sm font-medium mb-1">
+                  Duration Range
+                </label>
                 <div className="flex gap-2">
-                  <Input
-                    name="minDuration"
-                    type="number"
-                    placeholder="Min"
-                    defaultValue={searchParams.minDuration || ''}
-                  />
-                  <Input
-                    name="maxDuration"
-                    type="number"
-                    placeholder="Max"
-                    defaultValue={searchParams.maxDuration || ''}
-                  />
+                  <Input name="minDuration" type="number" placeholder="Min" />
+                  <Input name="maxDuration" type="number" placeholder="Max" />
                 </div>
               </div>
             </div>
@@ -223,13 +249,17 @@ const SessionTypesList = () => {
 
       {/* Results Summary */}
       <div className="text-sm text-gray-600">
-        Showing {sessionTypes.length} of {pagination.totalElements} session types
+        Showing {sessionTypes.length} of {pagination.totalElements} session
+        types
       </div>
 
       {/* Session Types Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sessionTypes.map((sessionType) => (
-          <Card key={sessionType.id} className="hover:shadow-lg transition-shadow">
+          <Card
+            key={sessionType.id}
+            className="hover:shadow-lg transition-shadow"
+          >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -238,8 +268,12 @@ const SessionTypesList = () => {
                     {sessionType.name}
                   </CardTitle>
                   <div className="flex gap-2 mt-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(sessionType.isActive)}`}>
-                      {sessionType.isActive ? 'Active' : 'Inactive'}
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${getStatusColor(
+                        sessionType.isActive
+                      )}`}
+                    >
+                      {sessionType.isActive ? "Active" : "Inactive"}
                     </span>
                     {sessionType.isTelemedicineAvailable && (
                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
@@ -252,24 +286,31 @@ const SessionTypesList = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <p className="text-sm text-gray-600 line-clamp-2">{sessionType.description}</p>
-                <p className="text-sm"><strong>Duration:</strong> {sessionType.defaultDuration} minutes</p>
+                <p className="text-sm text-gray-600 line-clamp-2">
+                  {sessionType.description}
+                </p>
+                <p className="text-sm">
+                  <strong>Duration:</strong> {sessionType.defaultDuration}{" "}
+                  minutes
+                </p>
               </div>
               <div className="flex gap-2 mt-4">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate(`/session-types/${sessionType.id}/edit`)}
+                  onClick={() =>
+                    navigate(`/session-types/${sessionType.id}/edit`)
+                  }
                 >
                   Edit
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant={sessionType.isActive ? "outline" : "default"}
                   onClick={() => handleToggleActive(sessionType)}
                   disabled={toggleActiveStatus.isPending}
                 >
-                  {sessionType.isActive ? 'Deactivate' : 'Activate'}
+                  {sessionType.isActive ? "Deactivate" : "Activate"}
                 </Button>
                 <Button
                   size="sm"
@@ -277,7 +318,7 @@ const SessionTypesList = () => {
                   onClick={() => handleDeleteClick(sessionType)}
                   disabled={deleteSessionType.isPending}
                 >
-                  {deleteSessionType.isPending ? 'Deleting...' : 'Delete'}
+                  {deleteSessionType.isPending ? "Deleting..." : "Delete"}
                 </Button>
               </div>
             </CardContent>
@@ -287,7 +328,9 @@ const SessionTypesList = () => {
 
       {sessionTypes.length === 0 && (
         <Card className="p-8 text-center">
-          <p className="text-gray-600">No session types found matching your criteria.</p>
+          <p className="text-gray-600">
+            No session types found matching your criteria.
+          </p>
         </Card>
       )}
 

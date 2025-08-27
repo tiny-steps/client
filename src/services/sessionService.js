@@ -108,56 +108,14 @@ class SessionService {
     return response.ok;
   }
 
-  async activateSession(id) {
-    const response = await fetch(`/api/v1/sessions/${id}/activate`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      let errorMessage = 'Failed to activate session';
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        errorMessage = `${response.status}: ${response.statusText}`;
-      }
-      throw new Error(errorMessage);
-    }
-    return response.json();
-  }
-
-  async deactivateSession(id) {
-    const response = await fetch(`/api/v1/sessions/${id}/deactivate`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      let errorMessage = 'Failed to deactivate session';
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        errorMessage = `${response.status}: ${response.statusText}`;
-      }
-      throw new Error(errorMessage);
-    }
-    return response.json();
-  }
-
-  // Session Types
-  async getSessionTypes(params = {}) {
+  // Session Type Management
+  async getAllSessionTypes(params = {}) {
     const searchParams = new URLSearchParams();
     if (params.page !== undefined) searchParams.append('page', params.page);
     if (params.size !== undefined) searchParams.append('size', params.size);
     if (params.name) searchParams.append('name', params.name);
     if (params.isActive !== undefined) searchParams.append('isActive', params.isActive);
     if (params.isTelemedicineAvailable !== undefined) searchParams.append('isTelemedicineAvailable', params.isTelemedicineAvailable);
-    if (params.minDuration) searchParams.append('minDuration', params.minDuration);
-    if (params.maxDuration) searchParams.append('maxDuration', params.maxDuration);
 
     const response = await fetch(`/api/v1/session-types?${searchParams}`, {
       credentials: 'include',
@@ -287,6 +245,47 @@ class SessionService {
 
     if (!response.ok) {
       let errorMessage = 'Failed to deactivate session type';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        errorMessage = `${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
+    return response.json();
+  }
+
+  // Session Offering Management
+  async activateSession(id) {
+    const response = await fetch(`/api/v1/sessions/${id}/activate`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to activate session';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        errorMessage = `${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
+    return response.json();
+  }
+
+  async deactivateSession(id) {
+    const response = await fetch(`/api/v1/sessions/${id}/deactivate`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to deactivate session';
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;

@@ -1,129 +1,74 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { sessionService } from '../../services/sessionService.js';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useCreateSessionType, useUpdateSessionType, useGetSessionTypeById } from '../../hooks/useSessionQueries.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card.jsx';
 import { Button } from '../ui/button.jsx';
 import { Input } from '../ui/input.jsx';
-import { ConfirmModal } from '../ui/confirm-modal.jsx';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form.jsx';
 
-const SessionTypeForm = ({ mode = 'create' }) => {
+const sessionTypeSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
+  description: z.string().optional(),
+  defaultDurationMinutes: z.number().min(1, 'Duration must be at least 1 minute').max(480, 'Duration must be less than 8 hours'),
+  isTelemedicineAvailable: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+});
+
+const SessionTypeForm = ({ mode = 'create', onSuccess }) => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const queryClient = useQueryClient();
-  const isEdit = mode === 'edit' && id;
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    defaultDurationMinutes: '30', // Default to 30 minutes to prevent 0 value
-    isActive: true,
-    isTelemedicineAvailable: false,
-  });
-
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [errors, setErrors] = useState({});
-
-  // Get session type by ID for editing
-  const { data: sessionTypeData, isLoading } = useQuery({
-    queryKey: ['sessionTypes', id],
-    queryFn: () => sessionService.getSessionTypeById(id),
-    enabled: isEdit,
-  });
-
-  // Create session type mutation
-  const createSessionType = useMutation({
-    mutationFn: (data) => sessionService.createSessionType(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['sessionTypes']);
-      navigate('/sessions');
+  const form = useForm({
+    resolver: zodResolver(sessionTypeSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      defaultDurationMinutes: 30,
+      isTelemedicineAvailable: false,
+      isActive: true,
     },
-    onError: (error) => {
-      console.error('Create session type error:', error);
-      alert('Failed to create session type: ' + error.message);
-    }
   });
 
-  // Update session type mutation
-  const updateSessionType = useMutation({
-    mutationFn: (data) => sessionService.updateSessionType(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['sessionTypes']);
-      navigate('/sessions');
-    },
-    onError: (error) => {
-      console.error('Update session type error:', error);
-      alert('Failed to update session type: ' + error.message);
-    }
-  });
+  const createSessionType = useCreateSessionType();
+  const updateSessionType = useUpdateSessionType();
+  const { data: existingSessionType, isLoading } = useGetSessionTypeById(id);
 
+  // Load existing data for edit mode
   useEffect(() => {
-    if (isEdit && sessionTypeData) {
-      // Backend returns SessionType directly (not wrapped)
-      const sessionType = sessionTypeData;
-      setFormData({
-        name: sessionType.name || '',
-        description: sessionType.description || '',
-        defaultDurationMinutes: sessionType.defaultDurationMinutes?.toString() || '30',
-        isActive: sessionType.isActive ?? true,
-        isTelemedicineAvailable: sessionType.isTelemedicineAvailable ?? false,
+    if (mode === 'edit' && existingSessionType) {
+      form.reset({
+        name: existingSessionType.name || '',
+        description: existingSessionType.description || '',
+        defaultDurationMinutes: existingSessionType.defaultDurationMinutes || 30,
+        isTelemedicineAvailable: existingSessionType.isTelemedicineAvailable || false,
+        isActive: existingSessionType.isActive !== undefined ? existingSessionType.isActive : true,
       });
     }
-  }, [isEdit, sessionTypeData]);
+  }, [existingSessionType, form, mode]);
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.name.trim()) newErrors.name = 'Session type name is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    
-    const duration = parseInt(formData.defaultDurationMinutes);
-    if (!formData.defaultDurationMinutes || isNaN(duration) || duration <= 0) {
-      newErrors.defaultDurationMinutes = 'Default duration must be a positive number greater than 0';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (validateForm()) {
-      setShowConfirmModal(true);
-    }
-  };
-
-  const handleConfirmSubmit = async () => {
+  const onSubmit = async (data) => {
     try {
-      const submitData = {
-        ...formData,
-        defaultDurationMinutes: parseInt(formData.defaultDurationMinutes),
-      };
-
-      if (isEdit) {
-        await updateSessionType.mutateAsync(submitData);
+      if (mode === 'edit') {
+        await updateSessionType.mutateAsync({ id, sessionTypeData: data });
       } else {
-        await createSessionType.mutateAsync(submitData);
+        await createSessionType.mutateAsync(data);
+      }
+      
+      // Call onSuccess callback if provided, otherwise navigate
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/sessions');
       }
     } catch (error) {
-      console.error('Error saving session type:', error);
-    } finally {
-      setShowConfirmModal(false);
+      console.error('Failed to save session type:', error);
     }
   };
 
-  if (isEdit && isLoading) {
+  if (mode === 'edit' && isLoading) {
     return (
       <div className="flex justify-center items-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -133,110 +78,133 @@ const SessionTypeForm = ({ mode = 'create' }) => {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">
-          {isEdit ? 'Edit Session Type' : 'Create Session Type'}
-        </h1>
-        <Button variant="outline" onClick={() => navigate('/sessions')}>
-          Back to Sessions
-        </Button>
-      </div>
-
       <Card>
         <CardHeader>
-          <CardTitle>Session Type Details</CardTitle>
+          <CardTitle>{mode === 'edit' ? 'Edit Session Type' : 'Create New Session Type'}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name *</label>
-              <Input
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
                 name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="e.g., Consultation, Therapy Session"
-                className={errors.name ? 'border-red-500' : ''}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., General Consultation" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Description *</label>
-              <textarea
+              <FormField
+                control={form.control}
                 name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md ${errors.description ? 'border-red-500' : ''}`}
-                rows="3"
-                placeholder="Describe this session type..."
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Brief description of the session type" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Default Duration (minutes) *</label>
-              <Input
+              <FormField
+                control={form.control}
                 name="defaultDurationMinutes"
-                type="number"
-                min="1"
-                max="480"
-                value={formData.defaultDurationMinutes}
-                onChange={handleInputChange}
-                placeholder="e.g., 30, 60"
-                className={errors.defaultDurationMinutes ? 'border-red-500' : ''}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Default Duration (minutes) *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="480"
+                        placeholder="30"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.defaultDurationMinutes && <p className="text-red-500 text-xs mt-1">{errors.defaultDurationMinutes}</p>}
-              <p className="text-xs text-gray-500 mt-1">Must be between 1 and 480 minutes (8 hours)</p>
-            </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="isActive"
-                  checked={formData.isActive}
-                  onChange={handleInputChange}
-                  className="w-4 h-4"
-                />
-                <label className="text-sm font-medium">Active</label>
+              <FormField
+                control={form.control}
+                name="isTelemedicineAvailable"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="mt-1"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Available for Telemedicine</FormLabel>
+                      <p className="text-sm text-gray-500">
+                        Check if this session type can be conducted remotely
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="mt-1"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Active</FormLabel>
+                      <p className="text-sm text-gray-500">
+                        Check if this session type is currently available
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-4">
+                <Button
+                  type="submit"
+                  disabled={createSessionType.isPending || updateSessionType.isPending}
+                  className="flex-1"
+                >
+                  {createSessionType.isPending || updateSessionType.isPending
+                    ? 'Saving...'
+                    : mode === 'edit'
+                    ? 'Update Session Type'
+                    : 'Create Session Type'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onSuccess ? onSuccess() : navigate('/sessions')}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
               </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="isTelemedicineAvailable"
-                  checked={formData.isTelemedicineAvailable}
-                  onChange={handleInputChange}
-                  className="w-4 h-4"
-                />
-                <label className="text-sm font-medium">Telemedicine Available</label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={() => navigate('/sessions')}>
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={createSessionType.isPending || updateSessionType.isPending}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {createSessionType.isPending || updateSessionType.isPending ? 'Saving...' : (isEdit ? 'Update' : 'Create')}
-              </Button>
-            </div>
-          </form>
+            </form>
+          </Form>
         </CardContent>
       </Card>
-
-      <ConfirmModal
-        open={showConfirmModal}
-        onOpenChange={setShowConfirmModal}
-        title={isEdit ? 'Update Session Type' : 'Create Session Type'}
-        description={`Are you sure you want to ${isEdit ? 'update' : 'create'} this session type?`}
-        confirmText={isEdit ? 'Update' : 'Create'}
-        onConfirm={handleConfirmSubmit}
-      />
     </div>
   );
 };

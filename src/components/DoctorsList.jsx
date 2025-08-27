@@ -146,7 +146,7 @@ const DoctorsList = () => {
   const hasActiveFilters = Object.values(searchInputs).some(v => v);
 
   return (
-    <div className="p-6 h-full w-full">
+    <div className="p-6 h-full w-full ">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Doctors List</h1>
         <Button onClick={() => navigate('/doctors/add')}>

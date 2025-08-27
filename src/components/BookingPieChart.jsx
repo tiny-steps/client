@@ -3,7 +3,13 @@ import { gsap } from "gsap";
 
 const BookingPieChart = ({ data, size = 150 }) => {
     const chartRef = useRef(null);
-    const total = data.reduce((sum, item) => sum + item.value, 0);
+    
+    // Ensure data is valid and has numeric values
+    const validData = data?.filter(item => 
+        item && typeof item.value === 'number' && !isNaN(item.value) && item.value >= 0
+    ) || [];
+    
+    const total = validData.reduce((sum, item) => sum + item.value, 0);
 
     // Animate the chart when the component mounts
     useEffect(() => {
@@ -27,16 +33,18 @@ const BookingPieChart = ({ data, size = 150 }) => {
 
     // Calculate pie chart segments
     const createPieSegments = () => {
+        if (total === 0) return [];
+        
         let cumulativeAngle = 0;
         const radius = 15.9155;
         const center = 18;
 
-        return data
+        return validData
             .map((item, index) => {
                 const percentage = (item.value / total) * 100;
                 const angle = (percentage / 100) * 360;
 
-                if (percentage === 0) return null;
+                if (percentage === 0 || isNaN(percentage) || isNaN(angle)) return null;
 
                 const startAngle = cumulativeAngle;
                 const endAngle = cumulativeAngle + angle;
@@ -107,7 +115,7 @@ const BookingPieChart = ({ data, size = 150 }) => {
 
             {/* Legend */}
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs">
-                {data.map((item) => (
+                {validData.map((item) => (
                     <div key={item.label} className="flex items-center gap-2">
             <span
                 className="h-3 w-3 rounded-full"

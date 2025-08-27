@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
-import { sessionService } from '../services/sessionService.js';
+import { useGetAllSessions, useDeleteSession, useActivateSession, useDeactivateSession } from '../hooks/useSessionQueries.js';
 import { useGetAllDoctors } from '../hooks/useDoctorQueries.js';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card.jsx';
 import { Button } from './ui/button.jsx';
@@ -27,32 +26,21 @@ const SessionsList = () => {
   // Fetch doctors for dropdown and filtering
   const { data: doctorsData } = useGetAllDoctors({ size: 100 });
 
-  // For now, let's try to fetch sessions without doctorId first
-  // If it fails, we'll show a helpful message
+  // Fetch sessions
   const {
     data,
     isLoading,
     error,
     refetch
-  } = useQuery({
-    queryKey: ['sessions', currentPage],
-    queryFn: async () => {
-      try {
-        // Try without doctorId first
-        return await sessionService.getAllSessions({
-          page: currentPage,
-          size: 1000 // Fetch all for client-side filtering
-        });
-      } catch (error) {
-        // If it fails due to authorization, try with a dummy doctorId or handle gracefully
-        if (error.message.includes('500') || error.message.includes('authorization')) {
-          throw new Error('Session access requires proper authorization. Please ensure you have the correct permissions.');
-        }
-        throw error;
-      }
-    },
-    retry: false, // Don't retry on authorization errors
+  } = useGetAllSessions({
+    page: currentPage,
+    size: 1000 // Fetch all for client-side filtering
   });
+
+  // Mutations
+  const deleteSession = useDeleteSession();
+  const activateSession = useActivateSession();
+  const deactivateSession = useDeactivateSession();
 
   // Client-side filtering
   const filteredSessions = useMemo(() => {
@@ -122,12 +110,19 @@ const SessionsList = () => {
   const handleDeleteConfirm = async () => {
     if (deleteModal.session) {
       try {
-        await sessionService.deleteSession(deleteModal.session.id);
+        await deleteSession.mutateAsync(deleteModal.session.id);
         setDeleteModal({ open: false, session: null });
-        refetch(); // Refresh the list
       } catch (error) {
         console.error('Failed to delete session:', error);
       }
+    }
+  };
+
+  const handleToggleActive = (session) => {
+    if (session.isActive) {
+      deactivateSession.mutate(session.id);
+    } else {
+      activateSession.mutate(session.id);
     }
   };
 

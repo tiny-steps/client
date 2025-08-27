@@ -14,7 +14,13 @@ const TimingManager = () => {
   const updateDurationMutation = useMutation({
     mutationFn: ({ doctorId, availabilityId, durationId, data }) =>
       timingService.updateDuration(doctorId, availabilityId, durationId, data),
-    onSuccess: () => queryClient.invalidateQueries(["availability"]),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["availability"]);
+      setEditModal({ open: false, slot: null, duration: null });
+    },
+    onError: (error) => {
+      alert(`Failed to update duration: ${error.message}`);
+    },
   });
 
   // Mutation for deleting a duration
@@ -27,6 +33,9 @@ const TimingManager = () => {
       if (remainingDurations === 0) {
         deleteAvailabilityMutation.mutate({ availabilityId });
       }
+    },
+    onError: (error) => {
+      alert(`Failed to delete duration: ${error.message}`);
     },
   });
 
@@ -344,13 +353,15 @@ const TimingManager = () => {
                                           title="Delete Duration"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            deleteDurationMutation.mutate({
-                                              doctorId: selectedDoctor,
-                                              availabilityId: slot.id,
-                                              durationId: duration.id,
-                                              remainingDurations:
-                                                slot.durations.length - 1,
-                                            });
+                                            if (confirm(`Are you sure you want to delete this time slot (${duration.startTime} - ${duration.endTime})?`)) {
+                                              deleteDurationMutation.mutate({
+                                                doctorId: selectedDoctor,
+                                                availabilityId: slot.id,
+                                                durationId: duration.id,
+                                                remainingDurations:
+                                                  slot.durations.length - 1,
+                                              });
+                                            }
                                           }}
                                         >
                                           <span role="img" aria-label="delete">
