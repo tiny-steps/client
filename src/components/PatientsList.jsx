@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { patientService } from '../services/patientService.js';
+import { useGetAllPatients, useDeletePatient } from '../hooks/usePatientQueries.js';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card.jsx';
 import { Button } from './ui/button.jsx';
 import { Input } from './ui/input.jsx';
@@ -9,24 +8,18 @@ import { ConfirmModal } from './ui/confirm-modal.jsx';
 
 const PatientsList = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(12);
   const [searchParams, setSearchParams] = useState({});
   const [deleteModal, setDeleteModal] = useState({ open: false, patient: null });
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['patients', currentPage, searchParams],
-    queryFn: () => patientService.getAllPatients({ page: currentPage, size: pageSize, ...searchParams }),
+  const { data, isLoading, error, refetch } = useGetAllPatients({
+    page: currentPage,
+    size: pageSize,
+    ...searchParams
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: patientService.deletePatient,
-    onSuccess: () => {
-      queryClient.invalidateQueries(['patients']);
-      setDeleteModal({ open: false, patient: null });
-    },
-  });
+  const deletePatient = useDeletePatient();
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -41,7 +34,7 @@ const PatientsList = () => {
 
   const handleDeleteConfirm = async () => {
     if (deleteModal.patient) {
-      await deleteMutation.mutateAsync(deleteModal.patient.id);
+      await deletePatient.mutateAsync(deleteModal.patient.id);
     }
   };
 

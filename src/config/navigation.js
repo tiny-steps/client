@@ -41,10 +41,10 @@ export const navItems = [
     },
     {
         name: "Session",
-        route: "/session",
+        route: "/sessions",
         icon: BookOpen,
         subItems: null,
-        description: "Effortless Session Management",
+        description: "Unified Session & Session Type Management",
     },
     {
         name: "Schedule",
@@ -55,7 +55,7 @@ export const navItems = [
     },
     {
         name: "Report",
-        route: "/report",
+        route: "/reports",
         icon: ClipboardPlus,
         subItems: null,
         description: "Generate Reports in a Click",

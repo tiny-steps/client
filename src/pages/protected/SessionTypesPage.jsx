@@ -2,9 +2,9 @@ import React from 'react';
 import { useOutletContext } from 'react-router';
 import { useUserProfile } from "@/hooks/useUserQuery.js";
 import DashboardHeader from "@/components/dashboard/DashboardHeader.jsx";
-import UnifiedSessionManager from '../../components/UnifiedSessionManager.jsx';
+import SessionTypesList from '../../components/SessionTypesList.jsx';
 
-const SessionPage = () => {
+const SessionTypesPage = () => {
     const { activeItem } = useOutletContext();
     const { data: user } = useUserProfile();
 
@@ -12,14 +12,14 @@ const SessionPage = () => {
         <>
             <DashboardHeader
                 userName={user?.data.name}
-                activeItemDescription="Unified Session & Session Type Management"
+                activeItemDescription="Manage Session Types"
             />
 
             <div className="container ml-20 mt-6">
-                <UnifiedSessionManager />
+                <SessionTypesList />
             </div>
         </>
     );
 };
 
-export default SessionPage;
+export default SessionTypesPage;

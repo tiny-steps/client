@@ -12,6 +12,11 @@ import ReportPage from "./pages/protected/ReportPage.jsx";
 import ProfilePage from "./pages/protected/ProfilePage.jsx";
 import DoctorDetail from "./components/DoctorDetail.jsx";
 import DoctorForm from "./components/DoctorForm.jsx";
+import PatientDetail from "./components/PatientDetail.jsx";
+import PatientForm from "./components/forms/PatientForm.jsx";
+import SessionTypeForm from "./components/forms/SessionTypeForm.jsx";
+import SessionForm from "./components/forms/SessionForm.jsx";
+import SessionTypesPage from "./pages/protected/SessionTypesPage.jsx";
 import { Routes, Route, Navigate } from 'react-router';
 
 function App() {
@@ -39,21 +44,33 @@ function App() {
 
                 <Route path="/patients" element={<DashboardLayout />}>
                     <Route index element={<PatientsPage />} />
+                    <Route path="add" element={<PatientForm />} />
+                    <Route path=":id" element={<PatientDetail />} />
+                    <Route path=":id/edit" element={<PatientForm mode="edit" />} />
                 </Route>
 
                 <Route path="/timing" element={<DashboardLayout />}>
                     <Route index element={<TimingPage />} />
                 </Route>
 
-                <Route path="/session" element={<DashboardLayout />}>
+                <Route path="/sessions" element={<DashboardLayout />}>
                     <Route index element={<SessionPage />} />
+                    <Route path="add" element={<SessionForm />} />
+                    <Route path=":id" element={<SessionForm />} />
+                    <Route path=":id/edit" element={<SessionForm />} />
+                </Route>
+
+                <Route path="/session-types" element={<DashboardLayout />}>
+                    <Route index element={<SessionTypesPage />} />
+                    <Route path="create" element={<SessionTypeForm />} />
+                    <Route path=":id/edit" element={<SessionTypeForm mode="edit" />} />
                 </Route>
 
                 <Route path="/schedule" element={<DashboardLayout />}>
                     <Route index element={<SchedulePage />} />
                 </Route>
 
-                <Route path="/report" element={<DashboardLayout />}>
+                <Route path="/reports" element={<DashboardLayout />}>
                     <Route index element={<ReportPage />} />
                 </Route>
 

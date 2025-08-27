@@ -5,9 +5,6 @@ class PatientService {
     const searchParams = new URLSearchParams();
     if (params.page !== undefined) searchParams.append('page', params.page);
     if (params.size !== undefined) searchParams.append('size', params.size);
-    if (params.name) searchParams.append('name', params.name);
-    if (params.email) searchParams.append('email', params.email);
-    if (params.phone) searchParams.append('phone', params.phone);
 
     const response = await fetch(`/api/v1/patients?${searchParams}`, {
       credentials: 'include',
@@ -17,7 +14,8 @@ class PatientService {
     });
 
     if (!response.ok) throw new Error('Failed to fetch patients');
-    return response.json();
+    const result = await response.json();
+    return result; // Backend returns ResponseModel<Page<PatientDto>>
   }
 
   async getPatientById(id) {
@@ -29,7 +27,8 @@ class PatientService {
     });
 
     if (!response.ok) throw new Error('Failed to fetch patient');
-    return response.json();
+    const result = await response.json();
+    return result; // Backend returns ResponseModel<PatientDto>
   }
 
   async createPatient(patientData) {
@@ -46,7 +45,8 @@ class PatientService {
       const error = await response.json();
       throw new Error(error.message || 'Failed to create patient');
     }
-    return response.json();
+    const result = await response.json();
+    return result; // Backend returns ResponseModel<PatientDto>
   }
 
   async updatePatient(id, patientData) {
@@ -63,7 +63,8 @@ class PatientService {
       const error = await response.json();
       throw new Error(error.message || 'Failed to update patient');
     }
-    return response.json();
+    const result = await response.json();
+    return result; // Backend returns ResponseModel<PatientDto>
   }
 
   async deletePatient(id) {
@@ -82,8 +83,11 @@ class PatientService {
     return response.ok;
   }
 
+  // Note: These endpoints don't exist in the backend controller
+  // Keeping them for future implementation or removing if not needed
   async getPatientMedicalHistory(patientId) {
-    const response = await fetch(`/api/v1/patient-medical-history/${patientId}`, {
+    // This would need to be implemented in patient-medical-history controller
+    const response = await fetch(`/api/v1/patient-medical-history/patient/${patientId}`, {
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
@@ -95,7 +99,8 @@ class PatientService {
   }
 
   async getPatientAllergies(patientId) {
-    const response = await fetch(`/api/v1/patient-allergies/${patientId}`, {
+    // This would need to be implemented in patient-allergy controller
+    const response = await fetch(`/api/v1/patient-allergies/patient/${patientId}`, {
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
@@ -107,6 +112,7 @@ class PatientService {
   }
 
   async getPatientHealthSummary(patientId) {
+    // This would need to be implemented in patient-health-summary controller
     const response = await fetch(`/api/v1/patient-health-summary/${patientId}`, {
       credentials: 'include',
       headers: {

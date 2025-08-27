@@ -3,11 +3,9 @@
 class ReportService {
   async getAllReports(params = {}) {
     const searchParams = new URLSearchParams();
-    if (params.page !== undefined) searchParams.append('page', params.page);
-    if (params.size !== undefined) searchParams.append('size', params.size);
     if (params.type) searchParams.append('type', params.type);
-    if (params.startDate) searchParams.append('startDate', params.startDate);
-    if (params.endDate) searchParams.append('endDate', params.endDate);
+    if (params.status) searchParams.append('status', params.status);
+    if (params.generatedByUserId) searchParams.append('generatedByUserId', params.generatedByUserId);
 
     const response = await fetch(`/api/reports?${searchParams}`, {
       credentials: 'include',
@@ -17,11 +15,12 @@ class ReportService {
     });
 
     if (!response.ok) throw new Error('Failed to fetch reports');
-    return response.json();
+    const result = await response.json();
+    return result; // Backend returns ResponseModel<List<ReportDto>>
   }
 
   async generateReport(reportData) {
-    const response = await fetch(`/api/reports/generate`, {
+    const response = await fetch(`/api/reports`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -34,9 +33,41 @@ class ReportService {
       const error = await response.json();
       throw new Error(error.message || 'Failed to generate report');
     }
-    return response.json();
+    const result = await response.json();
+    return result; // Backend returns ResponseModel<ReportDto>
   }
 
+  async getReportById(id) {
+    const response = await fetch(`/api/reports/${id}`, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch report');
+    const result = await response.json();
+    return result; // Backend returns ResponseModel<ReportDto>
+  }
+
+  // Note: Delete endpoint doesn't exist in backend
+  async deleteReport(id) {
+    const response = await fetch(`/api/reports/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete report');
+    }
+    return response.ok;
+  }
+
+  // Note: Download endpoint doesn't exist in backend
   async downloadReport(reportId) {
     const response = await fetch(`/api/reports/${reportId}/download`, {
       credentials: 'include',
@@ -53,34 +84,6 @@ class ReportService {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-  }
-
-  async getReportById(id) {
-    const response = await fetch(`/api/reports/${id}`, {
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) throw new Error('Failed to fetch report');
-    return response.json();
-  }
-
-  async deleteReport(id) {
-    const response = await fetch(`/api/reports/${id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to delete report');
-    }
-    return response.ok;
   }
 }
 
