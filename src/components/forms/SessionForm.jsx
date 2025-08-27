@@ -63,7 +63,7 @@ const SessionForm = () => {
     },
     onError: (error) => {
       console.error('Create session error:', error);
-      alert('Failed to create session: ' + error.message);
+      alert('Failed to create session: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -76,7 +76,7 @@ const SessionForm = () => {
     },
     onError: (error) => {
       console.error('Update session error:', error);
-      alert('Failed to update session: ' + error.message);
+      alert('Failed to update session: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -92,7 +92,7 @@ const SessionForm = () => {
   }, [sessionData, isEdit, setValue]);
 
   const onSubmit = async (data) => {
-    // Transform data to match backend DTO
+    // Transform data to match backend DTO expectations
     const submitData = {
       sessionTypeId: data.sessionTypeId,
       doctorId: data.doctorId,
