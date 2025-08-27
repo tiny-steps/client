@@ -83,7 +83,7 @@ const SessionForm = () => {
   // Populate form when editing
   useEffect(() => {
     if (isEdit && sessionData) {
-      setValue('sessionTypeId', sessionData.sessionTypeId || '');
+      setValue('sessionTypeId', sessionData.sessionType?.id || '');
       setValue('doctorId', sessionData.doctorId || '');
       setValue('practiceId', sessionData.practiceId || '');
       setValue('price', sessionData.price || '');
@@ -92,9 +92,9 @@ const SessionForm = () => {
   }, [sessionData, isEdit, setValue]);
 
   const onSubmit = async (data) => {
-    // Transform data to match backend DTO expectations
+    // Transform data to match backend entity expectations
     const submitData = {
-      sessionTypeId: data.sessionTypeId,
+      sessionType: { id: data.sessionTypeId }, // Backend expects nested object
       doctorId: data.doctorId,
       practiceId: data.practiceId || null, // Send null if empty
       price: parseFloat(data.price),
