@@ -10,6 +10,75 @@ function getMinutes(timeStr) {
   return h * 60 + m;
 }
 const TimingManager = () => {
+  // Mutation for updating a duration
+  const updateDurationMutation = useMutation({
+    mutationFn: ({ doctorId, availabilityId, durationId, data }) =>
+      timingService.updateDuration(doctorId, availabilityId, durationId, data),
+    onSuccess: () => queryClient.invalidateQueries(["availability"]),
+  });
+
+  // Mutation for deleting a duration
+  const deleteDurationMutation = useMutation({
+    mutationFn: ({ doctorId, availabilityId, durationId }) =>
+      timingService.deleteDuration(doctorId, availabilityId, durationId),
+    onSuccess: (_, { availabilityId, remainingDurations }) => {
+      queryClient.invalidateQueries(["availability"]);
+      // If no durations left, delete the availability
+      if (remainingDurations === 0) {
+        deleteAvailabilityMutation.mutate({ availabilityId });
+      }
+    },
+  });
+
+  // Mutation for deleting an availability
+  const deleteAvailabilityMutation = useMutation({
+    mutationFn: ({ availabilityId }) =>
+      timingService.deleteAvailability(availabilityId),
+    onSuccess: () => queryClient.invalidateQueries(["availability"]),
+  });
+  // ...existing code...
+  // Add missing editModal state for editing durations
+  const [editModal, setEditModal] = useState({
+    open: false,
+    slot: null,
+    duration: null,
+  });
+  const [conflictModal, setConflictModal] = useState({
+    open: false,
+    conflicts: [],
+    timeOff: null,
+  });
+
+  // Helper to check overlap between timeoff and duration
+  function isOverlap(timeOff, duration) {
+    // timeOff: { startDate, endDate, startTime, endTime }
+    // duration: { startTime, endTime }
+    // Only check time if date matches selectedDate
+    // For simplicity, compare time strings
+    if (!timeOff.startTime || !timeOff.endTime) return false;
+    return (
+      duration.startTime < timeOff.endTime &&
+      duration.endTime > timeOff.startTime
+    );
+  }
+
+  // Add time off handler
+  function handleAddTimeOff(timeOffData) {
+    // Find all conflicting durations
+    const conflicts = [];
+    availability.forEach((slot) => {
+      slot.durations.forEach((duration) => {
+        if (isOverlap(timeOffData, duration)) {
+          conflicts.push({ slot, duration });
+        }
+      });
+    });
+    if (conflicts.length > 0) {
+      setConflictModal({ open: true, conflicts, timeOff: timeOffData });
+    } else {
+      createTimeOff.mutate(timeOffData);
+    }
+  }
   const queryClient = useQueryClient();
   const [selectedDoctor, setSelectedDoctor] = useState("");
   const [selectedDate, setSelectedDate] = useState(
@@ -24,6 +93,8 @@ const TimingManager = () => {
       isEmergency: false,
     },
   ]);
+
+  // Debug logs
 
   const { data: doctorsData } = useGetAllDoctors({ size: 100 });
   const doctors = doctorsData?.data?.content || [];
@@ -59,7 +130,9 @@ const TimingManager = () => {
     },
   });
 
-  const availability = availabilityData?.data || [];
+  const availability = Array.isArray(availabilityData)
+    ? availabilityData
+    : availabilityData?.data || [];
   const timeOffs = timeOffsData?.data || [];
 
   const weekDays = [
@@ -95,6 +168,77 @@ const TimingManager = () => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Edit Duration Modal */}
+      {editModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Edit Duration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  const data = {
+                    availability: editModal.slot.id,
+                    startTime: formData.get("startTime"),
+                    endTime: formData.get("endTime"),
+                    description: formData.get("description"),
+                    emergency: formData.get("emergency") === "on",
+                  };
+                  updateDurationMutation.mutate({
+                    doctorId: selectedDoctor,
+                    availabilityId: editModal.slot.id,
+                    durationId: editModal.duration.id,
+                    data,
+                  });
+                  setEditModal({ open: false, slot: null, duration: null });
+                }}
+                className="space-y-4"
+              >
+                <Input
+                  name="startTime"
+                  type="time"
+                  defaultValue={editModal.duration.startTime}
+                  required
+                />
+                <Input
+                  name="endTime"
+                  type="time"
+                  defaultValue={editModal.duration.endTime}
+                  required
+                />
+                <Input
+                  name="description"
+                  defaultValue={editModal.duration.description}
+                  placeholder="Description"
+                />
+                <label className="flex items-center">
+                  <input
+                    name="emergency"
+                    type="checkbox"
+                    defaultChecked={editModal.duration.emergency}
+                  />
+                  <span className="ml-2">Emergency</span>
+                </label>
+                <div className="flex gap-2 mt-4">
+                  <Button type="submit">Update</Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setEditModal({ open: false, slot: null, duration: null })
+                    }
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       <h1 className="text-2xl font-bold">Timing Management</h1>
 
       <Card>
@@ -145,7 +289,7 @@ const TimingManager = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {weekDays.map((day) => {
                     const dayAvailability = availability.filter(
-                      (a) => a.dayOfWeek === day.value
+                      (a) => a.dayOfWeek === day.value && a.active
                     );
                     return (
                       <Card key={day.value} className="p-4">
@@ -153,16 +297,74 @@ const TimingManager = () => {
                         {dayAvailability.length > 0 ? (
                           <div className="space-y-2">
                             {dayAvailability.map((slot, idx) => (
-                              <div
-                                key={idx}
-                                className="text-sm bg-green-50 p-2 rounded"
-                              >
-                                <p>
-                                  {slot.startTime} - {slot.endTime}
-                                </p>
-                                <p className="text-xs text-gray-600">
-                                  {slot.location}
-                                </p>
+                              <div key={idx} className="mb-2">
+                                {slot.durations && slot.durations.length > 0 ? (
+                                  slot.durations.map((duration, dIdx) => (
+                                    <div
+                                      key={duration.id || dIdx}
+                                      className="text-sm bg-green-50 p-2 rounded mb-1 flex justify-between items-center"
+                                    >
+                                      <div>
+                                        <p>
+                                          {duration.startTime} -{" "}
+                                          {duration.endTime}
+                                          {duration.emergency ? (
+                                            <span className="ml-2 text-red-500">
+                                              (Emergency)
+                                            </span>
+                                          ) : null}
+                                        </p>
+                                        {duration.description && (
+                                          <p className="text-xs text-gray-600">
+                                            {duration.description}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          title="Edit Duration"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditModal({
+                                              open: true,
+                                              slot,
+                                              duration,
+                                            });
+                                          }}
+                                        >
+                                          <span role="img" aria-label="edit">
+                                            ✏️
+                                          </span>
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          title="Delete Duration"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            deleteDurationMutation.mutate({
+                                              doctorId: selectedDoctor,
+                                              availabilityId: slot.id,
+                                              durationId: duration.id,
+                                              remainingDurations:
+                                                slot.durations.length - 1,
+                                            });
+                                          }}
+                                        >
+                                          <span role="img" aria-label="delete">
+                                            🗑️
+                                          </span>
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-sm text-gray-500">
+                                    No sessions
+                                  </p>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -184,12 +386,97 @@ const TimingManager = () => {
               <CardTitle>Time Offs</CardTitle>
               <Button
                 onClick={() => {
-                  /* Add time off modal */
+                  // Show a modal to add time off (not implemented here)
+                  // For demo, use prompt
+                  const startDate = prompt("Start Date (YYYY-MM-DD)");
+                  const endDate = prompt("End Date (YYYY-MM-DD)");
+                  const startTime = prompt("Start Time (HH:mm:ss)");
+                  const endTime = prompt("End Time (HH:mm:ss)");
+                  const reason = prompt("Reason");
+                  if (startDate && endDate && startTime && endTime) {
+                    handleAddTimeOff({
+                      startDate,
+                      endDate,
+                      startTime,
+                      endTime,
+                      reason,
+                    });
+                  }
                 }}
                 variant="outline"
               >
                 Add Time Off
               </Button>
+              {/* Conflict Modal for TimeOff */}
+              {conflictModal.open && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <Card className="w-full max-w-md">
+                    <CardHeader>
+                      <CardTitle>Time Off Conflict</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="mb-2">
+                        The following durations overlap with the time off you
+                        are trying to add:
+                      </p>
+                      <ul className="mb-4">
+                        {conflictModal.conflicts.map(
+                          ({ slot, duration }, idx) => (
+                            <li key={idx} className="mb-2">
+                              <strong>Day:</strong>{" "}
+                              {
+                                weekDays.find(
+                                  (wd) => wd.value === slot.dayOfWeek
+                                )?.name
+                              }
+                              <br />
+                              <strong>Time:</strong> {duration.startTime} -{" "}
+                              {duration.endTime}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          onClick={() => {
+                            // Delete all conflicting durations
+                            conflictModal.conflicts.forEach(
+                              ({ slot, duration }) => {
+                                deleteDurationMutation.mutate({
+                                  availabilityId: slot.id,
+                                  durationId: duration.id,
+                                  remainingDurations: slot.durations.length - 1,
+                                });
+                              }
+                            );
+                            // Add the time off
+                            createTimeOff.mutate(conflictModal.timeOff);
+                            setConflictModal({
+                              open: false,
+                              conflicts: [],
+                              timeOff: null,
+                            });
+                          }}
+                        >
+                          Delete Conflicting Durations & Add Time Off
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            setConflictModal({
+                              open: false,
+                              conflicts: [],
+                              timeOff: null,
+                            })
+                          }
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-2">

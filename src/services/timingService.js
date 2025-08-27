@@ -118,6 +118,64 @@ class TimingService {
     }
     return response.json();
   }
+
+  async updateDuration(doctorId, availabilityId, durationId, data) {
+    const response = await fetch(
+      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/durations/${durationId}`,
+      {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to update duration");
+    }
+    return response.json();
+  }
+
+  async deleteDuration(availabilityId, durationId) {
+    const response = await fetch(
+      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/durations/${durationId}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to delete duration");
+    }
+    return response.ok;
+  }
+
+  async deleteTimeOff(doctorId, timeOffId) {
+    const response = await fetch(
+      `/api/v1/timings/doctors/${doctorId}/time-offs/${timeOffId}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to delete time off");
+    }
+    return response.ok;
+  }
 }
 
 export const timingService = new TimingService();
