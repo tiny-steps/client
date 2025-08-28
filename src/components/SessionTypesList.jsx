@@ -290,8 +290,8 @@ const SessionTypesList = () => {
                   {sessionType.description}
                 </p>
                 <p className="text-sm">
-                  <strong>Duration:</strong> {sessionType.defaultDuration}{" "}
-                  minutes
+                  <strong>Duration:</strong>{" "}
+                  {sessionType.defaultDurationMinutes} minutes
                 </p>
               </div>
               <div className="flex gap-2 mt-4">

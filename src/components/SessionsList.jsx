@@ -1,40 +1,43 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router';
-import { useGetAllSessions, useDeleteSession, useActivateSession, useDeactivateSession } from '../hooks/useSessionQueries.js';
-import { useGetAllDoctors } from '../hooks/useDoctorQueries.js';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card.jsx';
-import { Button } from './ui/button.jsx';
-import { Input } from './ui/input.jsx';
-import { ConfirmModal } from './ui/confirm-modal.jsx';
-import useUserStore from '../store/useUserStore.js';
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router";
+import {
+  useGetAllSessions,
+  useDeleteSession,
+  useActivateSession,
+  useDeactivateSession,
+} from "../hooks/useSessionQueries.js";
+import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
+import { Button } from "./ui/button.jsx";
+import { Input } from "./ui/input.jsx";
+import { ConfirmModal } from "./ui/confirm-modal.jsx";
+import useUserStore from "../store/useUserStore.js";
 
 const SessionsList = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(10);
-  const [deleteModal, setDeleteModal] = useState({ open: false, session: null });
+  const [deleteModal, setDeleteModal] = useState({
+    open: false,
+    session: null,
+  });
   const { role } = useUserStore();
 
   // Client-side search state
   const [searchInputs, setSearchInputs] = useState({
-    sessionType: '',
-    doctor: '',
-    minPrice: '',
-    maxPrice: ''
+    sessionType: "",
+    doctor: "",
+    minPrice: "",
+    maxPrice: "",
   });
 
   // Fetch doctors for dropdown and filtering
   const { data: doctorsData } = useGetAllDoctors({ size: 100 });
 
   // Fetch sessions
-  const {
-    data,
-    isLoading,
-    error,
-    refetch
-  } = useGetAllSessions({
+  const { data, isLoading, error, refetch } = useGetAllSessions({
     page: currentPage,
-    size: 1000 // Fetch all for client-side filtering
+    size: 1000, // Fetch all for client-side filtering
   });
 
   // Mutations
@@ -45,21 +48,30 @@ const SessionsList = () => {
   // Client-side filtering
   const filteredSessions = useMemo(() => {
     const allSessions = data?.content || [];
-    
-    if (!searchInputs.sessionType && !searchInputs.doctor && !searchInputs.minPrice && !searchInputs.maxPrice) {
+
+    if (
+      !searchInputs.sessionType &&
+      !searchInputs.doctor &&
+      !searchInputs.minPrice &&
+      !searchInputs.maxPrice
+    ) {
       return allSessions;
     }
 
-    return allSessions.filter(session => {
+    return allSessions.filter((session) => {
       // Session type filter
       if (searchInputs.sessionType) {
-        const typeMatch = session.sessionType?.name?.toLowerCase().includes(searchInputs.sessionType.toLowerCase());
+        const typeMatch = session.sessionType?.name
+          ?.toLowerCase()
+          .includes(searchInputs.sessionType.toLowerCase());
         if (!typeMatch) return false;
       }
 
       // Doctor filter
       if (searchInputs.doctor) {
-        const doctorMatch = session.doctor?.name?.toLowerCase().includes(searchInputs.doctor.toLowerCase());
+        const doctorMatch = session.doctor?.name
+          ?.toLowerCase()
+          .includes(searchInputs.doctor.toLowerCase());
         if (!doctorMatch) return false;
       }
 
@@ -86,19 +98,22 @@ const SessionsList = () => {
   }, [filteredSessions, currentPage, pageSize]);
 
   // Pagination info
-  const pagination = useMemo(() => ({
-    currentPage,
-    totalPages: Math.ceil(filteredSessions.length / pageSize),
-    totalElements: filteredSessions.length,
-    size: pageSize
-  }), [filteredSessions.length, currentPage, pageSize]);
+  const pagination = useMemo(
+    () => ({
+      currentPage,
+      totalPages: Math.ceil(filteredSessions.length / pageSize),
+      totalElements: filteredSessions.length,
+      size: pageSize,
+    }),
+    [filteredSessions.length, currentPage, pageSize]
+  );
 
   const clearSearch = () => {
     setSearchInputs({
-      sessionType: '',
-      doctor: '',
-      minPrice: '',
-      maxPrice: ''
+      sessionType: "",
+      doctor: "",
+      minPrice: "",
+      maxPrice: "",
     });
     setCurrentPage(0);
   };
@@ -113,7 +128,7 @@ const SessionsList = () => {
         await deleteSession.mutateAsync(deleteModal.session.id);
         setDeleteModal({ open: false, session: null });
       } catch (error) {
-        console.error('Failed to delete session:', error);
+        console.error("Failed to delete session:", error);
       }
     }
   };
@@ -131,9 +146,9 @@ const SessionsList = () => {
   };
 
   const handleInputChange = (field, value) => {
-    setSearchInputs(prev => ({
+    setSearchInputs((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
     setCurrentPage(0);
   };
@@ -151,12 +166,12 @@ const SessionsList = () => {
     return (
       <div className="p-6">
         <Card className="p-6 bg-red-50 border-red-200">
-          <h3 className="text-lg font-semibold text-red-800 mb-2">Session Access Issue</h3>
+          <h3 className="text-lg font-semibold text-red-800 mb-2">
+            Session Access Issue
+          </h3>
           <p className="text-red-600 mb-4">{error.message}</p>
           <div className="space-y-2">
-            <p className="text-sm text-gray-600">
-              This might be due to:
-            </p>
+            <p className="text-sm text-gray-600">This might be due to:</p>
             <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
               <li>Backend authorization requirements</li>
               <li>Missing doctor association</li>
@@ -167,7 +182,10 @@ const SessionsList = () => {
             <Button onClick={() => refetch()} variant="outline">
               Try Again
             </Button>
-            <Button onClick={() => navigate('/session-types')} variant="default">
+            <Button
+              onClick={() => navigate("/session-types")}
+              variant="default"
+            >
               Manage Session Types Instead
             </Button>
           </div>
@@ -177,13 +195,13 @@ const SessionsList = () => {
   }
 
   const doctors = doctorsData?.data?.content || [];
-  const hasActiveFilters = Object.values(searchInputs).some(v => v);
+  const hasActiveFilters = Object.values(searchInputs).some((v) => v);
 
   return (
     <div className="p-6 h-full w-full">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Session Offerings</h1>
-        <Button onClick={() => navigate('/sessions/add')}>
+        <Button onClick={() => navigate("/sessions/add")}>
           Add New Session
         </Button>
       </div>
@@ -197,12 +215,16 @@ const SessionsList = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Session Type</label>
+                <label className="block text-sm font-medium mb-1">
+                  Session Type
+                </label>
                 <Input
                   name="sessionType"
                   placeholder="Search by session type..."
                   value={searchInputs.sessionType}
-                  onChange={(e) => handleInputChange('sessionType', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("sessionType", e.target.value)
+                  }
                 />
               </div>
               <div>
@@ -211,29 +233,37 @@ const SessionsList = () => {
                   name="doctor"
                   placeholder="Search by doctor name..."
                   value={searchInputs.doctor}
-                  onChange={(e) => handleInputChange('doctor', e.target.value)}
+                  onChange={(e) => handleInputChange("doctor", e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Min Price</label>
+                <label className="block text-sm font-medium mb-1">
+                  Min Price
+                </label>
                 <Input
                   name="minPrice"
                   type="number"
                   step="0.01"
                   placeholder="Minimum price"
                   value={searchInputs.minPrice}
-                  onChange={(e) => handleInputChange('minPrice', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("minPrice", e.target.value)
+                  }
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Max Price</label>
+                <label className="block text-sm font-medium mb-1">
+                  Max Price
+                </label>
                 <Input
                   name="maxPrice"
                   type="number"
                   step="0.01"
                   placeholder="Maximum price"
                   value={searchInputs.maxPrice}
-                  onChange={(e) => handleInputChange('maxPrice', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("maxPrice", e.target.value)
+                  }
                 />
               </div>
             </div>
@@ -255,7 +285,8 @@ const SessionsList = () => {
       {/* Results Summary */}
       <div className="text-sm text-gray-600 flex items-center gap-2">
         <span>
-          Showing {paginatedSessions.length} of {pagination.totalElements} sessions
+          Showing {paginatedSessions.length} of {pagination.totalElements}{" "}
+          sessions
         </span>
         {hasActiveFilters && (
           <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded-full text-xs">
@@ -272,15 +303,17 @@ const SessionsList = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <CardTitle className="text-lg">
-                    {session.sessionType?.name || 'Session'}
+                    {session.sessionType?.name || "Session"}
                   </CardTitle>
                   <div className="flex gap-2 mt-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      session.isActive 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {session.isActive ? 'Active' : 'Inactive'}
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        session.isActive
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {session.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
                 </div>
@@ -288,18 +321,39 @@ const SessionsList = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <p className="text-sm"><strong>Doctor:</strong> {session.doctor?.name || 'N/A'}</p>
-                <p className="text-sm"><strong>Practice:</strong> {session.practice?.name || 'N/A'}</p>
                 <p className="text-sm">
-                  <strong>Price:</strong> 
-                  <span className={hasActiveFilters && (searchInputs.minPrice || searchInputs.maxPrice) ? 'bg-green-100 px-1 rounded' : ''}>
+                  <strong>Doctor:</strong> {session.doctor?.name || "N/A"}
+                </p>
+                <p className="text-sm">
+                  <strong>Practice:</strong> {session.practice?.name || "N/A"}
+                </p>
+                <p className="text-sm">
+                  <strong>Price:</strong>
+                  <span
+                    className={
+                      hasActiveFilters &&
+                      (searchInputs.minPrice || searchInputs.maxPrice)
+                        ? "bg-green-100 px-1 rounded"
+                        : ""
+                    }
+                  >
                     ${session.price}
                   </span>
                 </p>
-                <p className="text-sm"><strong>Duration:</strong> {session.duration} mins</p>
-                <p className="text-sm"><strong>Mode:</strong> {session.mode}</p>
+                <p className="text-sm">
+                  <strong>Duration:</strong>{" "}
+                  {session.sessionType?.defaultDurationMinutes || "N/A"} mins
+                </p>
+                <p className="text-sm">
+                  <strong>Mode:</strong>{" "}
+                  {session.sessionType?.isTelemedicineAvailable
+                    ? "Telemedicine"
+                    : "In-person"}
+                </p>
                 {session.description && (
-                  <p className="text-sm text-gray-600 mt-2">{session.description}</p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {session.description}
+                  </p>
                 )}
               </div>
               <div className="flex gap-2 mt-4">
@@ -333,10 +387,9 @@ const SessionsList = () => {
       {paginatedSessions.length === 0 && (
         <Card className="p-8 text-center">
           <p className="text-gray-600">
-            {hasActiveFilters 
-              ? 'No sessions found matching your search criteria.' 
-              : 'No sessions found.'
-            }
+            {hasActiveFilters
+              ? "No sessions found matching your search criteria."
+              : "No sessions found."}
           </p>
           {hasActiveFilters && (
             <Button variant="outline" onClick={clearSearch} className="mt-2">

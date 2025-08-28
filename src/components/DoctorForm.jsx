@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useCreateDoctor, useUpdateDoctor, useGetDoctorById } from '../hooks/useDoctorQueries.js';
-import { Button } from './ui/button.jsx';
-import { Input } from './ui/input.jsx';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card.jsx';
-import { Label } from './ui/label.jsx';
-import { ConfirmModal } from './ui/confirm-modal.jsx';
-import { CreateDoctorFormSchema } from '../schema/doctors/create.js';
-import useUserStore from '../store/useUserStore.js';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  useCreateDoctor,
+  useUpdateDoctor,
+  useGetDoctorById,
+} from "../hooks/useDoctorQueries.js";
+import { useGetUserById, useUpdateUser } from "../hooks/useUserQueries.js";
+import { Button } from "./ui/button.jsx";
+import { Input } from "./ui/input.jsx";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
+import { Label } from "./ui/label.jsx";
+import { ConfirmModal } from "./ui/confirm-modal.jsx";
+import { CreateDoctorFormSchema } from "../schema/doctors/create.js";
+import useUserStore from "../store/useUserStore.js";
 
 const DoctorForm = () => {
   const { doctorId } = useParams();
@@ -23,53 +28,72 @@ const DoctorForm = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setValue
+    setValue,
   } = useForm({
     resolver: zodResolver(CreateDoctorFormSchema),
     defaultValues: {
-      name: '',
-      email: '',
-      phone: '',
-      gender: 'MALE',
-      summary: '',
-      about: '',
-      imageUrl: '',
+      name: "",
+      email: "",
+      phone: "",
+      gender: "MALE",
+      summary: "",
+      about: "",
+      imageUrl: "",
       experienceYears: 0,
-      speciality: '',
-      password: ''
-    }
+      speciality: "",
+      password: "",
+    },
   });
 
   // Fetch doctor data if editing
   const {
     data: doctorData,
     isLoading,
-    error: fetchError
+    error: fetchError,
   } = useGetDoctorById(doctorId, { enabled: isEdit });
+
+  // Fetch user data if we have a userId
+  const {
+    data: userData,
+    isLoading: isLoadingUser,
+    error: userError,
+  } = useGetUserById(doctorData?.data?.userId, {
+    enabled: isEdit && !!doctorData?.data?.userId,
+  });
 
   const createDoctorMutation = useCreateDoctor();
   const updateDoctorMutation = useUpdateDoctor();
+  const updateUserMutation = useUpdateUser();
 
   // Populate form when editing
   useEffect(() => {
     if (isEdit && doctorData) {
-      setValue('name', doctorData.name || '');
-      setValue('email', doctorData.email || '');
-      setValue('phone', doctorData.phone || '');
-      setValue('gender', doctorData.gender || 'MALE');
-      setValue('summary', doctorData.summary || '');
-      setValue('about', doctorData.about || '');
-      setValue('imageUrl', doctorData.imageUrl || '');
-      setValue('experienceYears', doctorData.experienceYears || 0);
-      setValue('speciality', doctorData.speciality || '');
+      const doctor = doctorData.data;
+      setValue("name", doctor.name || "");
+      setValue("gender", doctor.gender || "MALE");
+      setValue("summary", doctor.summary || "");
+      setValue("about", doctor.about || "");
+      setValue("imageUrl", doctor.imageUrl || "");
+      setValue("experienceYears", doctor.experienceYears || 0);
+      setValue("speciality", doctor.speciality || "");
+
+      // Set email and phone from user data if available
+      if (userData?.data) {
+        setValue("email", userData.data.email || "");
+        setValue("phone", userData.data.phone || "");
+      } else {
+        // Fallback to doctor data if user data is not available
+        setValue("email", doctor.email || "");
+        setValue("phone", doctor.phone || "");
+      }
     }
-  }, [doctorData, isEdit, setValue]);
+  }, [doctorData, userData, isEdit, setValue]);
 
   const onSubmit = async (data) => {
     // Add userId to the data for backend
     const submitData = {
       ...data,
-      userId: userId
+      userId: userId,
     };
 
     // Remove password field if empty (for updates)
@@ -85,9 +109,9 @@ const DoctorForm = () => {
       // Direct create for new doctors
       try {
         await createDoctorMutation.mutateAsync(submitData);
-        navigate('/doctors');
+        navigate("/doctors");
       } catch (error) {
-        console.error('Failed to create doctor:', error);
+        console.error("Failed to create doctor:", error);
       }
     }
   };
@@ -95,13 +119,34 @@ const DoctorForm = () => {
   const handleUpdateConfirm = async () => {
     if (formData && doctorId) {
       try {
+        // Update doctor data
         await updateDoctorMutation.mutateAsync({
           id: doctorId,
-          data: formData
+          data: formData,
         });
-        navigate('/doctors');
+
+        // If email or phone changed, also update user data
+        const doctor = doctorData.data;
+        const user = userData?.data;
+
+        if (
+          user &&
+          (formData.email !== user.email || formData.phone !== user.phone)
+        ) {
+          await updateUserMutation.mutateAsync({
+            userId: doctor.userId,
+            userData: {
+              email: formData.email,
+              phone: formData.phone,
+            },
+          });
+        }
+
+        navigate("/doctors");
       } catch (error) {
-        console.error('Failed to update doctor:', error);
+        console.error("Failed to update doctor:", error);
+      } finally {
+        setUpdateModal(false);
       }
     }
   };
@@ -119,9 +164,11 @@ const DoctorForm = () => {
     return (
       <div className="p-6">
         <Card className="p-6 bg-red-50 border-red-200">
-          <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Doctor</h3>
+          <h3 className="text-lg font-semibold text-red-800 mb-2">
+            Error Loading Doctor
+          </h3>
           <p className="text-red-600 mb-4">{fetchError.message}</p>
-          <Button onClick={() => navigate('/doctors')} variant="outline">
+          <Button onClick={() => navigate("/doctors")} variant="outline">
             Back to Doctors List
           </Button>
         </Card>
@@ -133,9 +180,7 @@ const DoctorForm = () => {
     <div className="p-6 max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>
-            {isEdit ? 'Edit Doctor' : 'Add New Doctor'}
-          </CardTitle>
+          <CardTitle>{isEdit ? "Edit Doctor" : "Add New Doctor"}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -144,11 +189,13 @@ const DoctorForm = () => {
                 <Label htmlFor="name">Name *</Label>
                 <Input
                   id="name"
-                  {...register('name')}
+                  {...register("name")}
                   placeholder="Doctor's full name"
                 />
                 {errors.name && (
-                  <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.name.message}
+                  </p>
                 )}
               </div>
 
@@ -157,11 +204,13 @@ const DoctorForm = () => {
                 <Input
                   id="email"
                   type="email"
-                  {...register('email')}
+                  {...register("email")}
                   placeholder="doctor@example.com"
                 />
                 {errors.email && (
-                  <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.email.message}
+                  </p>
                 )}
               </div>
 
@@ -169,11 +218,13 @@ const DoctorForm = () => {
                 <Label htmlFor="phone">Phone *</Label>
                 <Input
                   id="phone"
-                  {...register('phone')}
+                  {...register("phone")}
                   placeholder="Phone number"
                 />
                 {errors.phone && (
-                  <p className="text-sm text-red-600 mt-1">{errors.phone.message}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.phone.message}
+                  </p>
                 )}
               </div>
 
@@ -181,7 +232,7 @@ const DoctorForm = () => {
                 <Label htmlFor="gender">Gender *</Label>
                 <select
                   id="gender"
-                  {...register('gender')}
+                  {...register("gender")}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value="MALE">Male</option>
@@ -189,7 +240,9 @@ const DoctorForm = () => {
                   <option value="OTHER">Other</option>
                 </select>
                 {errors.gender && (
-                  <p className="text-sm text-red-600 mt-1">{errors.gender.message}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.gender.message}
+                  </p>
                 )}
               </div>
 
@@ -197,11 +250,13 @@ const DoctorForm = () => {
                 <Label htmlFor="speciality">Speciality *</Label>
                 <Input
                   id="speciality"
-                  {...register('speciality')}
+                  {...register("speciality")}
                   placeholder="e.g., Cardiology"
                 />
                 {errors.speciality && (
-                  <p className="text-sm text-red-600 mt-1">{errors.speciality.message}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.speciality.message}
+                  </p>
                 )}
               </div>
 
@@ -211,11 +266,13 @@ const DoctorForm = () => {
                   id="experienceYears"
                   type="number"
                   min="0"
-                  {...register('experienceYears', { valueAsNumber: true })}
+                  {...register("experienceYears", { valueAsNumber: true })}
                   placeholder="Years of experience"
                 />
                 {errors.experienceYears && (
-                  <p className="text-sm text-red-600 mt-1">{errors.experienceYears.message}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.experienceYears.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -224,11 +281,13 @@ const DoctorForm = () => {
               <Label htmlFor="imageUrl">Profile Image URL</Label>
               <Input
                 id="imageUrl"
-                {...register('imageUrl')}
+                {...register("imageUrl")}
                 placeholder="https://example.com/image.jpg"
               />
               {errors.imageUrl && (
-                <p className="text-sm text-red-600 mt-1">{errors.imageUrl.message}</p>
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.imageUrl.message}
+                </p>
               )}
             </div>
 
@@ -238,11 +297,13 @@ const DoctorForm = () => {
                 <Input
                   id="password"
                   type="password"
-                  {...register('password')}
+                  {...register("password")}
                   placeholder="Initial password"
                 />
                 {errors.password && (
-                  <p className="text-sm text-red-600 mt-1">{errors.password.message}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.password.message}
+                  </p>
                 )}
               </div>
             )}
@@ -251,11 +312,13 @@ const DoctorForm = () => {
               <Label htmlFor="summary">Summary</Label>
               <Input
                 id="summary"
-                {...register('summary')}
+                {...register("summary")}
                 placeholder="Brief summary"
               />
               {errors.summary && (
-                <p className="text-sm text-red-600 mt-1">{errors.summary.message}</p>
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.summary.message}
+                </p>
               )}
             </div>
 
@@ -263,31 +326,42 @@ const DoctorForm = () => {
               <Label htmlFor="about">About</Label>
               <textarea
                 id="about"
-                {...register('about')}
+                {...register("about")}
                 placeholder="Detailed information about the doctor"
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 rows={4}
               />
               {errors.about && (
-                <p className="text-sm text-red-600 mt-1">{errors.about.message}</p>
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.about.message}
+                </p>
               )}
             </div>
 
             <div className="flex gap-2 pt-4">
               <Button
                 type="submit"
-                disabled={isSubmitting || createDoctorMutation.isPending || updateDoctorMutation.isPending}
+                disabled={
+                  isSubmitting ||
+                  createDoctorMutation.isPending ||
+                  updateDoctorMutation.isPending
+                }
                 className="flex-1"
               >
-                {isSubmitting || createDoctorMutation.isPending || updateDoctorMutation.isPending
-                  ? (isEdit ? 'Updating...' : 'Creating...')
-                  : (isEdit ? 'Update Doctor' : 'Create Doctor')
-                }
+                {isSubmitting ||
+                createDoctorMutation.isPending ||
+                updateDoctorMutation.isPending
+                  ? isEdit
+                    ? "Updating..."
+                    : "Creating..."
+                  : isEdit
+                  ? "Update Doctor"
+                  : "Create Doctor"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/doctors')}
+                onClick={() => navigate("/doctors")}
               >
                 Cancel
               </Button>

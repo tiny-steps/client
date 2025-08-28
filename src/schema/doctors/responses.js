@@ -6,6 +6,8 @@ export const DoctorResponseSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
   name: z.string(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
   slug: z.string(),
   gender: GenderEnum,
   summary: z.string().nullable(),
@@ -16,6 +18,7 @@ export const DoctorResponseSchema = z.object({
   ratingAverage: z.number(),
   reviewCount: z.number().int(),
   status: StatusEnum,
+  speciality: z.string().optional(),
   createdAt: z
     .string()
     .refine(

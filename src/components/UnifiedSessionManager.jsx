@@ -133,9 +133,15 @@ const UnifiedSessionManager = () => {
           (isTelemedicineAvailable === "true")
       )
         return false;
-      if (minDuration && sessionType.defaultDuration < parseInt(minDuration))
+      if (
+        minDuration &&
+        sessionType.defaultDurationMinutes < parseInt(minDuration)
+      )
         return false;
-      if (maxDuration && sessionType.defaultDuration > parseInt(maxDuration))
+      if (
+        maxDuration &&
+        sessionType.defaultDurationMinutes > parseInt(maxDuration)
+      )
         return false;
       return true;
     });
@@ -538,10 +544,14 @@ const UnifiedSessionManager = () => {
                     <strong>Price:</strong> ${item.price}
                   </p>
                   <p className="text-sm">
-                    <strong>Duration:</strong> {item.duration} mins
+                    <strong>Duration:</strong>{" "}
+                    {item.sessionType?.defaultDurationMinutes || "N/A"} mins
                   </p>
                   <p className="text-sm">
-                    <strong>Mode:</strong> {item.mode}
+                    <strong>Mode:</strong>{" "}
+                    {item.sessionType?.isTelemedicineAvailable
+                      ? "Telemedicine"
+                      : "In-person"}
                   </p>
                 </div>
               ) : (
@@ -550,7 +560,8 @@ const UnifiedSessionManager = () => {
                     {item.description}
                   </p>
                   <p className="text-sm">
-                    <strong>Duration:</strong> {item.defaultDuration} minutes
+                    <strong>Duration:</strong> {item.defaultDurationMinutes}{" "}
+                    minutes
                   </p>
                 </div>
               )}

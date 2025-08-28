@@ -190,7 +190,6 @@ const TimingManager = () => {
                   e.preventDefault();
                   const formData = new FormData(e.target);
                   const data = {
-                    availability: editModal.slot.id,
                     startTime: formData.get("startTime"),
                     endTime: formData.get("endTime"),
                     description: formData.get("description"),
@@ -353,7 +352,11 @@ const TimingManager = () => {
                                           title="Delete Duration"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            if (confirm(`Are you sure you want to delete this time slot (${duration.startTime} - ${duration.endTime})?`)) {
+                                            if (
+                                              confirm(
+                                                `Are you sure you want to delete this time slot (${duration.startTime} - ${duration.endTime})?`
+                                              )
+                                            ) {
                                               deleteDurationMutation.mutate({
                                                 doctorId: selectedDoctor,
                                                 availabilityId: slot.id,
