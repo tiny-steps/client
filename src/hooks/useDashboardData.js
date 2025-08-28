@@ -1,6 +1,7 @@
 import { useGetAllAppointments } from "./useScheduleQueries.js";
 import { useGetAllDoctors } from "./useDoctorQueries.js";
 import { useGetAllPatients } from "./usePatientQueries.js";
+import { useGetAllAvailabilities } from "./useTimingQueries.js";
 
 export const useDashboardData = () => {
   // Fetch real data from backend
@@ -26,6 +27,17 @@ export const useDashboardData = () => {
     error: patientsError,
   } = useGetAllPatients({
     size: 10, // Get recent patients
+  });
+
+  const {
+    data: availabilitiesData,
+    isLoading: availabilitiesLoading,
+    error: availabilitiesError,
+  } = useGetAllAvailabilities({
+    startDate: new Date().toISOString().split("T")[0], // Today
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0], // Next 7 days
   });
 
   // Process appointments data
@@ -111,14 +123,20 @@ export const useDashboardData = () => {
     rawAppointments: allAppointments,
     rawDoctors: doctorsData?.data?.content || [],
     rawPatients: patientsData?.data?.content || [],
+    rawAvailabilities: availabilitiesData?.data?.content || [],
     handleAppointmentStatus,
     handleDoctorStatus,
     handleSlotSelection,
-    isLoading: appointmentsLoading || doctorsLoading || patientsLoading,
+    isLoading:
+      appointmentsLoading ||
+      doctorsLoading ||
+      patientsLoading ||
+      availabilitiesLoading,
     errors: {
       appointments: appointmentsError,
       doctors: doctorsError,
       patients: patientsError,
+      availabilities: availabilitiesError,
     },
   };
 };

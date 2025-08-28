@@ -1,6 +1,86 @@
 // API service for timing-related operations
 
 class TimingService {
+  async getAllAvailabilities(params = {}) {
+    try {
+      // First, get all doctors
+      const doctorsResponse = await fetch("/api/v1/doctors?size=100", {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!doctorsResponse.ok) {
+        console.warn("Failed to fetch doctors for availability aggregation");
+        return { data: { content: [] } };
+      }
+
+      const doctorsData = await doctorsResponse.json();
+      const doctors = doctorsData.data?.content || [];
+
+      console.log("🔍 TimingService Debug - Doctors:", doctors);
+
+      // Then, fetch availability for each doctor
+      const allAvailabilities = [];
+      const searchParams = new URLSearchParams();
+      if (params.date) searchParams.append("date", params.date);
+      if (params.startDate) searchParams.append("startDate", params.startDate);
+      if (params.endDate) searchParams.append("endDate", params.endDate);
+
+      for (const doctor of doctors) {
+        try {
+          const availabilityResponse = await fetch(
+            `/api/v1/timings/doctors/${doctor.id}/availabilities?${searchParams}`,
+            {
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (availabilityResponse.ok) {
+            const availabilityData = await availabilityResponse.json();
+            const availabilities = availabilityData.data?.content || [];
+
+            console.log(
+              `🔍 TimingService Debug - Doctor ${doctor.id} availabilities:`,
+              availabilities
+            );
+
+            // Add doctor information to each availability
+            const enrichedAvailabilities = availabilities.map(
+              (availability) => ({
+                ...availability,
+                doctorId: doctor.id,
+                doctorName:
+                  doctor.name ||
+                  `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim(),
+              })
+            );
+
+            allAvailabilities.push(...enrichedAvailabilities);
+          }
+        } catch (error) {
+          console.warn(
+            `Failed to fetch availability for doctor ${doctor.id}:`,
+            error
+          );
+        }
+      }
+
+      console.log(
+        "🔍 TimingService Debug - Final aggregated availabilities:",
+        allAvailabilities
+      );
+      return { data: { content: allAvailabilities } };
+    } catch (error) {
+      console.error("Error fetching all availabilities:", error);
+      return { data: { content: [] } };
+    }
+  }
+
   async getDoctorAvailability(doctorId, params = {}) {
     const searchParams = new URLSearchParams();
     if (params.date) searchParams.append("date", params.date);

@@ -1,17 +1,44 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { timingService } from '../services/timingService.js';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { timingService } from "../services/timingService.js";
 
 export const timingKeys = {
-  all: ['timing'],
-  availability: (doctorId, params) => [...timingKeys.all, 'availability', doctorId, params],
-  timeOffs: (doctorId, params) => [...timingKeys.all, 'timeOffs', doctorId, params],
+  all: ["timing"],
+  availability: (doctorId, params) => [
+    ...timingKeys.all,
+    "availability",
+    doctorId,
+    params,
+  ],
+  allAvailabilities: (params) => [
+    ...timingKeys.all,
+    "allAvailabilities",
+    params,
+  ],
+  timeOffs: (doctorId, params) => [
+    ...timingKeys.all,
+    "timeOffs",
+    doctorId,
+    params,
+  ],
 };
 
-export const useGetDoctorAvailability = (doctorId, params = {}, options = {}) => {
+export const useGetDoctorAvailability = (
+  doctorId,
+  params = {},
+  options = {}
+) => {
   return useQuery({
     queryKey: timingKeys.availability(doctorId, params),
     queryFn: () => timingService.getDoctorAvailability(doctorId, params),
     enabled: !!doctorId,
+    ...options,
+  });
+};
+
+export const useGetAllAvailabilities = (params = {}, options = {}) => {
+  return useQuery({
+    queryKey: timingKeys.allAvailabilities(params),
+    queryFn: () => timingService.getAllAvailabilities(params),
     ...options,
   });
 };
@@ -28,9 +55,12 @@ export const useGetDoctorTimeOffs = (doctorId, params = {}, options = {}) => {
 export const useCreateAvailability = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ doctorId, data }) => timingService.createAvailability(doctorId, data),
+    mutationFn: ({ doctorId, data }) =>
+      timingService.createAvailability(doctorId, data),
     onSuccess: (data, { doctorId }) => {
-      queryClient.invalidateQueries({ queryKey: [...timingKeys.all, 'availability', doctorId] });
+      queryClient.invalidateQueries({
+        queryKey: [...timingKeys.all, "availability", doctorId],
+      });
     },
   });
 };
@@ -38,9 +68,12 @@ export const useCreateAvailability = () => {
 export const useUpdateAvailability = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ doctorId, availabilityId, data }) => timingService.updateAvailability(doctorId, availabilityId, data),
+    mutationFn: ({ doctorId, availabilityId, data }) =>
+      timingService.updateAvailability(doctorId, availabilityId, data),
     onSuccess: (data, { doctorId }) => {
-      queryClient.invalidateQueries({ queryKey: [...timingKeys.all, 'availability', doctorId] });
+      queryClient.invalidateQueries({
+        queryKey: [...timingKeys.all, "availability", doctorId],
+      });
     },
   });
 };
@@ -48,9 +81,12 @@ export const useUpdateAvailability = () => {
 export const useDeleteAvailability = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ doctorId, availabilityId }) => timingService.deleteAvailability(doctorId, availabilityId),
+    mutationFn: ({ doctorId, availabilityId }) =>
+      timingService.deleteAvailability(doctorId, availabilityId),
     onSuccess: (data, { doctorId }) => {
-      queryClient.invalidateQueries({ queryKey: [...timingKeys.all, 'availability', doctorId] });
+      queryClient.invalidateQueries({
+        queryKey: [...timingKeys.all, "availability", doctorId],
+      });
     },
   });
 };
@@ -58,9 +94,12 @@ export const useDeleteAvailability = () => {
 export const useCreateTimeOff = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ doctorId, data }) => timingService.createTimeOff(doctorId, data),
+    mutationFn: ({ doctorId, data }) =>
+      timingService.createTimeOff(doctorId, data),
     onSuccess: (data, { doctorId }) => {
-      queryClient.invalidateQueries({ queryKey: [...timingKeys.all, 'timeOffs', doctorId] });
+      queryClient.invalidateQueries({
+        queryKey: [...timingKeys.all, "timeOffs", doctorId],
+      });
     },
   });
 };

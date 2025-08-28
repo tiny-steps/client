@@ -83,9 +83,36 @@ const DashboardCalendar = ({
   const selectedDateObj = new Date(currentDate);
   const dayOfWeek = selectedDateObj.getDay();
   const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-  const dayAvailabilities = availabilities.filter((availability) => {
+
+  // Debug logging (reduced for production)
+  console.log(
+    "🔍 DashboardCalendar - Availabilities count:",
+    availabilities.length
+  );
+  console.log(
+    "🔍 DashboardCalendar - Appointments count:",
+    appointments.length
+  );
+
+  // Try filtering by day of week first
+  let dayAvailabilities = availabilities.filter((availability) => {
     return availability.dayOfWeek === backendDayOfWeek && availability.active;
   });
+
+  // If no availabilities found, try without day filtering (fallback)
+  if (dayAvailabilities.length === 0) {
+    console.log(
+      "No availabilities found with day filtering, using all active availabilities"
+    );
+    dayAvailabilities = availabilities.filter((availability) => {
+      return availability.active;
+    });
+  }
+
+  console.log(
+    "Final filtered day availabilities count:",
+    dayAvailabilities.length
+  );
 
   // Generate all available time slots for the day
   const allAvailableSlots =
@@ -100,6 +127,10 @@ const DashboardCalendar = ({
 
   // Check if there are any slots for today
   const hasAnySlots = timeSlots.length > 0;
+
+  console.log("Generated available slots count:", allAvailableSlots.length);
+  console.log("Booked slots count:", bookedSlots.length);
+  console.log("Total time slots:", timeSlots.length);
 
   const formatDate = (date) => {
     return date.toLocaleDateString("en-US", {

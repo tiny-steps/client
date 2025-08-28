@@ -18,6 +18,7 @@ const DashboardPage = () => {
     rawAppointments,
     rawDoctors,
     rawPatients,
+    rawAvailabilities,
     handleAppointmentStatus,
     handleDoctorStatus,
     handleSlotSelection,
@@ -51,7 +52,7 @@ const DashboardPage = () => {
           <div className="mx-20 pl-10">
             <DashboardCalendar
               appointments={rawAppointments || []}
-              availabilities={[]}
+              availabilities={rawAvailabilities || []}
               doctors={rawDoctors}
               patients={rawPatients}
               onAppointmentClick={(appointment) => {
