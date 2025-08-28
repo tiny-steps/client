@@ -61,8 +61,12 @@ const DashboardLayout = () => {
         bottomContent={bottomItems}
       />
 
-      {/* Main content area where child routes will render */}
-      <main className="transition-all duration-400 ease-in-out pt-16 min-h-screen w-screen relative z-10">
+      {/* Main content area - responsive to sidebar state */}
+      <main
+        className={`transition-all duration-400 ease-in-out pt-16 min-h-screen relative z-10 ${
+          isNavOpen ? "ml-64" : "ml-16"
+        }`}
+      >
         <Outlet context={{ activeItem }} />
       </main>
     </div>

@@ -17,6 +17,9 @@ const CalendarView = ({
   setShowAppointmentModal = () => {},
   selectedTimeSlot = null,
   setSelectedTimeSlot = () => {},
+  onAppointmentClick = () => {},
+  onDayDetailClick = () => {},
+  onCancelAppointment = () => {},
 }) => {
   const [view, setView] = useState("today");
   const [internalCurrentDate, setInternalCurrentDate] = useState(
@@ -24,6 +27,20 @@ const CalendarView = ({
   );
   const { width } = useWindowSize();
   const isMobile = width < 768;
+
+  // Handler functions for Phase 2-4
+  const handleAppointmentClick = (appointment) => {
+    onAppointmentClick(appointment);
+  };
+
+  const handleDayClick = (date) => {
+    console.log("DayDetailView clicked for date:", date);
+    onDayDetailClick(date);
+  };
+
+  const handleCancelAppointment = (appointment) => {
+    onCancelAppointment(appointment);
+  };
 
   // Use selectedDate if available, otherwise use internal state
   const currentDate = selectedDate
@@ -41,8 +58,8 @@ const CalendarView = ({
   // Helper function to format date as YYYY-MM-DD using local timezone
   const formatLocalDate = (date) => {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
 
@@ -203,7 +220,7 @@ const CalendarView = ({
                 value={selectedDoctor || ""}
                 onChange={(e) => onDoctorChange(e.target.value)}
               >
-                <option value="">All Doctors</option>
+                <option value="">Select Doctor</option>
                 {doctors.map((doc) => (
                   <option key={doc.id} value={doc.id}>
                     {doc.name}
@@ -215,8 +232,7 @@ const CalendarView = ({
           <div className="flex items-end">
             <button
               onClick={() =>
-                onDateChange &&
-                onDateChange(formatLocalDate(new Date()))
+                onDateChange && onDateChange(formatLocalDate(new Date()))
               }
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
             >
@@ -242,7 +258,7 @@ const CalendarView = ({
       if (onDateChange) {
         const prevDate = new Date(displayDate);
         prevDate.setDate(prevDate.getDate() - 1);
-                        onDateChange(formatLocalDate(prevDate));
+        onDateChange(formatLocalDate(prevDate));
       }
     };
 
@@ -250,7 +266,7 @@ const CalendarView = ({
       if (onDateChange) {
         const nextDate = new Date(displayDate);
         nextDate.setDate(nextDate.getDate() + 1);
-                        onDateChange(formatLocalDate(nextDate));
+        onDateChange(formatLocalDate(nextDate));
       }
     };
 
@@ -293,12 +309,19 @@ const CalendarView = ({
           <div className="space-y-4">
             {timeSlots.map((time) => {
               const hour = parseInt(time.split(":")[0]);
+              // Find appointment for this time slot and date
+              const appointment = appointments?.find((a) => {
+                // Convert appointment time from "10:30:00" to "10:30" format
+                const appointmentTime = a.startTime?.substring(0, 5);
+                return (
+                  appointmentTime === time &&
+                  a.appointmentDate === formatLocalDate(displayDate)
+                );
+              });
               const isAvailable = filteredAvailabilities
-                ? isTimeSlotAvailable(time, filteredAvailabilities)
-                : true;
-              const appointment = appointments?.upcoming?.find(
-                (a) => a.time === time
-              );
+                ? isTimeSlotAvailable(time, filteredAvailabilities) &&
+                  !appointment
+                : !appointment;
 
               return (
                 <div
@@ -312,8 +335,13 @@ const CalendarView = ({
                   </div>
                   <div className="flex-1 pl-4 border-l border-gray-200 dark:border-gray-700">
                     {appointment ? (
-                      <div className="text-xs bg-blue-100 dark:bg-blue-900 p-1 rounded mb-1">
-                        {appointment.patientName} at {appointment.time}
+                      <div className="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-1 rounded mb-1 max-w-full">
+                        <div className="font-medium truncate text-xs">
+                          {appointment.patientName}
+                        </div>
+                        <div className="text-xs opacity-75 truncate">
+                          {appointment.doctorName} - {appointment.sessionName}
+                        </div>
                       </div>
                     ) : (
                       <div
@@ -411,38 +439,117 @@ const CalendarView = ({
                 >
                   {day.getDate()}
                 </span>
-                {selectedDoctor && hasAvailability && (
-                  <div
-                    className="mt-2 text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded"
-                    onClick={() =>
-                      onDateClick &&
-                      onDateClick(formatLocalDate(day))
-                    }
-                    title={(() => {
-                      const dayTimeSlots =
-                        generateTimeSlotsFromAvailability(dayAvailabilities);
-                      return dayTimeSlots.join(", ");
-                    })()}
-                  >
-                    {(() => {
-                      const dayTimeSlots =
-                        generateTimeSlotsFromAvailability(dayAvailabilities);
-                      const displaySlots = dayTimeSlots.slice(0, 4); // Show first 4 slots
-                      const slotsText = displaySlots.join(", ");
-                      return (
-                        <div className="text-green-600 dark:text-green-400">
-                          {slotsText}
-                          {dayTimeSlots.length > 4 && (
-                            <span className="text-gray-500">
-                              {" "}
-                              +{dayTimeSlots.length - 4} more
-                            </span>
+                {(() => {
+                  // Check for appointments first
+                  const dayAppointments =
+                    appointments?.filter(
+                      (a) => a.appointmentDate === formatLocalDate(day)
+                    ) || [];
+
+                  if (dayAppointments.length > 0) {
+                    // Show red dots for booked appointments
+                    const dayTimeSlots =
+                      generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = dayTimeSlots.length;
+                    const availableCount = Math.max(
+                      0,
+                      dayTimeSlots.length - dayAppointments.length
+                    );
+
+                    return (
+                      <div className="mt-2">
+                        {/* Slot count in top right */}
+                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {availableCount}/{totalSlots}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {dayAppointments.map((appointment, index) => (
+                            <div
+                              key={index}
+                              className="w-2 h-2 bg-red-500 rounded-full cursor-pointer hover:scale-125 transition-transform"
+                              title={`${
+                                appointment.patientName
+                              } - ${appointment.startTime?.substring(0, 5)}`}
+                              onClick={() =>
+                                handleDayClick(formatLocalDate(day))
+                              }
+                            />
+                          ))}
+                        </div>
+                        <div className="flex space-x-2 mt-2">
+                          <button
+                            className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                            onClick={() => handleDayClick(formatLocalDate(day))}
+                          >
+                            View Details
+                          </button>
+                          {availableCount > 0 && (
+                            <button
+                              className="text-xs text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                              onClick={() =>
+                                onDateClick && onDateClick(formatLocalDate(day))
+                              }
+                            >
+                              Book Appointment
+                            </button>
                           )}
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                      </div>
+                    );
+                  } else if (selectedDoctor && hasAvailability) {
+                    // Show green dots for available time slots
+                    const dayTimeSlots =
+                      generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = dayTimeSlots.length;
+                    const availableCount = dayTimeSlots.length;
+
+                    return (
+                      <div className="mt-2">
+                        {/* Slot count in top right */}
+                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {availableCount}/{totalSlots}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {dayTimeSlots.slice(0, 8).map((time, index) => (
+                            <div
+                              key={index}
+                              className="w-2 h-2 bg-green-500 rounded-full cursor-pointer hover:scale-125 transition-transform"
+                              title={`Available at ${time}`}
+                              onClick={() =>
+                                onDateClick && onDateClick(formatLocalDate(day))
+                              }
+                            />
+                          ))}
+                          {dayTimeSlots.length > 8 && (
+                            <div
+                              className="w-2 h-2 bg-green-400 rounded-full"
+                              title={`+${dayTimeSlots.length - 8} more slots`}
+                            />
+                          )}
+                        </div>
+                        <div className="flex space-x-2 mt-2">
+                          <button
+                            className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                            onClick={() => handleDayClick(formatLocalDate(day))}
+                          >
+                            View Details
+                          </button>
+                          <button
+                            className="text-xs text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                            onClick={() =>
+                              onDateClick && onDateClick(formatLocalDate(day))
+                            }
+                          >
+                            Book Appointment
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
                 {selectedDoctor && !hasAvailability && (
                   <div className="mt-2 text-xs text-gray-400">No slots</div>
                 )}
@@ -596,7 +703,6 @@ const CalendarView = ({
               d.day
             );
 
-
             const dayOfWeek = dayDate.getDay();
             const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
             const dayAvailabilities = availabilities
@@ -626,39 +732,134 @@ const CalendarView = ({
                 >
                   {d.day}
                 </span>
-                {selectedDoctor && hasAvailability && (
-                  <div
-                    className="mt-2 text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded"
-                    onClick={() => {
-                      const dateString = formatLocalDate(dayDate);
+                {(() => {
+                  // Check for appointments first
+                  const dayAppointments =
+                    appointments?.filter(
+                      (a) => a.appointmentDate === formatLocalDate(dayDate)
+                    ) || [];
 
-                      onDateClick && onDateClick(dateString);
-                    }}
-                    title={(() => {
-                      const dayTimeSlots =
-                        generateTimeSlotsFromAvailability(dayAvailabilities);
-                      return dayTimeSlots.join(", ");
-                    })()}
-                  >
-                    {(() => {
-                      const dayTimeSlots =
-                        generateTimeSlotsFromAvailability(dayAvailabilities);
-                      const displaySlots = dayTimeSlots.slice(0, 3); // Show first 3 slots for monthly view
-                      const slotsText = displaySlots.join(", ");
-                      return (
-                        <div className="text-green-600 dark:text-green-400">
-                          {slotsText}
-                          {dayTimeSlots.length > 3 && (
-                            <span className="text-gray-500">
-                              {" "}
-                              +{dayTimeSlots.length - 3} more
-                            </span>
+                  if (dayAppointments.length > 0) {
+                    // Show red dots for booked appointments
+                    const dayTimeSlots =
+                      generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = dayTimeSlots.length;
+                    const availableCount = Math.max(
+                      0,
+                      dayTimeSlots.length - dayAppointments.length
+                    );
+
+                    return (
+                      <div className="mt-2">
+                        {/* Slot count in top right */}
+                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {availableCount}/{totalSlots}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {dayAppointments
+                            .slice(0, 6)
+                            .map((appointment, index) => (
+                              <div
+                                key={index}
+                                className="w-1.5 h-1.5 bg-red-500 rounded-full cursor-pointer hover:scale-125 transition-transform"
+                                title={`${
+                                  appointment.patientName
+                                } - ${appointment.startTime?.substring(0, 5)}`}
+                                onClick={() =>
+                                  handleDayClick(formatLocalDate(dayDate))
+                                }
+                              />
+                            ))}
+                          {dayAppointments.length > 6 && (
+                            <div
+                              className="w-1.5 h-1.5 bg-red-400 rounded-full"
+                              title={`+${
+                                dayAppointments.length - 6
+                              } more appointments`}
+                            />
                           )}
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                        <div className="flex space-x-2 mt-2">
+                          <button
+                            className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                            onClick={() =>
+                              handleDayClick(formatLocalDate(dayDate))
+                            }
+                          >
+                            View Details
+                          </button>
+                          {availableCount > 0 && (
+                            <button
+                              className="text-xs text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                              onClick={() => {
+                                const dateString = formatLocalDate(dayDate);
+                                onDateClick && onDateClick(dateString);
+                              }}
+                            >
+                              Book
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  } else if (selectedDoctor && hasAvailability) {
+                    // Show green dots for available time slots
+                    const dayTimeSlots =
+                      generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = dayTimeSlots.length;
+                    const availableCount = dayTimeSlots.length;
+
+                    return (
+                      <div className="mt-2">
+                        {/* Slot count in top right */}
+                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {availableCount}/{totalSlots}
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {dayTimeSlots.slice(0, 6).map((time, index) => (
+                            <div
+                              key={index}
+                              className="w-1.5 h-1.5 bg-green-500 rounded-full cursor-pointer hover:scale-125 transition-transform"
+                              title={`Available at ${time}`}
+                              onClick={() => {
+                                const dateString = formatLocalDate(dayDate);
+                                onDateClick && onDateClick(dateString);
+                              }}
+                            />
+                          ))}
+                          {dayTimeSlots.length > 6 && (
+                            <div
+                              className="w-1.5 h-1.5 bg-green-400 rounded-full"
+                              title={`+${dayTimeSlots.length - 6} more slots`}
+                            />
+                          )}
+                        </div>
+                        <div className="flex space-x-2 mt-2">
+                          <button
+                            className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                            onClick={() =>
+                              handleDayClick(formatLocalDate(dayDate))
+                            }
+                          >
+                            View Details
+                          </button>
+                          <button
+                            className="text-xs text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                            onClick={() => {
+                              const dateString = formatLocalDate(dayDate);
+                              onDateClick && onDateClick(dateString);
+                            }}
+                          >
+                            Book
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
                 {selectedDoctor && !hasAvailability && (
                   <div className="mt-2 text-xs text-gray-400">No slots</div>
                 )}
@@ -674,9 +875,25 @@ const CalendarView = ({
     <div className="mt-12">
       {renderFilters()}
       {renderToolbar()}
-      {view === "today" && renderTodayView()}
-      {!isMobile && view === "weekly" && renderWeeklyView()}
-      {!isMobile && view === "monthly" && renderMonthlyView()}
+      {!selectedDoctor ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-6xl mb-4">👨‍⚕️</div>
+            <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Please Select a Doctor
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400">
+              Choose a doctor from the dropdown above to view their schedule
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {view === "today" && renderTodayView()}
+          {!isMobile && view === "weekly" && renderWeeklyView()}
+          {!isMobile && view === "monthly" && renderMonthlyView()}
+        </>
+      )}
     </div>
   );
 };

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
-  useGetPatientById,
-  useCreatePatient,
-  useUpdatePatient,
-} from "../../hooks/usePatientQueries.js";
+  useGetEnrichedPatientById,
+  useCreateEnrichedPatient,
+  useUpdateEnrichedPatient,
+} from "../../hooks/useEnrichedPatientQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card.jsx";
 import { Button } from "../ui/button.jsx";
 import { Input } from "../ui/input.jsx";
@@ -16,42 +16,33 @@ const PatientForm = ({ mode = "create" }) => {
   const isEdit = mode === "edit" && id;
 
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
+    name: "",
     email: "",
+    password: "",
     phone: "",
     dateOfBirth: "",
     gender: "",
     bloodGroup: "",
-    height: "",
-    weight: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    address: "",
-    medicalHistory: "",
-    allergies: "",
-    currentMedications: "",
+    heightCm: "",
+    weightKg: "",
   });
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const { data: patientData, isLoading: isLoadingPatient } = useGetPatientById(
-    id,
-    {
+  const { data: patientData, isLoading: isLoadingPatient } =
+    useGetEnrichedPatientById(id, {
       enabled: isEdit,
-    }
-  );
+    });
 
-  const createPatient = useCreatePatient();
-  const updatePatient = useUpdatePatient();
+  const createPatient = useCreateEnrichedPatient();
+  const updatePatient = useUpdateEnrichedPatient();
 
   useEffect(() => {
     if (isEdit && patientData?.data) {
       const patient = patientData.data;
       setFormData({
-        firstName: patient.firstName || "",
-        lastName: patient.lastName || "",
+        name: patient.name || "",
         email: patient.email || "",
         phone: patient.phone || "",
         dateOfBirth: patient.dateOfBirth
@@ -59,14 +50,8 @@ const PatientForm = ({ mode = "create" }) => {
           : "",
         gender: patient.gender || "",
         bloodGroup: patient.bloodGroup || "",
-        height: patient.height || "",
-        weight: patient.weight || "",
-        emergencyContactName: patient.emergencyContactName || "",
-        emergencyContactPhone: patient.emergencyContactPhone || "",
-        address: patient.address || "",
-        medicalHistory: patient.medicalHistory || "",
-        allergies: patient.allergies || "",
-        currentMedications: patient.currentMedications || "",
+        heightCm: patient.heightCm || "",
+        weightKg: patient.weightKg || "",
       });
     }
   }, [isEdit, patientData]);
@@ -82,10 +67,10 @@ const PatientForm = ({ mode = "create" }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.firstName.trim())
-      newErrors.firstName = "First name is required";
-    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
+    if (!formData.name.trim()) newErrors.name = "Name is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
+    if (!isEdit && !formData.password.trim())
+      newErrors.password = "Password is required";
     if (!formData.phone.trim()) newErrors.phone = "Phone is required";
     if (!formData.dateOfBirth)
       newErrors.dateOfBirth = "Date of birth is required";
@@ -99,6 +84,11 @@ const PatientForm = ({ mode = "create" }) => {
     // Phone validation
     if (formData.phone && !/^\+?[\d\s-()]+$/.test(formData.phone)) {
       newErrors.phone = "Phone number is invalid";
+    }
+
+    // Password validation (only for new patients)
+    if (!isEdit && formData.password && formData.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters long";
     }
 
     setErrors(newErrors);
@@ -115,14 +105,15 @@ const PatientForm = ({ mode = "create" }) => {
   const handleConfirmSubmit = async () => {
     try {
       const submitData = {
-        name: `${formData.firstName} ${formData.lastName}`.trim(),
+        name: formData.name,
         email: formData.email,
-        password: "defaultPassword123!", // Default password for new patients
+        password: formData.password,
+        phone: formData.phone,
         dateOfBirth: formData.dateOfBirth,
         gender: formData.gender,
         bloodGroup: formData.bloodGroup,
-        heightCm: formData.height ? parseInt(formData.height) : null,
-        weightKg: formData.weight ? parseFloat(formData.weight) : null,
+        heightCm: formData.heightCm ? parseInt(formData.heightCm) : null,
+        weightKg: formData.weightKg ? parseFloat(formData.weightKg) : null,
       };
 
       if (isEdit) {
@@ -166,39 +157,20 @@ const PatientForm = ({ mode = "create" }) => {
               <CardTitle>Personal Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    First Name *
-                  </label>
-                  <Input
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className={errors.firstName ? "border-red-500" : ""}
-                  />
-                  {errors.firstName && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errors.firstName}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Last Name *
-                  </label>
-                  <Input
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className={errors.lastName ? "border-red-500" : ""}
-                  />
-                  {errors.lastName && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errors.lastName}
-                    </p>
-                  )}
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Full Name *
+                </label>
+                <Input
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className={errors.name ? "border-red-500" : ""}
+                  placeholder="Enter full name"
+                />
+                {errors.name && (
+                  <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+                )}
               </div>
 
               <div>
@@ -216,6 +188,27 @@ const PatientForm = ({ mode = "create" }) => {
                   <p className="text-red-500 text-xs mt-1">{errors.email}</p>
                 )}
               </div>
+
+              {!isEdit && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Password *
+                  </label>
+                  <Input
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={errors.password ? "border-red-500" : ""}
+                    placeholder="Enter password (min 8 characters)"
+                  />
+                  {errors.password && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.password}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium mb-1">
@@ -308,10 +301,10 @@ const PatientForm = ({ mode = "create" }) => {
                     Height (cm)
                   </label>
                   <Input
-                    name="height"
+                    name="heightCm"
                     type="number"
                     step="0.1"
-                    value={formData.height}
+                    value={formData.heightCm}
                     onChange={handleInputChange}
                   />
                 </div>
@@ -320,105 +313,13 @@ const PatientForm = ({ mode = "create" }) => {
                     Weight (kg)
                   </label>
                   <Input
-                    name="weight"
+                    name="weightKg"
                     type="number"
                     step="0.1"
-                    value={formData.weight}
+                    value={formData.weightKg}
                     onChange={handleInputChange}
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Allergies
-                </label>
-                <textarea
-                  name="allergies"
-                  value={formData.allergies}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border rounded-md"
-                  rows="3"
-                  placeholder="List any known allergies..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Current Medications
-                </label>
-                <textarea
-                  name="currentMedications"
-                  value={formData.currentMedications}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border rounded-md"
-                  rows="3"
-                  placeholder="List current medications..."
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Emergency Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Emergency Contact</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Contact Name
-                </label>
-                <Input
-                  name="emergencyContactName"
-                  value={formData.emergencyContactName}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Contact Phone
-                </label>
-                <Input
-                  name="emergencyContactPhone"
-                  value={formData.emergencyContactPhone}
-                  onChange={handleInputChange}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Address & Notes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Additional Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Address
-                </label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border rounded-md"
-                  rows="3"
-                  placeholder="Full address..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Medical History
-                </label>
-                <textarea
-                  name="medicalHistory"
-                  value={formData.medicalHistory}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border rounded-md"
-                  rows="3"
-                  placeholder="Brief medical history..."
-                />
               </div>
             </CardContent>
           </Card>
