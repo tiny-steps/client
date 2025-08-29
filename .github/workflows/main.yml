@@ -7,23 +7,21 @@ on:
       - master
 
 env:
-  DOCK-ERHUB_USERNAME: subhankarm2312
+  DOCKERHUB_USERNAME: subhankarm2312
   IMAGE_NAME: ts-react-client
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      IMAGE_TAG: ${{ steps.create_tag.outputs.IMAGE_TAG }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node 24
-        uses: actions/setup-node@v3
-        with:
-          node-version: "24"
-
       - name: Create image tag
-        run: echo "IMAGE_TAG=$(echo ${GITHUB_SHA} | cut -c1-7)-$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+        id: create_tag
+        run: echo "IMAGE_TAG=$(echo ${GITHUB_SHA} | cut -c1-7)-$(date -u +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -36,7 +34,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.create_tag.outputs.IMAGE_TAG }}
 
   deploy-dev:
     needs: build
@@ -62,7 +60,7 @@ jobs:
         run: |
           kubectl apply -f k8s/deployment.yml
           kubectl apply -f k8s/service.yml
-          kubectl apply -f ingress-dev.yml
+          kubectl apply -f k8s/ingress-dev.yml
           kubectl set image deployment/ts-react-client ts-react-client=${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.IMAGE_TAG }}
           kubectl rollout status deployment/ts-react-client
 
@@ -91,6 +89,6 @@ jobs:
           kubectl apply -f k8s/cluster-issuer.yml
           kubectl apply -f k8s/deployment.yml
           kubectl apply -f k8s/service.yml
-          kubectl apply -f ingress-prod.yml
+          kubectl apply -f k8s/ingress-prod.yml
           kubectl set image deployment/ts-react-client ts-react-client=${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.IMAGE_TAG }}
           kubectl rollout status deployment/ts-react-client
