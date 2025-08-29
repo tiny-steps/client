@@ -174,10 +174,10 @@ const ReportsManager = () => {
       )}
 
       {showGenerateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4 bg-white/90 backdrop-blur-md border border-white/30">
             <CardHeader>
-              <CardTitle>Generate Report</CardTitle>
+              <CardTitle className="text-gray-900">Generate Report</CardTitle>
             </CardHeader>
             <CardContent>
               <form
@@ -196,7 +196,7 @@ const ReportsManager = () => {
                 <Input name="name" placeholder="Report Name" required />
                 <select
                   name="type"
-                  className="w-full px-3 py-2 border rounded-md"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
                   <option value="">Select Type...</option>
