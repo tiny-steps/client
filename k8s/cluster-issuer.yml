@@ -9,12 +9,15 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-production-key
     solvers:
+      - selector:
+          dnsNames:
+          - "dev.tinystepscdc.com"
+        http01:
+          ingress:
+            class: traefik
       - http01:
           ingress:
             class: nginx
-      - http01:
-          ingress:
-            class: traefik
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -27,9 +30,12 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-staging-key
     solvers:
+      - selector:
+          dnsNames:
+          - "dev.tinystepscdc.com"
+        http01:
+          ingress:
+            class: traefik
       - http01:
           ingress:
             class: nginx
-      - http01:
-          ingress:
-            class: traefik
