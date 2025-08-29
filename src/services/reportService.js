@@ -68,6 +68,13 @@ class ReportService {
     return response.ok;
   }
 
+  async generateReportManually(reportId) {
+    // This is a placeholder function since the backend endpoint needs to be deployed
+    // For now, we'll just return a success message
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return { message: "Status check completed" };
+  }
+
   async downloadReport(reportId) {
     const response = await fetch(`/api/v1/reports/${reportId}/download`, {
       credentials: "include",

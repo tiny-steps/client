@@ -26,7 +26,19 @@ const ReportsManager = () => {
     },
   });
 
-  const reports = reportsData?.data?.content || [];
+  const generateReportManually = useMutation({
+    mutationFn: async (reportId) => {
+      // For now, just refetch to check if the status has changed
+      // The backend should handle generation automatically via Kafka
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Small delay
+      return { message: "Checking report status..." };
+    },
+    onSuccess: () => {
+      refetch();
+    },
+  });
+
+  const reports = reportsData?.data || [];
 
   const reportTypes = [
     { value: "APPOINTMENT_SUMMARY", label: "Appointment Summary" },
@@ -105,7 +117,7 @@ const ReportsManager = () => {
               <div className="flex justify-between items-center">
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-semibold text-lg">{report.name}</h3>
+                    <h3 className="font-semibold text-lg">{report.title}</h3>
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(
                         report.status
@@ -114,12 +126,25 @@ const ReportsManager = () => {
                       {report.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{report.type}</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {report.reportType}
+                  </p>
                   <p className="text-xs text-gray-500 mt-2">
                     Generated: {new Date(report.createdAt).toLocaleString()}
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  {report.status === "PENDING" && (
+                    <Button
+                      size="sm"
+                      onClick={() => generateReportManually.mutate(report.id)}
+                      disabled={generateReportManually.isPending}
+                    >
+                      {generateReportManually.isPending
+                        ? "Checking..."
+                        : "Check Status"}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
@@ -164,10 +189,10 @@ const ReportsManager = () => {
                   e.preventDefault();
                   const formData = new FormData(e.target);
                   generateReport.mutate({
-                    type: formData.get("type"),
+                    reportType: formData.get("type"),
+                    title: formData.get("name"),
                     startDate: formData.get("startDate"),
                     endDate: formData.get("endDate"),
-                    name: formData.get("name"),
                   });
                 }}
                 className="space-y-4"
