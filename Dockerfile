@@ -23,7 +23,7 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose Vite default port (5173)
-EXPOSE 5173
+# Expose standard HTTP port
+EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

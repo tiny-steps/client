@@ -16,4 +16,4 @@ spec:
       - name: ts-react-client    # update container name
         image: subhankarm2312/ts-react-client
         ports:
-        - containerPort: 5173
+        - containerPort: 80
