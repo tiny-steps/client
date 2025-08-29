@@ -24,38 +24,39 @@ const DashboardCalendar = ({
     const availableSlots = new Set();
     availabilities.forEach((availability) => {
       if (availability.durations) {
-        availability.durations.forEach((duration) => {
-          if (duration.startTime && duration.endTime) {
-            const start = new Date(`2000-01-01T${duration.startTime}`);
-            let end = new Date(`2000-01-01T${duration.endTime}`);
+        availability.durations
+          .filter(
+            (duration) =>
+              duration.startTime &&
+              duration.endTime &&
+              duration.startTime !== duration.endTime
+          )
+          .forEach((duration) => {
+            // Convert time strings to HH:MM format if they're in HH:MM:SS format
+            const startTimeStr = duration.startTime.includes(":")
+              ? duration.startTime.split(":").slice(0, 2).join(":")
+              : duration.startTime;
+            const endTimeStr = duration.endTime.includes(":")
+              ? duration.endTime.split(":").slice(0, 2).join(":")
+              : duration.endTime;
+
+            const start = new Date(`2000-01-01T${startTimeStr}:00`);
+            let end = new Date(`2000-01-01T${endTimeStr}:00`);
 
             // Handle case where end time is earlier than start time (crosses midnight)
             if (end < start) {
-              const endHour = parseInt(duration.endTime.split(":")[0]);
-              if (
-                endHour < 12 &&
-                endHour < parseInt(duration.startTime.split(":")[0])
-              ) {
-                // This looks like it should be PM, not AM
-                const correctedEndTime = duration.endTime.replace(
-                  /^(\d{1,2}):/,
-                  (match, hour) => {
-                    const correctedHour = parseInt(hour) + 12;
-                    return `${correctedHour.toString().padStart(2, "0")}:`;
-                  }
-                );
-                end = new Date(`2000-01-01T${correctedEndTime}`);
-              } else {
-                end.setDate(end.getDate() + 1);
-              }
+              console.warn(
+                `⚠️ Invalid time range: ${startTimeStr} - ${endTimeStr}. Skipping this duration.`
+              );
+              return; // Skip this invalid duration
             }
 
+            // Generate 30-minute slots for the entire duration range
             while (start < end) {
               availableSlots.add(start.toTimeString().slice(0, 5));
-              start.setMinutes(start.getMinutes() + 30);
+              start.setMinutes(start.getMinutes() + 30); // Always use 30-minute intervals
             }
-          }
-        });
+          });
       }
     });
     return Array.from(availableSlots).sort();
@@ -84,35 +85,48 @@ const DashboardCalendar = ({
   const dayOfWeek = selectedDateObj.getDay();
   const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
-  // Debug logging (reduced for production)
-  console.log(
-    "🔍 DashboardCalendar - Availabilities count:",
-    availabilities.length
-  );
-  console.log(
-    "🔍 DashboardCalendar - Appointments count:",
-    appointments.length
-  );
-
-  // Try filtering by day of week first
-  let dayAvailabilities = availabilities.filter((availability) => {
-    return availability.dayOfWeek === backendDayOfWeek && availability.active;
+  // Debug logging
+  console.log("🔍 DashboardCalendar Debug:", {
+    availabilities: availabilities.length,
+    appointments: appointments.length,
+    currentDate: formatLocalDate(currentDate),
+    currentDateString: currentDate.toDateString(),
+    dayOfWeek,
+    backendDayOfWeek,
   });
 
-  // If no availabilities found, try without day filtering (fallback)
-  if (dayAvailabilities.length === 0) {
-    console.log(
-      "No availabilities found with day filtering, using all active availabilities"
+  // Filter by day of week, active status, and must have valid durations with start/end times
+  let dayAvailabilities = availabilities.filter((availability) => {
+    return (
+      availability.dayOfWeek === backendDayOfWeek &&
+      availability.active &&
+      availability.durations &&
+      availability.durations.length > 0 &&
+      availability.durations.some(
+        (duration) =>
+          duration.startTime &&
+          duration.endTime &&
+          duration.startTime !== duration.endTime
+      )
     );
-    dayAvailabilities = availabilities.filter((availability) => {
-      return availability.active;
-    });
-  }
+  });
 
-  console.log(
-    "Final filtered day availabilities count:",
-    dayAvailabilities.length
-  );
+  // NO fallback - if no availabilities for this day, there should be no slots
+
+  console.log("🔍 DashboardCalendar Filtered:", {
+    filteredAvailabilities: dayAvailabilities.length,
+    sampleAvailability: dayAvailabilities[0] || null,
+    availableForToday: availabilities.filter(
+      (a) => a.dayOfWeek === backendDayOfWeek
+    ),
+    activeAvailabilities: availabilities.filter((a) => a.active),
+    validDurations: dayAvailabilities.flatMap(
+      (a) =>
+        a.durations
+          ?.filter((d) => d.startTime && d.endTime && d.startTime !== d.endTime)
+          ?.map((d) => `${d.startTime}-${d.endTime}`) || []
+    ),
+  });
 
   // Generate all available time slots for the day
   const allAvailableSlots =
@@ -128,9 +142,11 @@ const DashboardCalendar = ({
   // Check if there are any slots for today
   const hasAnySlots = timeSlots.length > 0;
 
-  console.log("Generated available slots count:", allAvailableSlots.length);
-  console.log("Booked slots count:", bookedSlots.length);
-  console.log("Total time slots:", timeSlots.length);
+  console.log("🔍 DashboardCalendar Slots:", {
+    availableSlots: allAvailableSlots.length,
+    bookedSlots: bookedSlots.length,
+    totalSlots: timeSlots.length,
+  });
 
   const formatDate = (date) => {
     return date.toLocaleDateString("en-US", {
@@ -193,16 +209,42 @@ const DashboardCalendar = ({
             // Find which doctors are available at this time
             const availableDoctors = dayAvailabilities
               .filter((availability) => {
-                return availability.durations?.some((duration) => {
-                  const start = new Date(`2000-01-01T${duration.startTime}`);
-                  const end = new Date(`2000-01-01T${duration.endTime}`);
-                  const slotTime = new Date(`2000-01-01T${time}`);
-                  return slotTime >= start && slotTime < end;
-                });
+                return availability.durations
+                  ?.filter(
+                    (duration) =>
+                      duration.startTime &&
+                      duration.endTime &&
+                      duration.startTime !== duration.endTime
+                  )
+                  ?.some((duration) => {
+                    // Convert time strings to HH:MM format if they're in HH:MM:SS format
+                    const startTimeStr = duration.startTime.includes(":")
+                      ? duration.startTime.split(":").slice(0, 2).join(":")
+                      : duration.startTime;
+                    const endTimeStr = duration.endTime.includes(":")
+                      ? duration.endTime.split(":").slice(0, 2).join(":")
+                      : duration.endTime;
+
+                    const start = new Date(`2000-01-01T${startTimeStr}:00`);
+                    const end = new Date(`2000-01-01T${endTimeStr}:00`);
+                    const slotTime = new Date(`2000-01-01T${time}:00`);
+
+                    // Skip invalid time ranges
+                    if (end <= start) {
+                      console.warn(
+                        `⚠️ Invalid time range: ${startTimeStr} - ${endTimeStr}`
+                      );
+                      return false;
+                    }
+
+                    return slotTime >= start && slotTime < end;
+                  });
               })
-              .map(
-                (availability) => availability.doctorName || "Unknown Doctor"
-              );
+              .map((availability) => {
+                return (
+                  availability.doctorName || `Doctor ${availability.doctorId}`
+                );
+              });
 
             if (appointment) {
               // Enrich appointment data with names
