@@ -58,6 +58,7 @@ jobs:
 
       - name: Deploy to Development
         run: |
+          kubectl apply -f k8s/cluster-issuer.yml
           kubectl apply -f k8s/deployment.yml
           kubectl apply -f k8s/service.yml
           kubectl apply -f k8s/ingress-dev.yml
