@@ -26,12 +26,13 @@ export const useGetReportById = (id, options = {}) => {
  });
 };
 
-export const useGenerateReport = () => {
+export const useGenerateReport = (onSuccess) => {
  const queryClient = useQueryClient();
  return useMutation({
  mutationFn: reportService.generateReport,
  onSuccess: () => {
  queryClient.invalidateQueries({ queryKey: reportKeys.lists() });
+ if (onSuccess) onSuccess();
  },
  });
 };

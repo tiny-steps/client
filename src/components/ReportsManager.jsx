@@ -1,30 +1,27 @@
 import React, { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import {
+  useGetAllReports,
+  useGenerateReport,
+  useDeleteReport,
+} from "../hooks/useReportQueries.js";
 import { reportService } from "../services/reportService.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
+import { ConfirmModal } from "./ui/confirm-modal.jsx";
 
 const ReportsManager = () => {
   const [filters, setFilters] = useState({});
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({ open: false, report: null });
 
-  const {
-    data: reportsData,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["reports", filters],
-    queryFn: () => reportService.getAllReports(filters),
-  });
+  const { data: reportsData, isLoading, refetch } = useGetAllReports(filters);
 
-  const generateReport = useMutation({
-    mutationFn: reportService.generateReport,
-    onSuccess: () => {
-      refetch();
-      setShowGenerateModal(false);
-    },
+  const generateReport = useGenerateReport(() => {
+    setShowGenerateModal(false);
   });
+  const deleteReport = useDeleteReport();
 
   const generateReportManually = useMutation({
     mutationFn: async (reportId) => {
@@ -156,11 +153,10 @@ const ReportsManager = () => {
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => {
-                      /* Delete report */
-                    }}
+                    onClick={() => setDeleteModal({ open: true, report })}
+                    disabled={deleteReport.isPending}
                   >
-                    Delete
+                    {deleteReport.isPending ? "Deleting..." : "Delete"}
                   </Button>
                 </div>
               </div>
@@ -229,6 +225,22 @@ const ReportsManager = () => {
           </Card>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={deleteModal.open}
+        onOpenChange={(open) => setDeleteModal({ open, report: null })}
+        title="Delete Report"
+        description={`Are you sure you want to delete "${deleteModal.report?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteModal.report) {
+            deleteReport.mutate(deleteModal.report.id);
+          }
+        }}
+      />
     </div>
   );
 };
