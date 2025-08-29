@@ -27,4 +27,4 @@ spec:
               service:
                 name: ts-react-client-service
                 port:
-                  number: 5173
+                  number: 80

@@ -35,7 +35,7 @@ spec:
           service:
             name: ts-react-client-service
             port:
-              number: 5173
+              number: 80
   - host: www.tinystepscdc.com
     http:
       paths:
@@ -52,4 +52,4 @@ spec:
           service:
             name: ts-react-client-service
             port:
-              number: 5173
+              number: 80
