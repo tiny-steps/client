@@ -68,7 +68,6 @@ class ReportService {
     return response.ok;
   }
 
-  // Note: Download endpoint doesn't exist in backend
   async downloadReport(reportId) {
     const response = await fetch(`/api/v1/reports/${reportId}/download`, {
       credentials: "include",
@@ -80,7 +79,18 @@ class ReportService {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `report-${reportId}.pdf`;
+
+    // Get filename from response headers or use default
+    const contentDisposition = response.headers.get("content-disposition");
+    let filename = `report-${reportId}.xlsx`;
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);

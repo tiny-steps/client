@@ -5,21 +5,21 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader.jsx";
 import PatientsList from '../../components/PatientsList.jsx';
 
 const PatientsPage = () => {
-    const { activeItem } = useOutletContext();
-    const { data: user } = useUserProfile();
+ const { activeItem } = useOutletContext();
+ const { data: user } = useUserProfile();
 
-    return (
-        <>
-            <DashboardHeader
-                userName={user?.data.name}
-                activeItemDescription={activeItem.description}
-            />
+ return (
+ <>
+ <DashboardHeader
+ userName={user?.data.name}
+ activeItemDescription={activeItem.description}
+ />
 
-            <div className="container ml-20 mt-6">
-                <PatientsList />
-            </div>
-        </>
-    );
+ <div className="container ml-20 mt-6">
+ <PatientsList />
+ </div>
+ </>
+ );
 };
 
 export default PatientsPage;

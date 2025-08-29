@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { reportService } from '../services/reportService.js';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card.jsx';
-import { Button } from './ui/button.jsx';
-import { Input } from './ui/input.jsx';
+import React, { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { reportService } from "../services/reportService.js";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
+import { Button } from "./ui/button.jsx";
+import { Input } from "./ui/input.jsx";
 
 const ReportsManager = () => {
   const [filters, setFilters] = useState({});
   const [showGenerateModal, setShowGenerateModal] = useState(false);
 
-  const { data: reportsData, isLoading, refetch } = useQuery({
-    queryKey: ['reports', filters],
+  const {
+    data: reportsData,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["reports", filters],
     queryFn: () => reportService.getAllReports(filters),
   });
 
@@ -25,33 +29,35 @@ const ReportsManager = () => {
   const reports = reportsData?.data?.content || [];
 
   const reportTypes = [
-    { value: 'APPOINTMENT_SUMMARY', label: 'Appointment Summary' },
-    { value: 'PATIENT_VISITS', label: 'Patient Visits' },
-    { value: 'REVENUE', label: 'Revenue Report' },
-    { value: 'DOCTOR_PERFORMANCE', label: 'Doctor Performance' },
-    { value: 'SESSION_ANALYTICS', label: 'Session Analytics' },
+    { value: "APPOINTMENT_SUMMARY", label: "Appointment Summary" },
+    { value: "CONSULTATION_HISTORY", label: "Session/Consultation History" },
+    { value: "DOCTOR_PERFORMANCE", label: "Doctor Performance" },
   ];
 
   const getStatusBadge = (status) => {
     const badges = {
-      'COMPLETED': 'bg-green-100 text-green-800',
-      'PROCESSING': 'bg-yellow-100 text-yellow-800',
-      'FAILED': 'bg-red-100 text-red-800',
+      COMPLETED: "bg-green-100 text-green-800",
+      PROCESSING: "bg-yellow-100 text-yellow-800",
+      FAILED: "bg-red-100 text-red-800",
     };
-    return badges[status] || 'bg-gray-100 text-gray-800';
+    return badges[status] || "bg-gray-100 text-gray-800";
   };
 
-  if (isLoading) return (
-    <div className="flex justify-center p-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-    </div>
-  );
+  if (isLoading)
+    return (
+      <div className="flex justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Reports</h1>
-        <Button onClick={() => setShowGenerateModal(true)} className="bg-blue-600 hover:bg-blue-700">
+        <Button
+          onClick={() => setShowGenerateModal(true)}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
           Generate Report
         </Button>
       </div>
@@ -67,19 +73,25 @@ const ReportsManager = () => {
               onChange={(e) => setFilters({ ...filters, type: e.target.value })}
             >
               <option value="">All Types</option>
-              {reportTypes.map(type => (
-                <option key={type.value} value={type.value}>{type.label}</option>
+              {reportTypes.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
               ))}
             </select>
             <Input
               type="date"
               placeholder="Start Date"
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              onChange={(e) =>
+                setFilters({ ...filters, startDate: e.target.value })
+              }
             />
             <Input
               type="date"
               placeholder="End Date"
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              onChange={(e) =>
+                setFilters({ ...filters, endDate: e.target.value })
+              }
             />
             <Button onClick={() => refetch()}>Apply Filters</Button>
           </div>
@@ -94,7 +106,11 @@ const ReportsManager = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
                     <h3 className="font-semibold text-lg">{report.name}</h3>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(report.status)}`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${getStatusBadge(
+                        report.status
+                      )}`}
+                    >
                       {report.status}
                     </span>
                   </div>
@@ -108,14 +124,16 @@ const ReportsManager = () => {
                     size="sm"
                     variant="outline"
                     onClick={() => reportService.downloadReport(report.id)}
-                    disabled={report.status !== 'COMPLETED'}
+                    disabled={report.status !== "COMPLETED"}
                   >
                     Download
                   </Button>
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => {/* Delete report */}}
+                    onClick={() => {
+                      /* Delete report */
+                    }}
                   >
                     Delete
                   </Button>
@@ -128,7 +146,9 @@ const ReportsManager = () => {
 
       {reports.length === 0 && (
         <Card className="p-8 text-center">
-          <p className="text-gray-600">No reports found. Generate your first report to get started.</p>
+          <p className="text-gray-600">
+            No reports found. Generate your first report to get started.
+          </p>
         </Card>
       )}
 
@@ -139,30 +159,43 @@ const ReportsManager = () => {
               <CardTitle>Generate Report</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                generateReport.mutate({
-                  type: formData.get('type'),
-                  startDate: formData.get('startDate'),
-                  endDate: formData.get('endDate'),
-                  name: formData.get('name'),
-                });
-              }} className="space-y-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  generateReport.mutate({
+                    type: formData.get("type"),
+                    startDate: formData.get("startDate"),
+                    endDate: formData.get("endDate"),
+                    name: formData.get("name"),
+                  });
+                }}
+                className="space-y-4"
+              >
                 <Input name="name" placeholder="Report Name" required />
-                <select name="type" className="w-full px-3 py-2 border rounded-md" required>
+                <select
+                  name="type"
+                  className="w-full px-3 py-2 border rounded-md"
+                  required
+                >
                   <option value="">Select Type...</option>
-                  {reportTypes.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
+                  {reportTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
                   ))}
                 </select>
                 <Input name="startDate" type="date" required />
                 <Input name="endDate" type="date" required />
                 <div className="flex gap-2">
                   <Button type="submit" disabled={generateReport.isPending}>
-                    {generateReport.isPending ? 'Generating...' : 'Generate'}
+                    {generateReport.isPending ? "Generating..." : "Generate"}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setShowGenerateModal(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowGenerateModal(false)}
+                  >
                     Cancel
                   </Button>
                 </div>
