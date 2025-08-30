@@ -3,386 +3,470 @@ import { useParams, useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
- useCreateDoctor,
- useUpdateDoctor,
- useGetDoctorById,
+  useCreateDoctor,
+  useUpdateDoctor,
+  useGetDoctorById,
 } from "../hooks/useDoctorQueries.js";
-import { useGetUserById, useUpdateUser } from "../hooks/useUserQueries.js";
+import {
+  useGetUserById,
+  useUpdateUser,
+  useDeleteUser,
+} from "../hooks/useUserQueries.js";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Label } from "./ui/label.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import { CreateDoctorFormSchema } from "../schema/doctors/create.js";
+import { UpdateDoctorFormSchema } from "../schema/doctors/update.js";
 import useUserStore from "../store/useUserStore.js";
+import { authService } from "../services/authService.js";
 
 const DoctorForm = () => {
- const { doctorId } = useParams();
- const navigate = useNavigate();
- const isEdit = !!doctorId;
- const [updateModal, setUpdateModal] = useState(false);
- const [formData, setFormData] = useState(null);
- const { userId } = useUserStore();
+  const { doctorId } = useParams();
+  const navigate = useNavigate();
+  const isEdit = !!doctorId;
+  const [updateModal, setUpdateModal] = useState(false);
+  const [formData, setFormData] = useState(null);
+  const { userId } = useUserStore();
 
- const {
- register,
- handleSubmit,
- formState: { errors, isSubmitting },
- setValue,
- } = useForm({
- resolver: zodResolver(CreateDoctorFormSchema),
- defaultValues: {
- name: "",
- email: "",
- phone: "",
- gender: "MALE",
- summary: "",
- about: "",
- imageUrl: "",
- experienceYears: 0,
- speciality: "",
- password: "",
- },
- });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setValue,
+  } = useForm({
+    resolver: zodResolver(
+      isEdit ? UpdateDoctorFormSchema : CreateDoctorFormSchema
+    ),
+    defaultValues: isEdit
+      ? {
+          name: "",
+          email: "",
+          phone: "",
+          gender: "MALE",
+          summary: "",
+          about: "",
+          imageUrl: "",
+          experienceYears: 0,
+          speciality: "",
+          // No password field for edit mode
+        }
+      : {
+          name: "",
+          email: "",
+          phone: "",
+          gender: "MALE",
+          summary: "",
+          about: "",
+          imageUrl: "",
+          experienceYears: 0,
+          speciality: "",
+          password: "",
+        },
+  });
 
- // Fetch doctor data if editing
- const {
- data: doctorData,
- isLoading,
- error: fetchError,
- } = useGetDoctorById(doctorId, { enabled: isEdit });
+  // Debug logging
+  console.log("DoctorForm rendered - isEdit:", isEdit, "doctorId:", doctorId);
+  console.log("Form errors:", errors);
+  console.log("Form isSubmitting:", isSubmitting);
+  console.log(
+    "Schema being used:",
+    isEdit ? "UpdateDoctorFormSchema" : "CreateDoctorFormSchema"
+  );
 
- // Fetch user data if we have a userId
- const {
- data: userData,
- isLoading: isLoadingUser,
- error: userError,
- } = useGetUserById(doctorData?.data?.userId, {
- enabled: isEdit && !!doctorData?.data?.userId,
- });
+  // Fetch doctor data if editing
+  const {
+    data: doctorData,
+    isLoading,
+    error: fetchError,
+  } = useGetDoctorById(doctorId, { enabled: isEdit });
 
- const createDoctorMutation = useCreateDoctor();
- const updateDoctorMutation = useUpdateDoctor();
- const updateUserMutation = useUpdateUser();
+  // Fetch user data if we have a userId
+  const {
+    data: userData,
+    isLoading: isLoadingUser,
+    error: userError,
+  } = useGetUserById(doctorData?.data?.userId, {
+    enabled: isEdit && !!doctorData?.data?.userId,
+  });
 
- // Populate form when editing
- useEffect(() => {
- if (isEdit && doctorData) {
- const doctor = doctorData.data;
- setValue("name", doctor.name || "");
- setValue("gender", doctor.gender || "MALE");
- setValue("summary", doctor.summary || "");
- setValue("about", doctor.about || "");
- setValue("imageUrl", doctor.imageUrl || "");
- setValue("experienceYears", doctor.experienceYears || 0);
- setValue("speciality", doctor.speciality || "");
+  const createDoctorMutation = useCreateDoctor();
+  const updateDoctorMutation = useUpdateDoctor();
+  const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
 
- // Set email and phone from user data if available
- if (userData?.data) {
- setValue("email", userData.data.email || "");
- setValue("phone", userData.data.phone || "");
- } else {
- // Fallback to doctor data if user data is not available
- setValue("email", doctor.email || "");
- setValue("phone", doctor.phone || "");
- }
- }
- }, [doctorData, userData, isEdit, setValue]);
+  // Populate form when editing
+  useEffect(() => {
+    if (isEdit && doctorData) {
+      const doctor = doctorData.data;
+      setValue("name", doctor.name || "");
+      setValue("gender", doctor.gender || "MALE");
+      setValue("summary", doctor.summary || "");
+      setValue("about", doctor.about || "");
+      setValue("imageUrl", doctor.imageUrl || "");
+      setValue("experienceYears", doctor.experienceYears || 0);
+      setValue("speciality", doctor.speciality || "");
 
- const onSubmit = async (data) => {
- // Add userId to the data for backend
- const submitData = {
- ...data,
- userId: userId,
- };
+      // Set email and phone from user data if available
+      if (userData?.data) {
+        setValue("email", userData.data.email || "");
+        setValue("phone", userData.data.phone || "");
+      } else {
+        // Fallback to doctor data if user data is not available
+        setValue("email", doctor.email || "");
+        setValue("phone", doctor.phone || "");
+      }
+    }
+  }, [doctorData, userData, isEdit, setValue]);
 
- // Remove password field if empty (for updates)
- if (isEdit && !submitData.password) {
- delete submitData.password;
- }
+  const onSubmit = async (data) => {
+    console.log("🚀 onSubmit called - Form submitted with data:", data);
+    console.log("🚀 isEdit:", isEdit, "errors:", errors);
 
- if (isEdit) {
- // Show confirmation modal for updates
- setFormData(submitData);
- setUpdateModal(true);
- } else {
- // Direct create for new doctors
- try {
- await createDoctorMutation.mutateAsync(submitData);
- navigate("/doctors");
- } catch (error) {
- console.error("Failed to create doctor:", error);
- }
- }
- };
+    // Add userId to the data for backend
+    const submitData = {
+      ...data,
+      userId: userId,
+    };
 
- const handleUpdateConfirm = async () => {
- if (formData && doctorId) {
- try {
- // Update doctor data
- await updateDoctorMutation.mutateAsync({
- id: doctorId,
- data: formData,
- });
+    // Remove password field if empty (for updates)
+    if (isEdit && !submitData.password) {
+      delete submitData.password;
+    }
 
- // If email or phone changed, also update user data
- const doctor = doctorData.data;
- const user = userData?.data;
+    console.log("🚀 Submit data:", submitData);
 
- if (
- user &&
- (formData.email !== user.email || formData.phone !== user.phone)
- ) {
- await updateUserMutation.mutateAsync({
- userId: doctor.userId,
- userData: {
- email: formData.email,
- phone: formData.phone,
- },
- });
- }
+    if (isEdit) {
+      // Show confirmation modal for updates
+      setFormData(submitData);
+      setUpdateModal(true);
+    } else {
+      // Direct create for new doctors
+      try {
+        await createDoctorMutation.mutateAsync(submitData);
+        navigate("/doctors");
+      } catch (error) {
+        console.error("Failed to create doctor:", error);
+      }
+    }
+  };
 
- navigate("/doctors");
- } catch (error) {
- console.error("Failed to update doctor:", error);
- } finally {
- setUpdateModal(false);
- }
- }
- };
+  const handleUpdateConfirm = async () => {
+    console.log("Update confirmed with formData:", formData);
+    console.log("Doctor ID:", doctorId);
 
- if (isEdit && isLoading) {
- return (
- <div className="flex justify-center items-center p-8">
- <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
- <span className="ml-2">Loading doctor data...</span>
- </div>
- );
- }
+    if (formData && doctorId) {
+      try {
+        console.log("Starting doctor update...");
 
- if (isEdit && fetchError) {
- return (
- <div className="p-6">
- <Card className="p-6 bg-red-50 border-red-200">
- <h3 className="text-lg font-semibold text-red-800 mb-2">
- Error Loading Doctor
- </h3>
- <p className="text-red-600 mb-4">{fetchError.message}</p>
- <Button onClick={() => navigate("/doctors")} variant="outline">
- Back to Doctors List
- </Button>
- </Card>
- </div>
- );
- }
+        // Update doctor data
+        await updateDoctorMutation.mutateAsync({
+          id: doctorId,
+          data: formData,
+        });
 
- return (
- <div className="p-6 max-w-2xl mx-auto">
- <Card>
- <CardHeader>
- <CardTitle>{isEdit ? "Edit Doctor" : "Add New Doctor"}</CardTitle>
- </CardHeader>
- <CardContent>
- <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
- <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
- <div>
- <Label htmlFor="name">Name *</Label>
- <Input
- id="name"
- {...register("name")}
- placeholder="Doctor's full name"
- />
- {errors.name && (
- <p className="text-sm text-red-600 mt-1">
- {errors.name.message}
- </p>
- )}
- </div>
+        console.log("Doctor updated successfully");
 
- <div>
- <Label htmlFor="email">Email *</Label>
- <Input
- id="email"
- type="email"
- {...register("email")}
- placeholder="doctor@example.com"
- />
- {errors.email && (
- <p className="text-sm text-red-600 mt-1">
- {errors.email.message}
- </p>
- )}
- </div>
+        // Synchronize user data if any relevant fields changed
+        const doctor = doctorData.data;
+        const user = userData?.data;
 
- <div>
- <Label htmlFor="phone">Phone *</Label>
- <Input
- id="phone"
- {...register("phone")}
- placeholder="Phone number"
- />
- {errors.phone && (
- <p className="text-sm text-red-600 mt-1">
- {errors.phone.message}
- </p>
- )}
- </div>
+        console.log("Doctor data:", doctor);
+        console.log("User data:", user);
 
- <div>
- <Label htmlFor="gender">Gender *</Label>
- <select
- id="gender"
- {...register("gender")}
- className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
- >
- <option value="MALE">Male</option>
- <option value="FEMALE">Female</option>
- <option value="OTHER">Other</option>
- </select>
- {errors.gender && (
- <p className="text-sm text-red-600 mt-1">
- {errors.gender.message}
- </p>
- )}
- </div>
+        if (user) {
+          // Check if any user-relevant fields have changed
+          const fieldsToUpdate = {};
+          let hasChanges = false;
 
- <div>
- <Label htmlFor="speciality">Speciality *</Label>
- <Input
- id="speciality"
- {...register("speciality")}
- placeholder="e.g., Cardiology"
- />
- {errors.speciality && (
- <p className="text-sm text-red-600 mt-1">
- {errors.speciality.message}
- </p>
- )}
- </div>
+          if (formData.name !== user.name) {
+            fieldsToUpdate.name = formData.name;
+            hasChanges = true;
+          }
+          if (formData.email !== user.email) {
+            fieldsToUpdate.email = formData.email;
+            hasChanges = true;
+          }
+          if (formData.phone !== user.phone) {
+            fieldsToUpdate.phone = formData.phone;
+            hasChanges = true;
+          }
 
- <div>
- <Label htmlFor="experienceYears">Experience (Years) *</Label>
- <Input
- id="experienceYears"
- type="number"
- min="0"
- {...register("experienceYears", { valueAsNumber: true })}
- placeholder="Years of experience"
- />
- {errors.experienceYears && (
- <p className="text-sm text-red-600 mt-1">
- {errors.experienceYears.message}
- </p>
- )}
- </div>
- </div>
+          if (hasChanges) {
+            console.log("Updating user data with fields:", fieldsToUpdate);
+            console.log("Current logged-in user ID:", userId);
+            console.log("Doctor's user ID:", doctor.userId);
+            console.log("Current user role:", useUserStore.getState().role);
 
- <div>
- <Label htmlFor="imageUrl">Profile Image URL</Label>
- <Input
- id="imageUrl"
- {...register("imageUrl")}
- placeholder="https://example.com/image.jpg"
- />
- {errors.imageUrl && (
- <p className="text-sm text-red-600 mt-1">
- {errors.imageUrl.message}
- </p>
- )}
- </div>
+            await updateUserMutation.mutateAsync({
+              userId: doctor.userId,
+              userData: fieldsToUpdate,
+            });
+            console.log("User updated successfully");
 
- {!isEdit && (
- <div>
- <Label htmlFor="password">Password *</Label>
- <Input
- id="password"
- type="password"
- {...register("password")}
- placeholder="Initial password"
- />
- {errors.password && (
- <p className="text-sm text-red-600 mt-1">
- {errors.password.message}
- </p>
- )}
- </div>
- )}
+            // If email changed, also update auth service
+            if (fieldsToUpdate.email) {
+              console.log("Email changed, updating auth service...");
+              try {
+                await authService.updateUserInAuth(doctor.userId, {
+                  email: fieldsToUpdate.email,
+                });
+                console.log("Auth service updated successfully");
+              } catch (authError) {
+                console.error("Failed to update auth service:", authError);
+                // Continue even if auth update fails
+              }
+            }
+          } else {
+            console.log("No user data changes detected");
+          }
+        }
 
- <div>
- <Label htmlFor="summary">Summary</Label>
- <Input
- id="summary"
- {...register("summary")}
- placeholder="Brief summary"
- />
- {errors.summary && (
- <p className="text-sm text-red-600 mt-1">
- {errors.summary.message}
- </p>
- )}
- </div>
+        navigate("/doctors");
+      } catch (error) {
+        console.error("Failed to update doctor:", error);
+      } finally {
+        setUpdateModal(false);
+      }
+    }
+  };
 
- <div>
- <Label htmlFor="about">About</Label>
- <textarea
- id="about"
- {...register("about")}
- placeholder="Detailed information about the doctor"
- className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
- rows={4}
- />
- {errors.about && (
- <p className="text-sm text-red-600 mt-1">
- {errors.about.message}
- </p>
- )}
- </div>
+  if (isEdit && isLoading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Loading doctor data...</span>
+      </div>
+    );
+  }
 
- <div className="flex gap-2 pt-4">
- <Button
- type="submit"
- disabled={
- isSubmitting ||
- createDoctorMutation.isPending ||
- updateDoctorMutation.isPending
- }
- className="flex-1"
- >
- {isSubmitting ||
- createDoctorMutation.isPending ||
- updateDoctorMutation.isPending
- ? isEdit
- ? "Updating..."
- : "Creating..."
- : isEdit
- ? "Update Doctor"
- : "Create Doctor"}
- </Button>
- <Button
- type="button"
- variant="outline"
- onClick={() => navigate("/doctors")}
- >
- Cancel
- </Button>
- </div>
- </form>
- </CardContent>
- </Card>
+  if (isEdit && fetchError) {
+    return (
+      <div className="p-6">
+        <Card className="p-6 bg-red-50 border-red-200">
+          <h3 className="text-lg font-semibold text-red-800 mb-2">
+            Error Loading Doctor
+          </h3>
+          <p className="text-red-600 mb-4">{fetchError.message}</p>
+          <Button onClick={() => navigate("/doctors")} variant="outline">
+            Back to Doctors List
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
- {/* Update Confirmation Modal */}
- <ConfirmModal
- open={updateModal}
- onOpenChange={setUpdateModal}
- title="Update Doctor"
- description={`Are you sure you want to update ${formData?.name}'s information? This will modify their profile data.`}
- confirmText="Update"
- cancelText="Cancel"
- variant="default"
- onConfirm={handleUpdateConfirm}
- />
- </div>
- );
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <Card>
+        <CardHeader>
+          <CardTitle>{isEdit ? "Edit Doctor" : "Add New Doctor"}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Name *</Label>
+                <Input
+                  id="name"
+                  {...register("name")}
+                  placeholder="Doctor's full name"
+                />
+                {errors.name && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...register("email")}
+                  placeholder="doctor@example.com"
+                />
+                {errors.email && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="phone">Phone *</Label>
+                <Input
+                  id="phone"
+                  {...register("phone")}
+                  placeholder="Phone number"
+                />
+                {errors.phone && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.phone.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="gender">Gender *</Label>
+                <select
+                  id="gender"
+                  {...register("gender")}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
+                </select>
+                {errors.gender && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.gender.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="speciality">Speciality *</Label>
+                <Input
+                  id="speciality"
+                  {...register("speciality")}
+                  placeholder="e.g., Cardiology"
+                />
+                {errors.speciality && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.speciality.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="experienceYears">Experience (Years) *</Label>
+                <Input
+                  id="experienceYears"
+                  type="number"
+                  min="0"
+                  {...register("experienceYears", { valueAsNumber: true })}
+                  placeholder="Years of experience"
+                />
+                {errors.experienceYears && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.experienceYears.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="imageUrl">Profile Image URL</Label>
+              <Input
+                id="imageUrl"
+                {...register("imageUrl")}
+                placeholder="https://example.com/image.jpg"
+              />
+              {errors.imageUrl && (
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.imageUrl.message}
+                </p>
+              )}
+            </div>
+
+            {!isEdit && (
+              <div>
+                <Label htmlFor="password">Password *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  {...register("password")}
+                  placeholder="Initial password"
+                />
+                {errors.password && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="summary">Summary</Label>
+              <Input
+                id="summary"
+                {...register("summary")}
+                placeholder="Brief summary"
+              />
+              {errors.summary && (
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.summary.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="about">About</Label>
+              <textarea
+                id="about"
+                {...register("about")}
+                placeholder="Detailed information about the doctor"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                rows={4}
+              />
+              {errors.about && (
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.about.message}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  createDoctorMutation.isPending ||
+                  updateDoctorMutation.isPending
+                }
+                className="flex-1"
+                onClick={() =>
+                  console.log("Update button clicked - isEdit:", isEdit)
+                }
+              >
+                {isSubmitting ||
+                createDoctorMutation.isPending ||
+                updateDoctorMutation.isPending
+                  ? isEdit
+                    ? "Updating..."
+                    : "Creating..."
+                  : isEdit
+                  ? "Update Doctor"
+                  : "Create Doctor"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate("/doctors")}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Update Confirmation Modal */}
+      <ConfirmModal
+        open={updateModal}
+        onOpenChange={setUpdateModal}
+        title="Update Doctor"
+        description={`Are you sure you want to update ${formData?.name}'s information? This will modify their profile data.`}
+        confirmText="Update"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleUpdateConfirm}
+      />
+    </div>
+  );
 };
 
 export default DoctorForm;
