@@ -34,9 +34,10 @@ const sessionTypeSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
-const SessionTypeForm = ({ mode = "create", onSuccess }) => {
+const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id: routeId } = useParams();
+  const id = sessionTypeId || routeId;
 
   const form = useForm({
     resolver: zodResolver(sessionTypeSchema),

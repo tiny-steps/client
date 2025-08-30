@@ -470,6 +470,7 @@ const SessionTypesPage = () => {
             <CardContent>
               <SessionTypeForm
                 mode={editingSessionType ? "edit" : "create"}
+                sessionTypeId={editingSessionType?.id}
                 onSuccess={() => {
                   setShowSessionTypeForm(false);
                   setEditingSessionType(null);

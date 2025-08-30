@@ -363,7 +363,7 @@ const TimingManager = () => {
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             if (
-                                              confirm(
+                                              window.confirm(
                                                 `Are you sure you want to delete this time slot (${duration.startTime} - ${duration.endTime})?`
                                               )
                                             ) {
