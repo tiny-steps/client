@@ -4,9 +4,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
- useCreateSession,
- useUpdateSession,
- useGetSessionById,
+  useCreateSession,
+  useUpdateSession,
+  useGetSessionById,
 } from "../../hooks/useSessionQueries.js";
 import { useGetAllSessionTypes } from "../../hooks/useSessionQueries.js";
 import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
@@ -14,225 +14,225 @@ import { Card, CardHeader, CardTitle, CardContent } from "../ui/card.jsx";
 import { Button } from "../ui/button.jsx";
 import { Input } from "../ui/input.jsx";
 import {
- Form,
- FormControl,
- FormField,
- FormItem,
- FormLabel,
- FormMessage,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from "../ui/form.jsx";
 
 const sessionSchema = z.object({
- doctorId: z.string().min(1, "Doctor is required"),
- sessionType: z.object({
- id: z.string().min(1, "Session type is required"),
- }),
- price: z.number().min(0, "Price must be non-negative"),
- isActive: z.boolean().default(true),
+  doctorId: z.string().min(1, "Doctor is required"),
+  sessionType: z.object({
+    id: z.string().min(1, "Session type is required"),
+  }),
+  price: z.number().min(0, "Price must be non-negative"),
+  isActive: z.boolean().default(true),
 });
 
 const SessionForm = ({ mode = "create" }) => {
- // Determine if we're in edit mode based on URL params
- const { id } = useParams();
- const isEditMode = mode === "edit" || !!id;
- const navigate = useNavigate();
+  // Determine if we're in edit mode based on URL params
+  const { id } = useParams();
+  const isEditMode = mode === "edit" || !!id;
+  const navigate = useNavigate();
 
- const form = useForm({
- resolver: zodResolver(sessionSchema),
- defaultValues: {
- doctorId: "",
- sessionType: { id: "" },
- price: 0,
- isActive: true,
- },
- });
+  const form = useForm({
+    resolver: zodResolver(sessionSchema),
+    defaultValues: {
+      doctorId: "",
+      sessionType: { id: "" },
+      price: 0,
+      isActive: true,
+    },
+  });
 
- const createSession = useCreateSession();
- const updateSession = useUpdateSession();
- const { data: existingSession, isLoading } = useGetSessionById(
- isEditMode ? id : null
- );
- const { data: sessionTypesData } = useGetAllSessionTypes({ size: 100 });
- const { data: doctorsData } = useGetAllDoctors({ size: 100 });
+  const createSession = useCreateSession();
+  const updateSession = useUpdateSession();
+  const { data: existingSession, isLoading } = useGetSessionById(
+    isEditMode ? id : null
+  );
+  const { data: sessionTypesData } = useGetAllSessionTypes({ size: 100 });
+  const { data: doctorsData } = useGetAllDoctors({ size: 100 });
 
- // Ensure we have valid data structures
- // Load existing data for edit mode
- useEffect(() => {
- if (isEditMode && existingSession) {
- form.reset({
- doctorId: existingSession.doctorId || "",
- sessionType: { id: existingSession.sessionType?.id || "" },
- price: existingSession.price || 0,
- isActive:
- existingSession.isActive !== undefined
- ? existingSession.isActive
- : true,
- });
- }
- }, [existingSession, form, isEditMode]);
+  // Ensure we have valid data structures
+  // Load existing data for edit mode
+  useEffect(() => {
+    if (isEditMode && existingSession) {
+      form.reset({
+        doctorId: existingSession.doctorId || "",
+        sessionType: { id: existingSession.sessionType?.id || "" },
+        price: existingSession.price || 0,
+        isActive:
+          existingSession.isActive !== undefined
+            ? existingSession.isActive
+            : true,
+      });
+    }
+  }, [existingSession, form, isEditMode]);
 
- const onSubmit = async (data) => {
- try {
- if (isEditMode) {
- await updateSession.mutateAsync({ id, sessionData: data });
- } else {
- await createSession.mutateAsync(data);
- }
- navigate("/sessions");
- } catch (error) {
- console.error("Failed to save session:", error);
- }
- };
+  const onSubmit = async (data) => {
+    try {
+      if (isEditMode) {
+        await updateSession.mutateAsync({ id, sessionData: data });
+      } else {
+        await createSession.mutateAsync(data);
+      }
+      navigate("/sessions");
+    } catch (error) {
+      console.error("Failed to save session:", error);
+    }
+  };
 
- if (isEditMode && isLoading) {
- return (
- <div className="flex justify-center items-center p-8">
- <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
- </div>
- );
- }
+  if (isEditMode && isLoading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
- // Ensure we have valid data structures
- const sessionTypes =
- sessionTypesData?.content || sessionTypesData?.data?.content || [];
- const doctors = doctorsData?.content || doctorsData?.data?.content || [];
+  // Ensure we have valid data structures
+  const sessionTypes =
+    sessionTypesData?.content || sessionTypesData?.data?.content || [];
+  const doctors = doctorsData?.content || doctorsData?.data?.content || [];
 
- return (
- <div className="p-6 max-w-2xl mx-auto">
- <Card>
- <CardHeader>
- <CardTitle>
- {isEditMode
- ? "Edit Session Offering"
- : "Create New Session Offering"}
- </CardTitle>
- </CardHeader>
- <CardContent>
- <Form {...form}>
- <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
- <FormField
- control={form.control}
- name="doctorId"
- render={({ field }) => (
- <FormItem>
- <FormLabel>Doctor *</FormLabel>
- <FormControl>
- <select
- {...field}
- className="w-full px-3 py-2 border rounded-md"
- >
- <option value="">Select a doctor...</option>
- {doctors.map((doctor) => (
- <option key={doctor.id} value={doctor.id}>
- {doctor.name} - {doctor.speciality}
- </option>
- ))}
- </select>
- </FormControl>
- <FormMessage />
- </FormItem>
- )}
- />
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {isEditMode
+              ? "Edit Session Offering"
+              : "Create New Session Offering"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="doctorId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Doctor *</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="w-full px-3 py-2 border rounded-md"
+                      >
+                        <option value="">Select a doctor...</option>
+                        {doctors.map((doctor) => (
+                          <option key={doctor.id} value={doctor.id}>
+                            {doctor.name} - {doctor.speciality}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
- <FormField
- control={form.control}
- name="sessionType.id"
- render={({ field }) => (
- <FormItem>
- <FormLabel>Session Type *</FormLabel>
- <FormControl>
- <select
- value={field.value}
- onChange={(e) => field.onChange(e.target.value)}
- className="w-full px-3 py-2 border rounded-md"
- >
- <option value="">Select a session type...</option>
- {sessionTypes.map((sessionType) => (
- <option key={sessionType.id} value={sessionType.id}>
- {sessionType.name} (
- {sessionType.defaultDurationMinutes} min)
- </option>
- ))}
- </select>
- </FormControl>
- <FormMessage />
- </FormItem>
- )}
- />
+              <FormField
+                control={form.control}
+                name="sessionType.id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Session Type *</FormLabel>
+                    <FormControl>
+                      <select
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md"
+                      >
+                        <option value="">Select a session type...</option>
+                        {sessionTypes.map((sessionType) => (
+                          <option key={sessionType.id} value={sessionType.id}>
+                            {sessionType.name} (
+                            {sessionType.defaultDurationMinutes} min)
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
- <FormField
- control={form.control}
- name="price"
- render={({ field }) => (
- <FormItem>
- <FormLabel>Price *</FormLabel>
- <FormControl>
- <Input
- type="number"
- min="0"
- step="0.01"
- placeholder="0.00"
- {...field}
- onChange={(e) =>
- field.onChange(parseFloat(e.target.value) || 0)
- }
- />
- </FormControl>
- <FormMessage />
- </FormItem>
- )}
- />
+              <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseFloat(e.target.value) || 0)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
- <FormField
- control={form.control}
- name="isActive"
- render={({ field }) => (
- <FormItem className="flex flex-row items-start space-x-3 space-y-0">
- <FormControl>
- <input
- type="checkbox"
- checked={field.value}
- onChange={field.onChange}
- className="mt-1"
- />
- </FormControl>
- <div className="space-y-1 leading-none">
- <FormLabel>Active</FormLabel>
- <p className="text-sm text-gray-500">
- Check if this session offering is currently available
- </p>
- </div>
- </FormItem>
- )}
- />
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="mt-1"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Active</FormLabel>
+                      <p className="text-sm text-gray-500">
+                        Check if this session offering is currently available
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
 
- <div className="flex gap-4">
- <Button
- type="submit"
- disabled={createSession.isPending || updateSession.isPending}
- className="flex-1"
- >
- {createSession.isPending || updateSession.isPending
- ? "Saving..."
- : isEditMode
- ? "Update Session Offering"
- : "Create Session Offering"}
- </Button>
- <Button
- type="button"
- variant="outline"
- onClick={() => navigate("/sessions")}
- className="flex-1"
- >
- Cancel
- </Button>
- </div>
- </form>
- </Form>
- </CardContent>
- </Card>
- </div>
- );
+              <div className="flex gap-4">
+                <Button
+                  type="submit"
+                  disabled={createSession.isPending || updateSession.isPending}
+                  className="flex-1"
+                >
+                  {createSession.isPending || updateSession.isPending
+                    ? "Saving..."
+                    : isEditMode
+                    ? "Update Session Offering"
+                    : "Create Session Offering"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate("/sessions")}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
+  );
 };
 
 export default SessionForm;

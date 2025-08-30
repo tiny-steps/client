@@ -137,3 +137,16 @@ export const useDeleteEnrichedPatient = () => {
  },
  });
 };
+
+export const useUpdatePatientEmail = () => {
+ const queryClient = useQueryClient();
+ return useMutation({
+ mutationFn: ({ id, newEmail }) => patientService.updatePatientEmail(id, newEmail),
+ onSuccess: (data, { id }) => {
+ queryClient.invalidateQueries({
+ queryKey: enrichedPatientKeys.detail(id),
+ });
+ queryClient.invalidateQueries({ queryKey: enrichedPatientKeys.lists() });
+ },
+ });
+};

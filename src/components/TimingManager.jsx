@@ -193,7 +193,7 @@ const TimingManager = () => {
                     startTime: formData.get("startTime"),
                     endTime: formData.get("endTime"),
                     description: formData.get("description"),
-                    emergency: formData.get("emergency") === "on",
+                    isEmergencySlot: formData.get("emergency") === "on",
                   };
                   updateDurationMutation.mutate({
                     doctorId: selectedDoctor,

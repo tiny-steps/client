@@ -7,11 +7,7 @@ import {
   useUpdateDoctor,
   useGetDoctorById,
 } from "../hooks/useDoctorQueries.js";
-import {
-  useGetUserById,
-  useUpdateUser,
-  useDeleteUser,
-} from "../hooks/useUserQueries.js";
+import { useDeleteUser } from "../hooks/useUserQueries.js";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
@@ -36,14 +32,13 @@ const DoctorForm = () => {
     formState: { errors, isSubmitting },
     setValue,
   } = useForm({
-    resolver: zodResolver(
-      isEdit ? UpdateDoctorFormSchema : CreateDoctorFormSchema
-    ),
+    resolver: isEdit
+      ? zodResolver(UpdateDoctorFormSchema)
+      : zodResolver(CreateDoctorFormSchema),
+    mode: "onBlur",
     defaultValues: isEdit
       ? {
           name: "",
-          email: "",
-          phone: "",
           gender: "MALE",
           summary: "",
           about: "",
@@ -82,18 +77,8 @@ const DoctorForm = () => {
     error: fetchError,
   } = useGetDoctorById(doctorId, { enabled: isEdit });
 
-  // Fetch user data if we have a userId
-  const {
-    data: userData,
-    isLoading: isLoadingUser,
-    error: userError,
-  } = useGetUserById(doctorData?.data?.userId, {
-    enabled: isEdit && !!doctorData?.data?.userId,
-  });
-
   const createDoctorMutation = useCreateDoctor();
   const updateDoctorMutation = useUpdateDoctor();
-  const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
 
   // Populate form when editing
@@ -108,21 +93,19 @@ const DoctorForm = () => {
       setValue("experienceYears", doctor.experienceYears || 0);
       setValue("speciality", doctor.speciality || "");
 
-      // Set email and phone from user data if available
-      if (userData?.data) {
-        setValue("email", userData.data.email || "");
-        setValue("phone", userData.data.phone || "");
-      } else {
-        // Fallback to doctor data if user data is not available
-        setValue("email", doctor.email || "");
-        setValue("phone", doctor.phone || "");
-      }
+      // Note: Email and phone are not stored in doctor entity, so we don't set them in edit mode
+      // The doctor service will handle user updates internally
     }
-  }, [doctorData, userData, isEdit, setValue]);
+  }, [doctorData, isEdit, setValue]);
 
   const onSubmit = async (data) => {
     console.log("🚀 onSubmit called - Form submitted with data:", data);
     console.log("🚀 isEdit:", isEdit, "errors:", errors);
+    console.log(
+      "🚀 Schema being used:",
+      isEdit ? "UpdateDoctorFormSchema" : "CreateDoctorFormSchema"
+    );
+    console.log("🚀 Form data keys:", Object.keys(data));
 
     // Add userId to the data for backend
     const submitData = {
@@ -133,6 +116,13 @@ const DoctorForm = () => {
     // Remove password field if empty (for updates)
     if (isEdit && !submitData.password) {
       delete submitData.password;
+    }
+
+    // Remove email and phone fields in edit mode since they're not part of doctor entity
+    // In create mode, these fields are needed for user registration
+    if (isEdit) {
+      delete submitData.email;
+      delete submitData.phone;
     }
 
     console.log("🚀 Submit data:", submitData);
@@ -168,60 +158,10 @@ const DoctorForm = () => {
 
         console.log("Doctor updated successfully");
 
-        // Synchronize user data if any relevant fields changed
-        const doctor = doctorData.data;
-        const user = userData?.data;
-
-        console.log("Doctor data:", doctor);
-        console.log("User data:", user);
-
-        if (user) {
-          // Check if any user-relevant fields have changed
-          const fieldsToUpdate = {};
-          let hasChanges = false;
-
-          if (formData.name !== user.name) {
-            fieldsToUpdate.name = formData.name;
-            hasChanges = true;
-          }
-          if (formData.email !== user.email) {
-            fieldsToUpdate.email = formData.email;
-            hasChanges = true;
-          }
-          if (formData.phone !== user.phone) {
-            fieldsToUpdate.phone = formData.phone;
-            hasChanges = true;
-          }
-
-          if (hasChanges) {
-            console.log("Updating user data with fields:", fieldsToUpdate);
-            console.log("Current logged-in user ID:", userId);
-            console.log("Doctor's user ID:", doctor.userId);
-            console.log("Current user role:", useUserStore.getState().role);
-
-            await updateUserMutation.mutateAsync({
-              userId: doctor.userId,
-              userData: fieldsToUpdate,
-            });
-            console.log("User updated successfully");
-
-            // If email changed, also update auth service
-            if (fieldsToUpdate.email) {
-              console.log("Email changed, updating auth service...");
-              try {
-                await authService.updateUserInAuth(doctor.userId, {
-                  email: fieldsToUpdate.email,
-                });
-                console.log("Auth service updated successfully");
-              } catch (authError) {
-                console.error("Failed to update auth service:", authError);
-                // Continue even if auth update fails
-              }
-            }
-          } else {
-            console.log("No user data changes detected");
-          }
-        }
+        // User updates are now handled internally by the doctor service
+        console.log(
+          "Doctor updated successfully - user updates handled by doctor service"
+        );
 
         navigate("/doctors");
       } catch (error) {
@@ -280,34 +220,38 @@ const DoctorForm = () => {
                 )}
               </div>
 
-              <div>
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register("email")}
-                  placeholder="doctor@example.com"
-                />
-                {errors.email && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
+              {!isEdit && (
+                <div>
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register("email")}
+                    placeholder="doctor@example.com"
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {errors.email.message}
+                    </p>
+                  )}
+                </div>
+              )}
 
-              <div>
-                <Label htmlFor="phone">Phone *</Label>
-                <Input
-                  id="phone"
-                  {...register("phone")}
-                  placeholder="Phone number"
-                />
-                {errors.phone && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {errors.phone.message}
-                  </p>
-                )}
-              </div>
+              {!isEdit && (
+                <div>
+                  <Label htmlFor="phone">Phone *</Label>
+                  <Input
+                    id="phone"
+                    {...register("phone")}
+                    placeholder="Phone number"
+                  />
+                  {errors.phone && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {errors.phone.message}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="gender">Gender *</Label>

@@ -8,16 +8,6 @@ export const UpdateDoctorSchema = z.object({
     .min(1, "Doctor name is required")
     .max(200, "Doctor name must not exceed 200 characters")
     .optional(),
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Email should be valid")
-    .optional(),
-  phone: z
-    .string()
-    .min(1, "Phone is required")
-    .max(20, "Phone must not exceed 20 characters")
-    .optional(),
   slug: z
     .string()
     .max(200, "Slug must not exceed 200 characters")
@@ -72,16 +62,6 @@ export const PartialUpdateDoctorSchema = z
       .string()
       .min(1, "Doctor name is required")
       .max(200, "Doctor name must not exceed 200 characters")
-      .optional(),
-    email: z
-      .string()
-      .min(1, "Email is required")
-      .email("Email should be valid")
-      .optional(),
-    phone: z
-      .string()
-      .min(1, "Phone is required")
-      .max(20, "Phone must not exceed 20 characters")
       .optional(),
     slug: z
       .string()
@@ -139,11 +119,6 @@ export const UpdateDoctorFormSchema = z.object({
     .string()
     .min(1, "Doctor name is required")
     .max(200, "Doctor name must not exceed 200 characters"),
-  email: z.string().min(1, "Email is required").email("Email should be valid"),
-  phone: z
-    .string()
-    .min(1, "Phone is required")
-    .max(20, "Phone must not exceed 20 characters"),
   gender: z.enum(["MALE", "FEMALE", "OTHER"], {
     required_error: "Gender is required",
   }),
