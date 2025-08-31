@@ -48,14 +48,18 @@ export const useDashboardData = () => {
   // Get the status change mutation
   const changeStatusMutation = useChangeAppointmentStatus();
 
-  // Process appointments data
+  // Process appointments data - exclude cancelled appointments
   const allAppointments = appointmentsData?.data?.content || [];
   const upcomingAppointments = allAppointments.filter(
-    (apt) => apt.status === "SCHEDULED" || apt.status === "CHECKED_IN"
+    (apt) => apt.status === "SCHEDULED"
+  );
+  // Only count non-cancelled appointments for totals
+  const activeAppointments = allAppointments.filter(
+    (apt) => apt.status?.toUpperCase() !== "CANCELLED"
   );
 
   const appointments = {
-    total: appointmentsData?.data?.totalElements || 0,
+    total: activeAppointments.length || 0, // Only count active appointments
     completed:
       allAppointments.filter((apt) => apt.status === "COMPLETED").length || 0,
     upcoming:
@@ -63,7 +67,7 @@ export const useDashboardData = () => {
         id: apt.id,
         patientName: apt.patientName || "Unknown Patient",
         time: apt.startTime,
-        status: apt.status?.toLowerCase() || "scheduled",
+        status: apt.status || "scheduled",
         doctorName: apt.doctorName || "Unknown Doctor",
         date: apt.appointmentDate,
       })) || [],
@@ -79,7 +83,7 @@ export const useDashboardData = () => {
       doctorsData?.data?.content?.map((doc) => ({
         id: doc.id,
         name: doc.name,
-        status: doc.status?.toLowerCase() || "pending",
+        status: doc.status || "pending",
         speciality: doc.speciality || "General",
         experienceYears: doc.experienceYears || 0,
         slots: doc.slots || ["9:00 AM", "11:00 AM", "2:00 PM"], // Default slots if not provided

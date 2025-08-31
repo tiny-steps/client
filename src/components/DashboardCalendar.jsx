@@ -1,18 +1,16 @@
-import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import AppointmentDetailsModal from "./AppointmentDetailsModal.jsx";
+import { useState, useEffect } from "react";
+import AppointmentActions from "./AppointmentActions.jsx";
 
 const DashboardCalendar = ({
   appointments = [],
   availabilities = [],
   doctors = [],
   patients = [],
-  onAppointmentClick,
-  onTimeSlotClick,
+  onAppointmentClick = () => {},
+  onTimeSlotClick = () => {},
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
   // Helper function to format date as YYYY-MM-DD using local timezone
   const formatLocalDate = (date) => {
@@ -78,9 +76,11 @@ const DashboardCalendar = ({
     setCurrentDate(nextDate);
   };
 
-  // Get appointments for current date
+  // Get appointments for current date, excluding cancelled appointments
   const dayAppointments = appointments.filter(
-    (a) => a.appointmentDate === formatLocalDate(currentDate)
+    (a) =>
+      a.appointmentDate === formatLocalDate(currentDate) &&
+      a.status?.toUpperCase() !== "CANCELLED"
   );
 
   // Get availability for current date
@@ -266,12 +266,7 @@ const DashboardCalendar = ({
               return (
                 <div
                   key={time}
-                  className="flex items-center p-3 bg-red-50 border border-red-200 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
-                  onClick={() => {
-                    setSelectedAppointment(appointment);
-                    setShowAppointmentModal(true);
-                    onAppointmentClick?.(appointment);
-                  }}
+                  className="flex items-center p-3 bg-red-50 border border-red-200 rounded-lg transition-colors"
                 >
                   <div className="w-16 text-sm font-medium text-gray-900 ">
                     {time}
@@ -291,6 +286,16 @@ const DashboardCalendar = ({
                         Session ID: {appointment.sessionTypeId}
                       </div>
                     )}
+                    <div className="mt-2">
+                      <AppointmentActions
+                        appointment={appointment}
+                        onView={onAppointmentClick}
+                        size="sm"
+                        className="justify-start"
+                        patients={patients}
+                        doctors={doctors}
+                      />
+                    </div>
                   </div>
                 </div>
               );
@@ -335,19 +340,6 @@ const DashboardCalendar = ({
           </div>
         </div>
       )}
-
-      {/* Appointment Details Modal */}
-      <AppointmentDetailsModal
-        appointment={selectedAppointment}
-        isOpen={showAppointmentModal}
-        onClose={() => {
-          setShowAppointmentModal(false);
-          setSelectedAppointment(null);
-        }}
-        onStatusChange={onAppointmentClick}
-        patients={patients}
-        doctors={doctors}
-      />
     </div>
   );
 };

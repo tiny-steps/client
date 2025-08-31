@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   CheckCircle,
@@ -32,34 +33,6 @@ const AppointmentDetailsModal = ({
   const patient = patients.find((p) => p.id === appointment.patientId);
   const doctor = doctors.find((d) => d.id === appointment.doctorId);
 
-  const patientName = patient
-    ? `${patient.firstName || ""} ${patient.lastName || ""}`.trim()
-    : appointment.patientName || "Unknown Patient";
-
-  const doctorName = doctor
-    ? `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim()
-    : appointment.doctorName || "Unknown Doctor";
-
-  const getStatusColor = (status) => {
-    const colors = {
-      SCHEDULED: "bg-blue-100 text-blue-800 border-blue-200",
-      CHECKED_IN: "bg-green-100 text-green-800 border-green-200",
-      CANCELLED: "bg-red-100 text-red-800 border-red-200",
-      COMPLETED: "bg-gray-100 text-gray-800 border-gray-200",
-    };
-    return colors[status] || "bg-gray-100 text-gray-800";
-  };
-
-  const getStatusText = (status) => {
-    const statusMap = {
-      SCHEDULED: "Scheduled",
-      CHECKED_IN: "Checked In",
-      CANCELLED: "Cancelled",
-      COMPLETED: "Completed",
-    };
-    return statusMap[status] || status;
-  };
-
   const handleAction = async (action) => {
     try {
       let statusData = {
@@ -77,11 +50,7 @@ const AppointmentDetailsModal = ({
           statusData.status = "COMPLETED";
           statusData.reason = "Appointment completed successfully";
           break;
-        case "cancel":
-          statusData.status = "CANCELLED";
-          statusData.reason = "Appointment cancelled by doctor";
-          statusData.cancellationType = "CANCELLED_BY_DOCTOR";
-          break;
+
         default:
           return;
       }
@@ -115,96 +84,82 @@ const AppointmentDetailsModal = ({
 
   return (
     <>
-      {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Appointment Details</h3>
-              <button
-                onClick={onClose}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Status Badge */}
-              <div className="flex justify-center">
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
-                    appointment.status
-                  )}`}
+      {isOpen &&
+        createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Appointment Details</h2>
+                <button
+                  onClick={onClose}
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  {getStatusText(appointment.status)}
-                </span>
+                  <X size={24} />
+                </button>
               </div>
 
-              {/* Patient Info */}
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <User className="w-5 h-5 text-blue-600" />
-                <div>
-                  <div className="font-medium text-gray-900">{patientName}</div>
-                  <div className="text-sm text-gray-600">Patient</div>
-                </div>
-              </div>
-
-              {/* Doctor Info */}
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <Stethoscope className="w-5 h-5 text-green-600" />
-                <div>
-                  <div className="font-medium text-gray-900">{doctorName}</div>
-                  <div className="text-sm text-gray-600">Doctor</div>
-                </div>
-              </div>
-
-              {/* Date and Time */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Calendar className="w-5 h-5 text-purple-600" />
+              <div className="space-y-4">
+                {/* Patient Information */}
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                  <User className="text-blue-600" size={20} />
                   <div>
                     <div className="font-medium text-gray-900">
-                      {formatDate(appointment.appointmentDate)}
+                      {patient
+                        ? `${patient.firstName} ${patient.lastName}`
+                        : appointment.patientName || "Unknown Patient"}
                     </div>
-                    <div className="text-sm text-gray-600">Date</div>
+                    <div className="text-sm text-gray-600">Patient</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Clock className="w-5 h-5 text-orange-600" />
+
+                {/* Doctor Information */}
+                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                  <Stethoscope className="text-green-600" size={20} />
                   <div>
                     <div className="font-medium text-gray-900">
-                      {formatTime(appointment.startTime)}
+                      {doctor
+                        ? `${doctor.firstName} ${doctor.lastName}`
+                        : appointment.doctorName || "Unknown Doctor"}
                     </div>
-                    <div className="text-sm text-gray-600">Time</div>
+                    <div className="text-sm text-gray-600">Doctor</div>
                   </div>
                 </div>
-              </div>
 
-              {/* Notes */}
-              {appointment.notes && (
-                <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                  <FileText className="w-5 h-5 text-gray-600 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-gray-900">Notes</div>
-                    <div className="text-sm text-gray-600">
-                      {appointment.notes}
-                    </div>
+                {/* Appointment Details */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="text-gray-500" size={16} />
+                    <span className="text-sm text-gray-600">
+                      Date: {formatDate(appointment.appointmentDate)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Clock className="text-gray-500" size={16} />
+                    <span className="text-sm text-gray-600">
+                      Time: {formatTime(appointment.startTime)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <FileText className="text-gray-500" size={16} />
+                    <span className="text-sm text-gray-600">
+                      Status:{" "}
+                      <span className="font-medium capitalize">
+                        {appointment.status?.toLowerCase()}
+                      </span>
+                    </span>
                   </div>
                 </div>
-              )}
 
-              {/* Actions */}
-              <div className="border-t pt-4">
-                <h4 className="font-medium text-gray-900 mb-3">Actions</h4>
-                <div className="flex gap-2">
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4 border-t">
                   {appointment.status === "SCHEDULED" && (
                     <button
                       onClick={() =>
                         setConfirmModal({ open: true, action: "check-in" })
                       }
-                      className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                     >
-                      <CheckCircle className="w-4 h-4" />
+                      <Clock size={16} />
                       Check In
                     </button>
                   )}
@@ -215,65 +170,28 @@ const AppointmentDetailsModal = ({
                       onClick={() =>
                         setConfirmModal({ open: true, action: "complete" })
                       }
-                      className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
                     >
-                      <CheckCircle className="w-4 h-4" />
+                      <CheckCircle size={16} />
                       Complete
-                    </button>
-                  )}
-
-                  {appointment.status === "SCHEDULED" && (
-                    <button
-                      onClick={() =>
-                        setConfirmModal({ open: true, action: "cancel" })
-                      }
-                      className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      Cancel
                     </button>
                   )}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* Confirmation Modal */}
       <ConfirmModal
         open={confirmModal.open}
         onOpenChange={(open) => setConfirmModal({ open, action: null })}
-        title={
-          confirmModal.action === "check-in"
-            ? "Check In Patient"
-            : confirmModal.action === "complete"
-            ? "Complete Appointment"
-            : confirmModal.action === "cancel"
-            ? "Cancel Appointment"
-            : ""
-        }
-        description={
-          confirmModal.action === "check-in"
-            ? `Mark ${patientName} as checked in?`
-            : confirmModal.action === "complete"
-            ? `Mark appointment with ${patientName} as completed?`
-            : confirmModal.action === "cancel"
-            ? `Cancel appointment for ${patientName}?`
-            : ""
-        }
-        confirmText={
-          confirmModal.action === "check-in"
-            ? "Check In"
-            : confirmModal.action === "complete"
-            ? "Complete"
-            : confirmModal.action === "cancel"
-            ? "Cancel Appointment"
-            : ""
-        }
-        cancelText="Cancel"
-        variant={confirmModal.action === "cancel" ? "destructive" : "default"}
         onConfirm={() => handleAction(confirmModal.action)}
+        title={`${
+          confirmModal.action === "check-in" ? "Check In" : "Complete"
+        } Appointment`}
+        message={`Are you sure you want to ${confirmModal.action} this appointment?`}
       />
     </>
   );

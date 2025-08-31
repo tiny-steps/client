@@ -1,62 +1,23 @@
 import React, { useState } from "react";
-import {
-  Baby,
-  CheckCircle,
-  XCircle,
-  Users,
-  Clock,
-  CheckSquare,
-  XSquare,
-} from "lucide-react";
+import { Baby, Users, CheckSquare, XSquare, CheckCircle } from "lucide-react";
 import FlippableCard from "../FlipableCard.jsx";
-import { ConfirmModal } from "../ui/confirm-modal.jsx";
+import AppointmentActions from "../AppointmentActions.jsx";
+import AppointmentDetailsModal from "../AppointmentDetailsModal.jsx";
 import useUserStore from "../../store/useUserStore.js";
 
-const AppointmentCard = ({ appointments, onStatusChange }) => {
+const AppointmentCard = ({
+  appointments,
+  onStatusChange,
+  selectedDate = new Date(),
+  patients = [],
+  doctors = [],
+}) => {
   // Get the logged-in user's ID
   const userId = useUserStore((state) => state.userId);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
-  // State for modals
-  const [checkInModal, setCheckInModal] = useState({
-    open: false,
-    appointment: null,
-  });
-  const [cancelModal, setCancelModal] = useState({
-    open: false,
-    appointment: null,
-  });
-
-  const getStatusColor = (status) => {
-    if (status === "completed") return "text-green-500";
-    if (status === "cancelled") return "text-red-500";
-    if (status === "checked_in") return "text-blue-500";
-    return "text-gray-400";
-  };
-
-  const handleCheckIn = async (appointmentId) => {
-    try {
-      await onStatusChange(appointmentId, "checked_in", {
-        reason: "Patient checked in",
-      });
-      setCheckInModal({ open: false, appointment: null });
-    } catch (error) {
-      console.error("Failed to check in patient:", error);
-    }
-  };
-
-  const handleCancel = async (appointmentId) => {
-    try {
-      await onStatusChange(appointmentId, "cancelled", {
-        reason: "Appointment cancelled by doctor",
-        cancellationType: "CANCELLED_BY_DOCTOR",
-      });
-      setCancelModal({ open: false, appointment: null });
-    } catch (error) {
-      console.error("Failed to cancel appointment:", error);
-    }
-  };
-
-  // Calculate statistics
+  // Calculate statistics (cancelled appointments are already excluded from dashboard data)
   const totalAppointments = appointments.total || 0;
   const checkedInCount =
     appointments.upcoming?.filter((apt) => apt.status === "checked_in")
@@ -71,7 +32,14 @@ const AppointmentCard = ({ appointments, onStatusChange }) => {
       <Baby size={48} className="text-blue-600" />
       <div className="text-center">
         <div className="text-xl font-semibold text-gray-800 mb-2">
-          Today's Appointments
+          {selectedDate.toDateString() === new Date().toDateString()
+            ? "Today's Appointments"
+            : `${selectedDate.toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })} Appointments`}
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2">
@@ -127,28 +95,16 @@ const AppointmentCard = ({ appointments, onStatusChange }) => {
                 {appt.patientName}
               </td>
               <td className="px-2 py-2 text-xs">{appt.time}</td>
-              <td className="px-2 py-2 flex justify-center items-center gap-1">
-                <CheckCircle
-                  onClick={() =>
-                    setCheckInModal({ open: true, appointment: appt })
-                  }
-                  className={`cursor-pointer hover:text-green-500 w-4 h-4 ${
-                    getStatusColor(appt.status) === "text-green-500"
-                      ? "text-green-500"
-                      : "text-gray-400"
-                  }`}
-                  title="Check In Patient"
-                />
-                <XCircle
-                  onClick={() =>
-                    setCancelModal({ open: true, appointment: appt })
-                  }
-                  className={`cursor-pointer hover:text-red-500 w-4 h-4 ${
-                    getStatusColor(appt.status) === "text-red-500"
-                      ? "text-red-500"
-                      : "text-gray-400"
-                  }`}
-                  title="Cancel Appointment"
+              <td className="px-2 py-2 flex justify-center items-center">
+                <AppointmentActions
+                  appointment={appt}
+                  onView={(appointment) => {
+                    setSelectedAppointment(appointment);
+                    setShowAppointmentModal(true);
+                  }}
+                  size="sm"
+                  patients={patients}
+                  doctors={doctors}
                 />
               </td>
             </tr>
@@ -172,28 +128,17 @@ const AppointmentCard = ({ appointments, onStatusChange }) => {
     <>
       <FlippableCard frontContent={frontContent} backContent={backContent} />
 
-      {/* Check In Confirmation Modal */}
-      <ConfirmModal
-        open={checkInModal.open}
-        onOpenChange={(open) => setCheckInModal({ open, appointment: null })}
-        title="Check In Patient"
-        description={`Mark ${checkInModal.appointment?.patientName} as checked in?`}
-        confirmText="Check In"
-        cancelText="Cancel"
-        variant="default"
-        onConfirm={() => handleCheckIn(checkInModal.appointment?.id)}
-      />
-
-      {/* Cancel Appointment Confirmation Modal */}
-      <ConfirmModal
-        open={cancelModal.open}
-        onOpenChange={(open) => setCancelModal({ open, appointment: null })}
-        title="Cancel Appointment"
-        description={`Cancel appointment for ${cancelModal.appointment?.patientName}?`}
-        confirmText="Cancel Appointment"
-        cancelText="Keep Appointment"
-        variant="destructive"
-        onConfirm={() => handleCancel(cancelModal.appointment?.id)}
+      {/* Appointment Details Modal */}
+      <AppointmentDetailsModal
+        appointment={selectedAppointment}
+        isOpen={showAppointmentModal}
+        onClose={() => {
+          setShowAppointmentModal(false);
+          setSelectedAppointment(null);
+        }}
+        onStatusChange={onStatusChange}
+        patients={patients}
+        doctors={doctors}
       />
     </>
   );

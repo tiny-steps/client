@@ -1,43 +1,36 @@
 import { useState, useEffect } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  X,
-  CheckCircle,
-  Eye,
-  Clock,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import AppointmentActions from "../../components/AppointmentActions.jsx";
+import { ErrorModal } from "../../components/ui/error-modal.jsx";
 import { useGetAllEnrichedDoctors } from "../../hooks/useEnrichedDoctorQueries";
 import { useGetAllEnrichedPatients } from "../../hooks/useEnrichedPatientQueries";
 import {
   useGetAllAppointments,
   useCreateAppointment,
-  useChangeAppointmentStatus,
 } from "../../hooks/useScheduleQueries";
 import { useGetDoctorAvailability } from "../../hooks/useTimingQueries";
 import { useGetAllSessions } from "../../hooks/useSessionQueries";
-import useUserStore from "../../store/useUserStore.js";
-
 const DayDetailView = ({
   selectedDate,
   selectedDoctor,
   onBack,
   onDateChange,
 }) => {
-  // Get the logged-in user's ID
-  const userId = useUserStore((state) => state.userId);
-
   const [currentDate, setCurrentDate] = useState(selectedDate);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
+
   const [bookingForm, setBookingForm] = useState({
     patientId: "",
     sessionId: "",
     notes: "",
     consultationType: "IN_PERSON",
+  });
+
+  const [errorModal, setErrorModal] = useState({
+    open: false,
+    title: "",
+    message: "",
   });
 
   // Fetch data
@@ -54,7 +47,6 @@ const DayDetailView = ({
     size: 100,
   });
   const createAppointmentMutation = useCreateAppointment();
-  const changeStatusMutation = useChangeAppointmentStatus();
 
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
@@ -62,9 +54,12 @@ const DayDetailView = ({
   const availabilities = availabilityData || [];
   const allSessions = sessionsData?.content || [];
 
-  // Filter data for current date and doctor
+  // Filter data for current date and doctor, excluding cancelled appointments
   const dayAppointments = appointments.filter(
-    (a) => a.appointmentDate === currentDate && a.doctorId === selectedDoctor
+    (a) =>
+      a.appointmentDate === currentDate &&
+      a.doctorId === selectedDoctor &&
+      a.status?.toUpperCase() !== "CANCELLED"
   );
 
   const doctorSessions = allSessions.filter(
@@ -163,7 +158,12 @@ const DayDetailView = ({
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTimeSlot || !bookingForm.patientId || !bookingForm.sessionId) {
-      alert("Please fill in all required fields");
+      setErrorModal({
+        open: true,
+        title: "Missing Required Fields",
+        message:
+          "Please fill in all required fields (patient, session, and time).",
+      });
       return;
     }
 
@@ -197,87 +197,13 @@ const DayDetailView = ({
       });
     } catch (error) {
       console.error("Error creating appointment:", error);
-      alert("Failed to create appointment");
-    }
-  };
-
-  const handleCancelAppointment = (appointment) => {
-    setSelectedAppointment(appointment);
-    setShowCancelModal(true);
-  };
-
-  const handleCancelConfirm = async (cancellationType, reason = "") => {
-    if (!selectedAppointment) return;
-
-    try {
-      await changeStatusMutation.mutateAsync({
-        id: selectedAppointment.id,
-        statusData: {
-          status: "CANCELLED",
-          changedById: userId, // Use actual logged-in user ID
-          reason,
-          cancellationType,
-        },
+      setErrorModal({
+        open: true,
+        title: "Failed to Create Appointment",
+        message:
+          error.message ||
+          "An error occurred while creating the appointment. Please try again.",
       });
-      setShowCancelModal(false);
-      setSelectedAppointment(null);
-    } catch (error) {
-      console.error("Error cancelling appointment:", error);
-      alert("Failed to cancel appointment");
-    }
-  };
-
-  const handleCompleteAppointment = async (appointment) => {
-    if (
-      !window.confirm(
-        `Mark appointment with ${
-          patients.find((p) => p.id === appointment.patientId)?.name ||
-          "patient"
-        } as completed?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await changeStatusMutation.mutateAsync({
-        id: appointment.id,
-        statusData: {
-          status: "COMPLETED",
-          changedById: userId, // Use actual logged-in user ID
-          reason: "Appointment completed successfully",
-        },
-      });
-    } catch (error) {
-      console.error("Error completing appointment:", error);
-      alert("Failed to complete appointment");
-    }
-  };
-
-  const handleCheckInAppointment = async (appointment) => {
-    if (
-      !window.confirm(
-        `Check in patient ${
-          patients.find((p) => p.id === appointment.patientId)?.name ||
-          "patient"
-        }?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await changeStatusMutation.mutateAsync({
-        id: appointment.id,
-        statusData: {
-          status: "CHECKED_IN",
-          changedById: userId, // Use actual logged-in user ID
-          reason: "Patient checked in",
-        },
-      });
-    } catch (error) {
-      console.error("Error checking in appointment:", error);
-      alert("Failed to check in appointment");
     }
   };
 
@@ -400,52 +326,18 @@ const DayDetailView = ({
                       )}
                     </div>
                     <div className="flex space-x-2">
-                      {/* View Appointment */}
-                      <button
-                        onClick={() => {
+                      <AppointmentActions
+                        appointment={appointment}
+                        onView={(appointment) => {
                           // TODO: Open appointment details modal
                           console.log("View appointment:", appointment);
                         }}
-                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                        title="View Appointment"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-
-                      {/* Check In */}
-                      {appointment.status === "SCHEDULED" && (
-                        <button
-                          onClick={() => handleCheckInAppointment(appointment)}
-                          className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                          title="Check In Patient"
-                        >
-                          <Clock className="w-4 h-4" />
-                        </button>
-                      )}
-
-                      {/* Complete */}
-                      {(appointment.status === "SCHEDULED" ||
-                        appointment.status === "CHECKED_IN") && (
-                        <button
-                          onClick={() => handleCompleteAppointment(appointment)}
-                          className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                          title="Mark as Complete"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                      )}
-
-                      {/* Cancel */}
-                      {appointment.status !== "CANCELLED" &&
-                        appointment.status !== "COMPLETED" && (
-                          <button
-                            onClick={() => handleCancelAppointment(appointment)}
-                            className="p-2 text-red-600 hover:bg-red-100 :bg-red-900/20 rounded-lg transition-colors"
-                            title="Cancel Appointment"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
+                        size="sm"
+                        className="justify-end"
+                        patients={patients}
+                        doctors={doctors}
+                        hideViewAction={true}
+                      />
                     </div>
                   </div>
                 </div>
@@ -480,8 +372,8 @@ const DayDetailView = ({
 
       {/* Booking Modal */}
       {showBookingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/90 backdrop-blur-lg border border-white/50 shadow-xl rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Book Appointment</h3>
               <button
@@ -499,7 +391,7 @@ const DayDetailView = ({
                   type="text"
                   value={selectedTimeSlot}
                   readOnly
-                  className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 "
+                  className="w-full p-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                 />
               </div>
 
@@ -515,7 +407,7 @@ const DayDetailView = ({
                       patientId: e.target.value,
                     })
                   }
-                  className="w-full p-2 border border-gray-300 rounded-lg bg-white "
+                  className="w-full p-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                   required
                 >
                   <option value="">Select patient</option>
@@ -539,7 +431,7 @@ const DayDetailView = ({
                       sessionId: e.target.value,
                     })
                   }
-                  className="w-full p-2 border border-gray-300 rounded-lg bg-white "
+                  className="w-full p-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                   required
                 >
                   <option value="">Select session</option>
@@ -563,7 +455,7 @@ const DayDetailView = ({
                       consultationType: e.target.value,
                     })
                   }
-                  className="w-full p-2 border border-gray-300 rounded-lg bg-white "
+                  className="w-full p-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                 >
                   <option value="IN_PERSON">In Person</option>
                   <option value="TELEMEDICINE">Telemedicine</option>
@@ -577,7 +469,7 @@ const DayDetailView = ({
                   onChange={(e) =>
                     setBookingForm({ ...bookingForm, notes: e.target.value })
                   }
-                  className="w-full p-2 border border-gray-300 rounded-lg bg-white "
+                  className="w-full p-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                   rows="3"
                   placeholder="Optional notes..."
                 />
@@ -587,14 +479,14 @@ const DayDetailView = ({
                 <button
                   type="button"
                   onClick={() => setShowBookingModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 :bg-gray-700"
+                  className="flex-1 px-4 py-2 bg-white/70 border border-white/50 text-gray-700 hover:bg-white/80 font-medium rounded-lg transition-colors shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createAppointmentMutation.isPending}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createAppointmentMutation.isPending
                     ? "Booking..."
@@ -606,88 +498,13 @@ const DayDetailView = ({
         </div>
       )}
 
-      {/* Cancellation Modal */}
-      {showCancelModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Cancel Appointment</h3>
-              <button
-                onClick={() => setShowCancelModal(false)}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">
-                Cancel appointment with{" "}
-                {patients.find((p) => p.id === selectedAppointment.patientId)
-                  ?.name || "patient"}
-                at {selectedAppointment.startTime?.substring(0, 5)}?
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={() =>
-                  handleCancelConfirm(
-                    "CANCELLED_BY_DOCTOR",
-                    "Cancelled by doctor"
-                  )
-                }
-                className="w-full p-3 text-left bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
-              >
-                <div className="font-medium text-red-800">
-                  Cancelled by Doctor
-                </div>
-                <div className="text-sm text-red-600">
-                  Doctor initiated cancellation
-                </div>
-              </button>
-
-              <button
-                onClick={() =>
-                  handleCancelConfirm(
-                    "CANCELLED_BY_PATIENT",
-                    "Cancelled by patient"
-                  )
-                }
-                className="w-full p-3 text-left bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors"
-              >
-                <div className="font-medium text-orange-800">
-                  Cancelled by Patient
-                </div>
-                <div className="text-sm text-orange-600">
-                  Patient initiated cancellation
-                </div>
-              </button>
-
-              <button
-                onClick={() =>
-                  handleCancelConfirm("NO_SHOW", "Patient did not show up")
-                }
-                className="w-full p-3 text-left bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
-              >
-                <div className="font-medium text-gray-800">No Show</div>
-                <div className="text-sm text-gray-600">
-                  Patient did not attend the appointment
-                </div>
-              </button>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setShowCancelModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Error Modal */}
+      <ErrorModal
+        open={errorModal.open}
+        onOpenChange={(open) => setErrorModal({ open, title: "", message: "" })}
+        title={errorModal.title}
+        description={errorModal.message}
+      />
     </div>
   );
 };

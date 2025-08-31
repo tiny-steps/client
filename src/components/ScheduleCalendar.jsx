@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
-import AppointmentDetailsModal from "./AppointmentDetailsModal.jsx";
+import { ErrorModal } from "./ui/error-modal.jsx";
 import { useNavigate } from "react-router";
 import {
   useGetAllAppointments,
@@ -37,8 +37,11 @@ const ScheduleCalendar = () => {
     appointment: null,
   });
   const [createModal, setCreateModal] = useState({ open: false });
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [errorModal, setErrorModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+  });
 
   const {
     data: appointmentsData,
@@ -67,7 +70,11 @@ const ScheduleCalendar = () => {
   const changeStatus = useChangeAppointmentStatus();
   const deleteAppointment = useDeleteAppointment();
 
-  const appointments = appointmentsData?.data?.content || [];
+  const allAppointments = appointmentsData?.data?.content || [];
+  // Filter out cancelled appointments so their time slots become available
+  const appointments = allAppointments.filter(
+    (appointment) => appointment.status?.toUpperCase() !== "CANCELLED"
+  );
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
   const allAvailabilities = availabilityData || [];
@@ -215,47 +222,71 @@ const ScheduleCalendar = () => {
     }
   };
 
+  const [completeModal, setCompleteModal] = useState({
+    open: false,
+    appointment: null,
+  });
+
+  const [checkInModal, setCheckInModal] = useState({
+    open: false,
+    appointment: null,
+  });
+
   const handleCompleteAppointment = async (appointment) => {
-    if (
-      !window.confirm(
-        `Mark appointment with ${appointment.patientName} as completed?`
-      )
-    ) {
-      return;
-    }
+    setCompleteModal({ open: true, appointment });
+  };
+
+  const handleCompleteConfirm = async () => {
+    if (!completeModal.appointment) return;
 
     try {
       await changeStatus.mutateAsync({
-        id: appointment.id,
+        id: completeModal.appointment.id,
         statusData: {
           status: "COMPLETED",
           changedById: userId,
           reason: "Appointment completed successfully",
         },
       });
+      setCompleteModal({ open: false, appointment: null });
     } catch (error) {
       console.error("Error completing appointment:", error);
-      alert("Failed to complete appointment");
+      setErrorModal({
+        open: true,
+        title: "Failed to Complete Appointment",
+        message:
+          error.message ||
+          "An error occurred while completing the appointment. Please try again.",
+      });
     }
   };
 
   const handleCheckInAppointment = async (appointment) => {
-    if (!window.confirm(`Check in patient ${appointment.patientName}?`)) {
-      return;
-    }
+    setCheckInModal({ open: true, appointment });
+  };
+
+  const handleCheckInConfirm = async () => {
+    if (!checkInModal.appointment) return;
 
     try {
       await changeStatus.mutateAsync({
-        id: appointment.id,
+        id: checkInModal.appointment.id,
         statusData: {
           status: "CHECKED_IN",
           changedById: userId,
           reason: "Patient checked in",
         },
       });
+      setCheckInModal({ open: false, appointment: null });
     } catch (error) {
       console.error("Error checking in appointment:", error);
-      alert("Failed to check in appointment");
+      setErrorModal({
+        open: true,
+        title: "Failed to Check In Appointment",
+        message:
+          error.message ||
+          "An error occurred while checking in the appointment. Please try again.",
+      });
     }
   };
 
@@ -575,6 +606,32 @@ const ScheduleCalendar = () => {
         confirmText="Cancel Appointment"
         variant="destructive"
         onConfirm={handleCancelAppointment}
+      />
+
+      <ConfirmModal
+        open={completeModal.open}
+        onOpenChange={(open) => setCompleteModal({ open, appointment: null })}
+        title="Complete Appointment"
+        description={`Mark appointment with ${completeModal.appointment?.patientName} as completed?`}
+        confirmText="Complete Appointment"
+        onConfirm={handleCompleteConfirm}
+      />
+
+      <ConfirmModal
+        open={checkInModal.open}
+        onOpenChange={(open) => setCheckInModal({ open, appointment: null })}
+        title="Check In Patient"
+        description={`Check in patient ${checkInModal.appointment?.patientName}?`}
+        confirmText="Check In"
+        onConfirm={handleCheckInConfirm}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        open={errorModal.open}
+        onOpenChange={(open) => setErrorModal({ open, title: "", message: "" })}
+        title={errorModal.title}
+        description={errorModal.message}
       />
     </div>
   );

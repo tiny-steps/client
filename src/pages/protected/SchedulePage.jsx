@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useOutletContext } from "react-router";
 import { useUserProfile } from "@/hooks/useUserQuery.js";
 import DashboardHeader from "@/components/dashboard/DashboardHeader.jsx";
@@ -12,7 +12,6 @@ import {
 } from "@/hooks/useScheduleQueries.js";
 import { useGetDoctorAvailability } from "@/hooks/useTimingQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
-import AppointmentDetailsModal from "@/components/AppointmentDetailsModal.jsx";
 import {
   Card,
   CardHeader,
@@ -60,9 +59,6 @@ const SchedulePage = () => {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [showDayDetail, setShowDayDetail] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [showAppointmentDetailsModal, setShowAppointmentDetailsModal] =
-    useState(false);
 
   const form = useForm({
     resolver: zodResolver(appointmentSchema),
@@ -100,11 +96,24 @@ const SchedulePage = () => {
   const appointments = appointmentsData?.data?.content || [];
   const availabilities = availabilityData || [];
 
+  // Set the first doctor as default when doctors data is loaded
+  useEffect(() => {
+    if (doctors.length > 0 && !selectedDoctor) {
+      const firstDoctor = doctors[0];
+      setSelectedDoctor(firstDoctor.id);
+      form.setValue("doctorId", firstDoctor.id);
+    }
+  }, [doctors, selectedDoctor, form]);
+
   // Filter sessions by selected doctor on the frontend
   const allSessions = sessionsData?.content || [];
 
-  // Enrich appointments with patient, doctor, and session information
-  const enrichedAppointments = appointments.map((appointment) => {
+  // Filter out cancelled appointments and enrich with patient, doctor, and session information
+  const activeAppointments = appointments.filter(
+    (appointment) => appointment.status?.toUpperCase() !== "CANCELLED"
+  );
+
+  const enrichedAppointments = activeAppointments.map((appointment) => {
     const patient = patients.find((p) => p.id === appointment.patientId);
     const doctor = doctors.find((d) => d.id === appointment.doctorId);
     const session = allSessions.find(
@@ -302,6 +311,7 @@ const SchedulePage = () => {
             onDateChange={setSelectedDate}
             onDoctorChange={setSelectedDoctor}
             doctors={doctors}
+            patients={patients}
             onTimeSlotClick={handleTimeSlotClick}
             onDateClick={handleDateClick}
             showAppointmentModal={showAppointmentModal}
@@ -310,8 +320,7 @@ const SchedulePage = () => {
             setSelectedTimeSlot={setSelectedTimeSlot}
             onAppointmentClick={(appointment) => {
               console.log("Appointment clicked:", appointment);
-              setSelectedAppointment(appointment);
-              setShowAppointmentDetailsModal(true);
+              // TODO: Open appointment details modal
             }}
             onDayDetailClick={(date) => {
               console.log(
@@ -320,16 +329,6 @@ const SchedulePage = () => {
               );
               setSelectedDate(date);
               setShowDayDetail(true);
-            }}
-            onCancelAppointment={(appointment) => {
-              if (
-                window.confirm(
-                  `Cancel appointment for ${appointment.patientName}?`
-                )
-              ) {
-                console.log("Cancelling appointment:", appointment);
-                // TODO: Call cancel appointment API
-              }
             }}
           />
         )}
@@ -383,12 +382,38 @@ const SchedulePage = () => {
 
       {/* Appointment Creation Modal */}
       {showAppointmentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle>Create New Appointment</CardTitle>
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4 bg-white/90 backdrop-blur-lg border border-white/50 shadow-xl">
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-xl font-semibold text-gray-800">
+                  Create New Appointment
+                </CardTitle>
+                <button
+                  onClick={() => {
+                    setShowAppointmentModal(false);
+                    setSelectedTimeSlot(null);
+                    form.reset();
+                  }}
+                  className="text-gray-500 hover:text-gray-700 p-1 rounded"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit(handleAppointmentSubmit)}
@@ -403,7 +428,7 @@ const SchedulePage = () => {
                         <FormControl>
                           <select
                             {...field}
-                            className="w-full px-3 py-2 border rounded-md"
+                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                           >
                             <option value="">Select a patient...</option>
                             {patients.map((patient) => (
@@ -428,7 +453,7 @@ const SchedulePage = () => {
                         <FormControl>
                           <select
                             {...field}
-                            className="w-full px-3 py-2 border rounded-md"
+                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                           >
                             <option value="">Select a doctor...</option>
                             {doctors.map((doctor) => (
@@ -451,7 +476,11 @@ const SchedulePage = () => {
                       <FormItem>
                         <FormLabel>Date *</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} className="w-full" />
+                          <Input
+                            type="date"
+                            {...field}
+                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -467,7 +496,7 @@ const SchedulePage = () => {
                         <FormControl>
                           <select
                             {...field}
-                            className="w-full px-3 py-2 border rounded-md"
+                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                           >
                             <option value="">Select a time...</option>
                             {generateAvailableTimeSlots().map((time) => (
@@ -491,7 +520,7 @@ const SchedulePage = () => {
                         <FormControl>
                           <select
                             {...field}
-                            className="w-full px-3 py-2 border rounded-md"
+                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={sessions.length === 0}
                           >
                             <option value="">Select a session...</option>
@@ -551,7 +580,7 @@ const SchedulePage = () => {
                         <FormControl>
                           <textarea
                             {...field}
-                            className="w-full px-3 py-2 border rounded-md"
+                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800 resize-none"
                             rows={3}
                             placeholder="Optional notes..."
                           />
@@ -561,10 +590,10 @@ const SchedulePage = () => {
                     )}
                   />
 
-                  <div className="flex gap-4 pt-4">
+                  <div className="flex gap-4 pt-6">
                     <Button
                       type="submit"
-                      className="flex-1"
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-md hover:shadow-lg"
                       disabled={createAppointmentMutation.isPending}
                     >
                       {createAppointmentMutation.isPending
@@ -579,7 +608,7 @@ const SchedulePage = () => {
                         setSelectedTimeSlot(null);
                         form.reset();
                       }}
-                      className="flex-1"
+                      className="flex-1 bg-white/70 border-white/50 text-gray-700 hover:bg-white/80 font-medium py-2 px-4 rounded-lg transition-colors shadow-sm"
                     >
                       Cancel
                     </Button>
@@ -590,27 +619,6 @@ const SchedulePage = () => {
           </Card>
         </div>
       )}
-
-      {/* Appointment Details Modal */}
-      <AppointmentDetailsModal
-        appointment={selectedAppointment}
-        isOpen={showAppointmentDetailsModal}
-        onClose={() => {
-          setShowAppointmentDetailsModal(false);
-          setSelectedAppointment(null);
-        }}
-        onStatusChange={(appointmentId, newStatus, options) => {
-          // Handle appointment status change
-          console.log("Appointment status change:", {
-            appointmentId,
-            newStatus,
-            options,
-          });
-          // You can implement the actual status change logic here
-        }}
-        patients={patients}
-        doctors={doctors}
-      />
     </>
   );
 };

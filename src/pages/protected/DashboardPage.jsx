@@ -1,14 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { useOutletContext } from "react-router";
 import { useUserProfile } from "@/hooks/useUserQuery.js";
 import DashboardCards from "@/components/dashboard/DashboardCards.jsx";
 import DashboardHeader from "@/components/dashboard/DashboardHeader.jsx";
-import DashboardCalendar from "@/components/DashboardCalendar.jsx";
 import { useDashboardData } from "@/hooks/useDashboardData.js";
 
 const DashboardPage = () => {
   const { activeItem } = useOutletContext();
   const { data: user } = useUserProfile();
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Use the custom hook for dashboard data management
   const {
@@ -24,7 +24,7 @@ const DashboardPage = () => {
     handleSlotSelection,
     isLoading,
     errors,
-  } = useDashboardData();
+  } = useDashboardData(selectedDate);
 
   return (
     <>
@@ -47,24 +47,10 @@ const DashboardPage = () => {
             onAppointmentStatusChange={handleAppointmentStatus}
             onDoctorStatusChange={handleDoctorStatus}
             onSlotSelection={handleSlotSelection}
+            selectedDate={selectedDate}
+            rawPatients={rawPatients}
+            rawDoctors={rawDoctors}
           />
-
-          <div className="mx-20 pl-10">
-            <DashboardCalendar
-              appointments={rawAppointments || []}
-              availabilities={rawAvailabilities || []}
-              doctors={rawDoctors}
-              patients={rawPatients}
-              onAppointmentClick={(appointment) => {
-                console.log("Appointment clicked:", appointment);
-                // The DashboardCalendar now handles the appointment modal internally
-              }}
-              onTimeSlotClick={(time) => {
-                console.log("Time slot clicked:", time);
-                // TODO: Open booking modal
-              }}
-            />
-          </div>
         </>
       )}
 

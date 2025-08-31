@@ -5,6 +5,7 @@ import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
+import { ErrorModal } from "./ui/error-modal.jsx";
 function getMinutes(timeStr) {
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
@@ -19,7 +20,13 @@ const TimingManager = () => {
       setEditModal({ open: false, slot: null, duration: null });
     },
     onError: (error) => {
-      alert(`Failed to update duration: ${error.message}`);
+      setErrorModal({
+        open: true,
+        title: "Failed to Update Duration",
+        message:
+          error.message ||
+          "An error occurred while updating the duration. Please try again.",
+      });
     },
   });
 
@@ -35,7 +42,13 @@ const TimingManager = () => {
       }
     },
     onError: (error) => {
-      alert(`Failed to delete duration: ${error.message}`);
+      setErrorModal({
+        open: true,
+        title: "Failed to Delete Duration",
+        message:
+          error.message ||
+          "An error occurred while deleting the duration. Please try again.",
+      });
     },
   });
 
@@ -56,6 +69,12 @@ const TimingManager = () => {
     open: false,
     conflicts: [],
     timeOff: null,
+  });
+
+  const [errorModal, setErrorModal] = useState({
+    open: false,
+    title: "",
+    message: "",
   });
 
   // Helper to check overlap between timeoff and duration
@@ -698,6 +717,14 @@ const TimingManager = () => {
           </Card>
         </div>
       )}
+
+      {/* Error Modal */}
+      <ErrorModal
+        open={errorModal.open}
+        onOpenChange={(open) => setErrorModal({ open, title: "", message: "" })}
+        title={errorModal.title}
+        description={errorModal.message}
+      />
     </div>
   );
 };
