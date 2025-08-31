@@ -49,6 +49,19 @@ export const useDeleteAppointment = () => {
   });
 };
 
+// New unified status change hook
+export const useChangeAppointmentStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, statusData }) =>
+      scheduleService.changeAppointmentStatus(id, statusData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    },
+  });
+};
+
+// Legacy hooks for backward compatibility (deprecated)
 export const useCancelAppointment = () => {
   const queryClient = useQueryClient();
   return useMutation({

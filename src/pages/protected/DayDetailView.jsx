@@ -1,15 +1,23 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, CheckCircle } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  X,
+  CheckCircle,
+  Eye,
+  Clock,
+} from "lucide-react";
 import { useGetAllEnrichedDoctors } from "../../hooks/useEnrichedDoctorQueries";
 import { useGetAllEnrichedPatients } from "../../hooks/useEnrichedPatientQueries";
 import {
   useGetAllAppointments,
   useCreateAppointment,
-  useCancelAppointment,
-  useCompleteAppointment,
+  useChangeAppointmentStatus,
 } from "../../hooks/useScheduleQueries";
 import { useGetDoctorAvailability } from "../../hooks/useTimingQueries";
 import { useGetAllSessions } from "../../hooks/useSessionQueries";
+import useUserStore from "../../store/useUserStore.js";
 
 const DayDetailView = ({
   selectedDate,
@@ -17,6 +25,9 @@ const DayDetailView = ({
   onBack,
   onDateChange,
 }) => {
+  // Get the logged-in user's ID
+  const userId = useUserStore((state) => state.userId);
+
   const [currentDate, setCurrentDate] = useState(selectedDate);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
@@ -43,8 +54,7 @@ const DayDetailView = ({
     size: 100,
   });
   const createAppointmentMutation = useCreateAppointment();
-  const cancelAppointmentMutation = useCancelAppointment();
-  const completeAppointmentMutation = useCompleteAppointment();
+  const changeStatusMutation = useChangeAppointmentStatus();
 
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
@@ -99,9 +109,12 @@ const DayDetailView = ({
               }
             }
 
-            while (start < end) {
-              availableSlots.add(start.toTimeString().slice(0, 5));
-              start.setMinutes(start.getMinutes() + 30);
+            // Generate 30-minute slots
+            const current = new Date(start);
+            while (current < end) {
+              const timeString = current.toTimeString().substring(0, 5);
+              availableSlots.add(timeString);
+              current.setMinutes(current.getMinutes() + 30);
             }
           }
         });
@@ -109,23 +122,28 @@ const DayDetailView = ({
     });
 
     // Filter out booked slots
-    const bookedSlots = dayAppointments.map((a) =>
-      a.startTime?.substring(0, 5)
+    const bookedSlots = new Set(
+      dayAppointments
+        .filter(
+          (apt) => apt.status === "SCHEDULED" || apt.status === "CHECKED_IN"
+        )
+        .map((apt) => apt.startTime?.substring(0, 5))
     );
+
     return Array.from(availableSlots)
-      .filter((slot) => !bookedSlots.includes(slot))
+      .filter((slot) => !bookedSlots.has(slot))
       .sort();
   };
 
   const availableSlots = generateAvailableTimeSlots();
 
-  // Navigation functions
+  // Navigation handlers
   const handlePrevDay = () => {
     const prevDate = new Date(currentDate);
     prevDate.setDate(prevDate.getDate() - 1);
     const newDate = prevDate.toISOString().split("T")[0];
     setCurrentDate(newDate);
-    onDateChange?.(newDate);
+    onDateChange(newDate);
   };
 
   const handleNextDay = () => {
@@ -133,10 +151,10 @@ const DayDetailView = ({
     nextDate.setDate(nextDate.getDate() + 1);
     const newDate = nextDate.toISOString().split("T")[0];
     setCurrentDate(newDate);
-    onDateChange?.(newDate);
+    onDateChange(newDate);
   };
 
-  // Booking functions
+  // Booking handlers
   const handleTimeSlotClick = (time) => {
     setSelectedTimeSlot(time);
     setShowBookingModal(true);
@@ -144,38 +162,39 @@ const DayDetailView = ({
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
-
-    const selectedSession = doctorSessions.find(
-      (s) => s.id === bookingForm.sessionId
-    );
-    if (!selectedSession) {
-      alert("Please select a session");
+    if (!selectedTimeSlot || !bookingForm.patientId || !bookingForm.sessionId) {
+      alert("Please fill in all required fields");
       return;
     }
 
-    const appointmentData = {
-      patientId: bookingForm.patientId,
-      doctorId: selectedDoctor,
-      sessionTypeId: selectedSession.sessionType?.id,
-      appointmentDate: currentDate,
-      startTime: selectedTimeSlot,
-      consultationType: bookingForm.consultationType,
-      notes: bookingForm.notes,
-      status: "SCHEDULED",
-      sessionDurationMinutes:
-        selectedSession.sessionType?.defaultDurationMinutes,
-    };
-
     try {
+      const selectedSession = doctorSessions.find(
+        (s) => s.id === bookingForm.sessionId
+      );
+      if (!selectedSession) {
+        throw new Error("Selected session not found");
+      }
+
+      const appointmentData = {
+        patientId: bookingForm.patientId,
+        doctorId: selectedDoctor,
+        sessionTypeId: selectedSession.sessionType?.id,
+        appointmentDate: currentDate,
+        startTime: selectedTimeSlot,
+        consultationType: bookingForm.consultationType,
+        notes: bookingForm.notes,
+        status: "SCHEDULED",
+      };
+
       await createAppointmentMutation.mutateAsync(appointmentData);
       setShowBookingModal(false);
+      setSelectedTimeSlot(null);
       setBookingForm({
         patientId: "",
         sessionId: "",
         notes: "",
         consultationType: "IN_PERSON",
       });
-      setSelectedTimeSlot(null);
     } catch (error) {
       console.error("Error creating appointment:", error);
       alert("Failed to create appointment");
@@ -191,12 +210,13 @@ const DayDetailView = ({
     if (!selectedAppointment) return;
 
     try {
-      await cancelAppointmentMutation.mutateAsync({
+      await changeStatusMutation.mutateAsync({
         id: selectedAppointment.id,
-        cancellationData: {
-          cancellationType,
+        statusData: {
+          status: "CANCELLED",
+          changedById: userId, // Use actual logged-in user ID
           reason,
-          canceledAt: new Date().toISOString(),
+          cancellationType,
         },
       });
       setShowCancelModal(false);
@@ -220,16 +240,44 @@ const DayDetailView = ({
     }
 
     try {
-      await completeAppointmentMutation.mutateAsync({
+      await changeStatusMutation.mutateAsync({
         id: appointment.id,
-        completionData: {
-          completedAt: new Date().toISOString(),
+        statusData: {
           status: "COMPLETED",
+          changedById: userId, // Use actual logged-in user ID
+          reason: "Appointment completed successfully",
         },
       });
     } catch (error) {
       console.error("Error completing appointment:", error);
       alert("Failed to complete appointment");
+    }
+  };
+
+  const handleCheckInAppointment = async (appointment) => {
+    if (
+      !window.confirm(
+        `Check in patient ${
+          patients.find((p) => p.id === appointment.patientId)?.name ||
+          "patient"
+        }?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await changeStatusMutation.mutateAsync({
+        id: appointment.id,
+        statusData: {
+          status: "CHECKED_IN",
+          changedById: userId, // Use actual logged-in user ID
+          reason: "Patient checked in",
+        },
+      });
+    } catch (error) {
+      console.error("Error checking in appointment:", error);
+      alert("Failed to check in appointment");
     }
   };
 
@@ -241,6 +289,25 @@ const DayDetailView = ({
       month: "long",
       day: "numeric",
     });
+  };
+
+  const formatCheckInTime = (checkedInAt) => {
+    if (!checkedInAt) return "Not checked in";
+    const date = new Date(checkedInAt);
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      SCHEDULED: "bg-blue-100 text-blue-800",
+      CHECKED_IN: "bg-green-100 text-green-800",
+      COMPLETED: "bg-gray-100 text-gray-800",
+      CANCELLED: "bg-red-100 text-red-800",
+    };
+    return colors[status] || "bg-gray-100 text-gray-800";
   };
 
   return (
@@ -277,27 +344,10 @@ const DayDetailView = ({
       {/* Doctor Info */}
       <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
         <h3 className="text-lg font-semibold mb-2">Doctor Information</h3>
-        {selectedDoctor && (
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-blue-600 font-semibold">
-                {doctors
-                  .find((d) => d.id === selectedDoctor)
-                  ?.firstName?.charAt(0) || "D"}
-              </span>
-            </div>
-            <div>
-              <p className="font-medium">
-                {doctors.find((d) => d.id === selectedDoctor)?.name ||
-                  "Unknown Doctor"}
-              </p>
-              <p className="text-sm text-gray-600 ">
-                {doctors.find((d) => d.id === selectedDoctor)?.speciality ||
-                  "General"}
-              </p>
-            </div>
-          </div>
-        )}
+        <p className="text-gray-600">
+          {doctors.find((d) => d.id === selectedDoctor)?.name ||
+            "Unknown Doctor"}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -320,18 +370,16 @@ const DayDetailView = ({
                           {appointment.startTime?.substring(0, 5)}
                         </span>
                         <span
-                          className={`text-xs px-2 py-1 rounded ${
-                            appointment.status === "COMPLETED"
-                              ? "bg-green-100 text-green-800"
-                              : appointment.status === "CANCELLED"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-blue-100 text-blue-800"
-                          }`}
+                          className={`text-xs px-2 py-1 rounded ${getStatusColor(
+                            appointment.status
+                          )}`}
                         >
                           {appointment.status === "COMPLETED"
                             ? "Completed"
                             : appointment.status === "CANCELLED"
                             ? "Cancelled"
+                            : appointment.status === "CHECKED_IN"
+                            ? "Checked In"
                             : "Scheduled"}
                         </span>
                       </div>
@@ -342,6 +390,9 @@ const DayDetailView = ({
                       <p className="text-sm text-gray-600 ">
                         {appointment.sessionName || "General Consultation"}
                       </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Check-in: {formatCheckInTime(appointment.checkedInAt)}
+                      </p>
                       {appointment.notes && (
                         <p className="text-sm text-gray-500 mt-1">
                           {appointment.notes}
@@ -349,18 +400,42 @@ const DayDetailView = ({
                       )}
                     </div>
                     <div className="flex space-x-2">
-                      {appointment.status !== "COMPLETED" &&
-                        appointment.status !== "CANCELLED" && (
-                          <button
-                            onClick={() =>
-                              handleCompleteAppointment(appointment)
-                            }
-                            className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                            title="Mark as Complete"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </button>
-                        )}
+                      {/* View Appointment */}
+                      <button
+                        onClick={() => {
+                          // TODO: Open appointment details modal
+                          console.log("View appointment:", appointment);
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                        title="View Appointment"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+
+                      {/* Check In */}
+                      {appointment.status === "SCHEDULED" && (
+                        <button
+                          onClick={() => handleCheckInAppointment(appointment)}
+                          className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                          title="Check In Patient"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {/* Complete */}
+                      {(appointment.status === "SCHEDULED" ||
+                        appointment.status === "CHECKED_IN") && (
+                        <button
+                          onClick={() => handleCompleteAppointment(appointment)}
+                          className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                          title="Mark as Complete"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {/* Cancel */}
                       {appointment.status !== "CANCELLED" &&
                         appointment.status !== "COMPLETED" && (
                           <button
@@ -411,7 +486,7 @@ const DayDetailView = ({
               <h3 className="text-lg font-semibold">Book Appointment</h3>
               <button
                 onClick={() => setShowBookingModal(false)}
-                className="p-1 hover:bg-gray-100 :bg-gray-700 rounded"
+                className="p-1 hover:bg-gray-100 rounded"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -419,19 +494,18 @@ const DayDetailView = ({
 
             <form onSubmit={handleBookingSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Time Slot
-                </label>
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <span className="text-green-800 font-medium">
-                    {selectedTimeSlot}
-                  </span>
-                </div>
+                <label className="block text-sm font-medium mb-1">Time</label>
+                <input
+                  type="text"
+                  value={selectedTimeSlot}
+                  readOnly
+                  className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 "
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Patient
+                  Patient *
                 </label>
                 <select
                   value={bookingForm.patientId}
@@ -444,7 +518,7 @@ const DayDetailView = ({
                   className="w-full p-2 border border-gray-300 rounded-lg bg-white "
                   required
                 >
-                  <option value="">Select Patient</option>
+                  <option value="">Select patient</option>
                   {patients.map((patient) => (
                     <option key={patient.id} value={patient.id}>
                       {patient.name}
@@ -455,7 +529,7 @@ const DayDetailView = ({
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Session Type
+                  Session *
                 </label>
                 <select
                   value={bookingForm.sessionId}
@@ -468,11 +542,10 @@ const DayDetailView = ({
                   className="w-full p-2 border border-gray-300 rounded-lg bg-white "
                   required
                 >
-                  <option value="">Select Session</option>
+                  <option value="">Select session</option>
                   {doctorSessions.map((session) => (
                     <option key={session.id} value={session.id}>
-                      {session.sessionType?.name} (
-                      {session.sessionType?.defaultDurationMinutes} min)
+                      {session.name}
                     </option>
                   ))}
                 </select>
@@ -493,7 +566,7 @@ const DayDetailView = ({
                   className="w-full p-2 border border-gray-300 rounded-lg bg-white "
                 >
                   <option value="IN_PERSON">In Person</option>
-                  <option value="VIRTUAL">Virtual</option>
+                  <option value="TELEMEDICINE">Telemedicine</option>
                 </select>
               </div>
 

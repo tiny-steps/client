@@ -156,6 +156,46 @@ class ScheduleService {
     }
     return response.json();
   }
+
+  // New unified status change method
+  async changeAppointmentStatus(id, statusData) {
+    const {
+      status,
+      changedById,
+      reason,
+      cancellationType,
+      rescheduledToAppointmentId,
+    } = statusData;
+
+    const searchParams = new URLSearchParams();
+    searchParams.append("status", status);
+    searchParams.append("changedById", changedById);
+    if (reason) searchParams.append("reason", reason);
+    if (cancellationType)
+      searchParams.append("cancellationType", cancellationType);
+    if (rescheduledToAppointmentId)
+      searchParams.append(
+        "rescheduledToAppointmentId",
+        rescheduledToAppointmentId
+      );
+
+    const response = await fetch(
+      `/api/v1/appointments/${id}/status?${searchParams}`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to change appointment status");
+    }
+    return response.json();
+  }
 }
 
 export const scheduleService = new ScheduleService();

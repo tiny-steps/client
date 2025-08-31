@@ -1,335 +1,355 @@
+import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useEffect } from "react";
+import AppointmentDetailsModal from "./AppointmentDetailsModal.jsx";
 
 const DashboardCalendar = ({
- appointments = [],
- availabilities = [],
- doctors = [],
- patients = [],
- onAppointmentClick = () => {},
- onTimeSlotClick = () => {},
+  appointments = [],
+  availabilities = [],
+  doctors = [],
+  patients = [],
+  onAppointmentClick,
+  onTimeSlotClick,
 }) => {
- const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
- // Helper function to format date as YYYY-MM-DD using local timezone
- const formatLocalDate = (date) => {
- const year = date.getFullYear();
- const month = String(date.getMonth() + 1).padStart(2, "0");
- const day = String(date.getDate()).padStart(2, "0");
- return `${year}-${month}-${day}`;
- };
+  // Helper function to format date as YYYY-MM-DD using local timezone
+  const formatLocalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
- // Helper function to generate time slots from availability data
- const generateTimeSlotsFromAvailability = (availabilities) => {
- const availableSlots = new Set();
- availabilities.forEach((availability) => {
- if (availability.durations) {
- availability.durations
- .filter(
- (duration) =>
- duration.startTime &&
- duration.endTime &&
- duration.startTime !== duration.endTime
- )
- .forEach((duration) => {
- // Convert time strings to HH:MM format if they're in HH:MM:SS format
- const startTimeStr = duration.startTime.includes(":")
- ? duration.startTime.split(":").slice(0, 2).join(":")
- : duration.startTime;
- const endTimeStr = duration.endTime.includes(":")
- ? duration.endTime.split(":").slice(0, 2).join(":")
- : duration.endTime;
+  // Helper function to generate time slots from availability data
+  const generateTimeSlotsFromAvailability = (availabilities) => {
+    const availableSlots = new Set();
+    availabilities.forEach((availability) => {
+      if (availability.durations) {
+        availability.durations
+          .filter(
+            (duration) =>
+              duration.startTime &&
+              duration.endTime &&
+              duration.startTime !== duration.endTime
+          )
+          .forEach((duration) => {
+            // Convert time strings to HH:MM format if they're in HH:MM:SS format
+            const startTimeStr = duration.startTime.includes(":")
+              ? duration.startTime.split(":").slice(0, 2).join(":")
+              : duration.startTime;
+            const endTimeStr = duration.endTime.includes(":")
+              ? duration.endTime.split(":").slice(0, 2).join(":")
+              : duration.endTime;
 
- const start = new Date(`2000-01-01T${startTimeStr}:00`);
- let end = new Date(`2000-01-01T${endTimeStr}:00`);
+            const start = new Date(`2000-01-01T${startTimeStr}:00`);
+            let end = new Date(`2000-01-01T${endTimeStr}:00`);
 
- // Handle case where end time is earlier than start time (crosses midnight)
- if (end < start) {
- console.warn(
- `⚠️ Invalid time range: ${startTimeStr} - ${endTimeStr}. Skipping this duration.`
- );
- return; // Skip this invalid duration
- }
+            // Handle case where end time is earlier than start time (crosses midnight)
+            if (end < start) {
+              console.warn(
+                `⚠️ Invalid time range: ${startTimeStr} - ${endTimeStr}. Skipping this duration.`
+              );
+              return; // Skip this invalid duration
+            }
 
- // Generate 30-minute slots for the entire duration range
- while (start < end) {
- availableSlots.add(start.toTimeString().slice(0, 5));
- start.setMinutes(start.getMinutes() + 30); // Always use 30-minute intervals
- }
- });
- }
- });
- return Array.from(availableSlots).sort();
- };
+            // Generate 30-minute slots for the entire duration range
+            while (start < end) {
+              availableSlots.add(start.toTimeString().slice(0, 5));
+              start.setMinutes(start.getMinutes() + 30); // Always use 30-minute intervals
+            }
+          });
+      }
+    });
+    return Array.from(availableSlots).sort();
+  };
 
- // Navigation functions
- const handlePrevDay = () => {
- const prevDate = new Date(currentDate);
- prevDate.setDate(prevDate.getDate() - 1);
- setCurrentDate(prevDate);
- };
+  // Navigation functions
+  const handlePrevDay = () => {
+    const prevDate = new Date(currentDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    setCurrentDate(prevDate);
+  };
 
- const handleNextDay = () => {
- const nextDate = new Date(currentDate);
- nextDate.setDate(nextDate.getDate() + 1);
- setCurrentDate(nextDate);
- };
+  const handleNextDay = () => {
+    const nextDate = new Date(currentDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    setCurrentDate(nextDate);
+  };
 
- // Get appointments for current date
- const dayAppointments = appointments.filter(
- (a) => a.appointmentDate === formatLocalDate(currentDate)
- );
+  // Get appointments for current date
+  const dayAppointments = appointments.filter(
+    (a) => a.appointmentDate === formatLocalDate(currentDate)
+  );
 
- // Get availability for current date
- const selectedDateObj = new Date(currentDate);
- const dayOfWeek = selectedDateObj.getDay();
- const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+  // Get availability for current date
+  const selectedDateObj = new Date(currentDate);
+  const dayOfWeek = selectedDateObj.getDay();
+  const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
- // Debug logging
- console.log("🔍 DashboardCalendar Debug:", {
- availabilities: availabilities.length,
- appointments: appointments.length,
- currentDate: formatLocalDate(currentDate),
- currentDateString: currentDate.toDateString(),
- dayOfWeek,
- backendDayOfWeek,
- });
+  // Debug logging
+  console.log("🔍 DashboardCalendar Debug:", {
+    availabilities: availabilities.length,
+    appointments: appointments.length,
+    currentDate: formatLocalDate(currentDate),
+    currentDateString: currentDate.toDateString(),
+    dayOfWeek,
+    backendDayOfWeek,
+  });
 
- // Filter by day of week, active status, and must have valid durations with start/end times
- let dayAvailabilities = availabilities.filter((availability) => {
- return (
- availability.dayOfWeek === backendDayOfWeek &&
- availability.active &&
- availability.durations &&
- availability.durations.length > 0 &&
- availability.durations.some(
- (duration) =>
- duration.startTime &&
- duration.endTime &&
- duration.startTime !== duration.endTime
- )
- );
- });
+  // Filter by day of week, active status, and must have valid durations with start/end times
+  let dayAvailabilities = availabilities.filter((availability) => {
+    return (
+      availability.dayOfWeek === backendDayOfWeek &&
+      availability.active &&
+      availability.durations &&
+      availability.durations.length > 0 &&
+      availability.durations.some(
+        (duration) =>
+          duration.startTime &&
+          duration.endTime &&
+          duration.startTime !== duration.endTime
+      )
+    );
+  });
 
- // NO fallback - if no availabilities for this day, there should be no slots
+  // NO fallback - if no availabilities for this day, there should be no slots
 
- console.log("🔍 DashboardCalendar Filtered:", {
- filteredAvailabilities: dayAvailabilities.length,
- sampleAvailability: dayAvailabilities[0] || null,
- availableForToday: availabilities.filter(
- (a) => a.dayOfWeek === backendDayOfWeek
- ),
- activeAvailabilities: availabilities.filter((a) => a.active),
- validDurations: dayAvailabilities.flatMap(
- (a) =>
- a.durations
- ?.filter((d) => d.startTime && d.endTime && d.startTime !== d.endTime)
- ?.map((d) => `${d.startTime}-${d.endTime}`) || []
- ),
- });
+  console.log("🔍 DashboardCalendar Filtered:", {
+    filteredAvailabilities: dayAvailabilities.length,
+    sampleAvailability: dayAvailabilities[0] || null,
+    availableForToday: availabilities.filter(
+      (a) => a.dayOfWeek === backendDayOfWeek
+    ),
+    activeAvailabilities: availabilities.filter((a) => a.active),
+    validDurations: dayAvailabilities.flatMap(
+      (a) =>
+        a.durations
+          ?.filter((d) => d.startTime && d.endTime && d.startTime !== d.endTime)
+          ?.map((d) => `${d.startTime}-${d.endTime}`) || []
+    ),
+  });
 
- // Generate all available time slots for the day
- const allAvailableSlots =
- generateTimeSlotsFromAvailability(dayAvailabilities);
+  // Generate all available time slots for the day
+  const allAvailableSlots =
+    generateTimeSlotsFromAvailability(dayAvailabilities);
 
- // Get booked time slots
- const bookedSlots = dayAppointments.map((a) => a.startTime?.substring(0, 5));
+  // Get booked time slots
+  const bookedSlots = dayAppointments.map((a) => a.startTime?.substring(0, 5));
 
- // Create a set of all relevant time slots (available + booked)
- const relevantSlots = new Set([...allAvailableSlots, ...bookedSlots]);
- const timeSlots = Array.from(relevantSlots).sort();
+  // Create a set of all relevant time slots (available + booked)
+  const relevantSlots = new Set([...allAvailableSlots, ...bookedSlots]);
+  const timeSlots = Array.from(relevantSlots).sort();
 
- // Check if there are any slots for today
- const hasAnySlots = timeSlots.length > 0;
+  // Check if there are any slots for today
+  const hasAnySlots = timeSlots.length > 0;
 
- console.log("🔍 DashboardCalendar Slots:", {
- availableSlots: allAvailableSlots.length,
- bookedSlots: bookedSlots.length,
- totalSlots: timeSlots.length,
- });
+  console.log("🔍 DashboardCalendar Slots:", {
+    availableSlots: allAvailableSlots.length,
+    bookedSlots: bookedSlots.length,
+    totalSlots: timeSlots.length,
+  });
 
- const formatDate = (date) => {
- return date.toLocaleDateString("en-US", {
- weekday: "long",
- year: "numeric",
- month: "long",
- day: "numeric",
- });
- };
+  const formatDate = (date) => {
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
- return (
- <div className="bg-white/20 backdrop-blur-md border border-white/30 p-6 rounded-lg shadow-lg">
- {/* Header with navigation */}
- <div className="flex justify-between items-center mb-6">
- <button
- onClick={handlePrevDay}
- className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
- >
- <ChevronLeft className="w-5 h-5" />
- </button>
- <h2 className="text-xl font-semibold text-center">
- {formatDate(currentDate)}
- </h2>
- <button
- onClick={handleNextDay}
- className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
- >
- <ChevronRight className="w-5 h-5" />
- </button>
- </div>
+  return (
+    <div className="bg-white/20 backdrop-blur-md border border-white/30 p-6 rounded-lg shadow-lg">
+      {/* Header with navigation */}
+      <div className="flex justify-between items-center mb-6">
+        <button
+          onClick={handlePrevDay}
+          className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-xl font-semibold text-center">
+          {formatDate(currentDate)}
+        </h2>
+        <button
+          onClick={handleNextDay}
+          className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
 
- {/* Content */}
- {!hasAnySlots ? (
- <div className="flex flex-col items-center justify-center py-12">
- <div className="text-6xl mb-4">👨‍⚕️</div>
- <h3 className="text-xl font-semibold text-gray-700 mb-2">
- No Doctors Available Today
- </h3>
- <p className="text-gray-500 mb-6">
- Try navigating to another day to find available appointments
- </p>
- <button
- onClick={handleNextDay}
- className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
- >
- Next Day
- </button>
- </div>
- ) : (
- <div className="space-y-3">
- {timeSlots.map((time) => {
- // Check if this time slot has an appointment
- const appointment = dayAppointments.find(
- (a) => a.startTime?.substring(0, 5) === time
- );
+      {/* Content */}
+      {!hasAnySlots ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="text-6xl mb-4">👨‍⚕️</div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            No Doctors Available Today
+          </h3>
+          <p className="text-gray-500 mb-6">
+            Try navigating to another day to find available appointments
+          </p>
+          <button
+            onClick={handleNextDay}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Next Day
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {timeSlots.map((time) => {
+            // Check if this time slot has an appointment
+            const appointment = dayAppointments.find(
+              (a) => a.startTime?.substring(0, 5) === time
+            );
 
- // Check if this time slot is available
- const isAvailable = allAvailableSlots.includes(time);
+            // Check if this time slot is available
+            const isAvailable = allAvailableSlots.includes(time);
 
- // Find which doctors are available at this time
- const availableDoctors = dayAvailabilities
- .filter((availability) => {
- return availability.durations
- ?.filter(
- (duration) =>
- duration.startTime &&
- duration.endTime &&
- duration.startTime !== duration.endTime
- )
- ?.some((duration) => {
- // Convert time strings to HH:MM format if they're in HH:MM:SS format
- const startTimeStr = duration.startTime.includes(":")
- ? duration.startTime.split(":").slice(0, 2).join(":")
- : duration.startTime;
- const endTimeStr = duration.endTime.includes(":")
- ? duration.endTime.split(":").slice(0, 2).join(":")
- : duration.endTime;
+            // Find which doctors are available at this time
+            const availableDoctors = dayAvailabilities
+              .filter((availability) => {
+                return availability.durations
+                  ?.filter(
+                    (duration) =>
+                      duration.startTime &&
+                      duration.endTime &&
+                      duration.startTime !== duration.endTime
+                  )
+                  ?.some((duration) => {
+                    // Convert time strings to HH:MM format if they're in HH:MM:SS format
+                    const startTimeStr = duration.startTime.includes(":")
+                      ? duration.startTime.split(":").slice(0, 2).join(":")
+                      : duration.startTime;
+                    const endTimeStr = duration.endTime.includes(":")
+                      ? duration.endTime.split(":").slice(0, 2).join(":")
+                      : duration.endTime;
 
- const start = new Date(`2000-01-01T${startTimeStr}:00`);
- const end = new Date(`2000-01-01T${endTimeStr}:00`);
- const slotTime = new Date(`2000-01-01T${time}:00`);
+                    const start = new Date(`2000-01-01T${startTimeStr}:00`);
+                    const end = new Date(`2000-01-01T${endTimeStr}:00`);
+                    const slotTime = new Date(`2000-01-01T${time}:00`);
 
- // Skip invalid time ranges
- if (end <= start) {
- console.warn(
- `⚠️ Invalid time range: ${startTimeStr} - ${endTimeStr}`
- );
- return false;
- }
+                    // Skip invalid time ranges
+                    if (end <= start) {
+                      console.warn(
+                        `⚠️ Invalid time range: ${startTimeStr} - ${endTimeStr}`
+                      );
+                      return false;
+                    }
 
- return slotTime >= start && slotTime < end;
- });
- })
- .map((availability) => {
- return (
- availability.doctorName || `Doctor ${availability.doctorId}`
- );
- });
+                    return slotTime >= start && slotTime < end;
+                  });
+              })
+              .map((availability) => {
+                return (
+                  availability.doctorName || `Doctor ${availability.doctorId}`
+                );
+              });
 
- if (appointment) {
- // Enrich appointment data with names
- const patient = patients.find(
- (p) => p.id === appointment.patientId
- );
- const doctor = doctors.find((d) => d.id === appointment.doctorId);
- const patientName = patient
- ? `${patient.firstName || ""} ${patient.lastName || ""}`.trim()
- : "Unknown Patient";
- const doctorName = doctor
- ? `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim()
- : "Unknown Doctor";
+            if (appointment) {
+              // Enrich appointment data with names
+              const patient = patients.find(
+                (p) => p.id === appointment.patientId
+              );
+              const doctor = doctors.find((d) => d.id === appointment.doctorId);
+              const patientName = patient
+                ? `${patient.firstName || ""} ${patient.lastName || ""}`.trim()
+                : "Unknown Patient";
+              const doctorName = doctor
+                ? `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim()
+                : "Unknown Doctor";
 
- // Booked appointment slot
- return (
- <div
- key={time}
- className="flex items-center p-3 bg-red-50 border border-red-200 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
- onClick={() => onAppointmentClick(appointment)}
- >
- <div className="w-16 text-sm font-medium text-gray-900 ">
- {time}
- </div>
- <div className="flex-1 ml-4">
- <div className="flex items-center space-x-2">
- <div className="w-3 h-3 bg-red-500 rounded-full"></div>
- <span className="text-sm font-medium text-red-800 ">
- Booked
- </span>
- </div>
- <div className="text-sm text-gray-900 mt-1">
- {patientName} - {doctorName}
- </div>
- {appointment.sessionTypeId && (
- <div className="text-xs text-gray-600 ">
- Session ID: {appointment.sessionTypeId}
- </div>
- )}
- </div>
- </div>
- );
- } else {
- // Available time slot
- return (
- <div
- key={time}
- className="flex items-center p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
- onClick={() => onTimeSlotClick(time)}
- >
- <div className="w-16 text-sm font-medium text-gray-900 ">
- {time}
- </div>
- <div className="flex-1 ml-4">
- <div className="flex items-center space-x-2">
- <div className="w-3 h-3 bg-green-500 rounded-full"></div>
- <span className="text-sm font-medium text-green-800 ">
- Available
- </span>
- </div>
- {availableDoctors.length > 0 && (
- <div className="text-sm text-gray-900 mt-1">
- {availableDoctors.join(", ")}
- </div>
- )}
- </div>
- </div>
- );
- }
- })}
+              // Booked appointment slot
+              return (
+                <div
+                  key={time}
+                  className="flex items-center p-3 bg-red-50 border border-red-200 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
+                  onClick={() => {
+                    setSelectedAppointment(appointment);
+                    setShowAppointmentModal(true);
+                    onAppointmentClick?.(appointment);
+                  }}
+                >
+                  <div className="w-16 text-sm font-medium text-gray-900 ">
+                    {time}
+                  </div>
+                  <div className="flex-1 ml-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-red-800 ">
+                        Booked
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-900 mt-1">
+                      {patientName} - {doctorName}
+                    </div>
+                    {appointment.sessionTypeId && (
+                      <div className="text-xs text-gray-600 ">
+                        Session ID: {appointment.sessionTypeId}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            } else {
+              // Available time slot
+              return (
+                <div
+                  key={time}
+                  className="flex items-center p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
+                  onClick={() => onTimeSlotClick(time)}
+                >
+                  <div className="w-16 text-sm font-medium text-gray-900 ">
+                    {time}
+                  </div>
+                  <div className="flex-1 ml-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-green-800 ">
+                        Available
+                      </span>
+                    </div>
+                    {availableDoctors.length > 0 && (
+                      <div className="text-sm text-gray-900 mt-1">
+                        {availableDoctors.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+          })}
 
- {/* Summary */}
- <div className="mt-6 pt-4 border-t border-gray-200 ">
- <div className="flex justify-between text-sm text-gray-600 ">
- <span>Total Appointments: {dayAppointments.length}</span>
- <span>
- Available Slots:{" "}
- {Math.max(0, allAvailableSlots.length - bookedSlots.length)}
- </span>
- </div>
- </div>
- </div>
- )}
- </div>
- );
+          {/* Summary */}
+          <div className="mt-6 pt-4 border-t border-gray-200 ">
+            <div className="flex justify-between text-sm text-gray-600 ">
+              <span>Total Appointments: {dayAppointments.length}</span>
+              <span>
+                Available Slots:{" "}
+                {Math.max(0, allAvailableSlots.length - bookedSlots.length)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Details Modal */}
+      <AppointmentDetailsModal
+        appointment={selectedAppointment}
+        isOpen={showAppointmentModal}
+        onClose={() => {
+          setShowAppointmentModal(false);
+          setSelectedAppointment(null);
+        }}
+        onStatusChange={onAppointmentClick}
+        patients={patients}
+        doctors={doctors}
+      />
+    </div>
+  );
 };
 
 export default DashboardCalendar;
