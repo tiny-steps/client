@@ -23,7 +23,7 @@ import {
 } from "../ui/form.jsx";
 
 const sessionSchema = z.object({
-  doctorId: z.string().min(1, "Doctor is required"),
+  doctorIds: z.array(z.string()).min(1, "At least one doctor is required"),
   sessionType: z.object({
     id: z.string().min(1, "Session type is required"),
   }),
@@ -40,7 +40,7 @@ const SessionForm = ({ mode = "create" }) => {
   const form = useForm({
     resolver: zodResolver(sessionSchema),
     defaultValues: {
-      doctorId: "",
+      doctorIds: [],
       sessionType: { id: "" },
       price: 0,
       isActive: true,
@@ -60,7 +60,7 @@ const SessionForm = ({ mode = "create" }) => {
   useEffect(() => {
     if (isEditMode && existingSession) {
       form.reset({
-        doctorId: existingSession.doctorId || "",
+        doctorIds: existingSession.doctorId ? [existingSession.doctorId] : [],
         sessionType: { id: existingSession.sessionType?.id || "" },
         price: existingSession.price || 0,
         isActive:
@@ -74,9 +74,24 @@ const SessionForm = ({ mode = "create" }) => {
   const onSubmit = async (data) => {
     try {
       if (isEditMode) {
-        await updateSession.mutateAsync({ id, sessionData: data });
+        // For edit mode, convert back to single doctor format
+        const sessionData = {
+          ...data,
+          doctorId: data.doctorIds[0], // Use the first selected doctor for edit
+        };
+        delete sessionData.doctorIds;
+        await updateSession.mutateAsync({ id, sessionData });
       } else {
-        await createSession.mutateAsync(data);
+        // For create mode, create sessions for each selected doctor
+        const sessionPromises = data.doctorIds.map((doctorId) => {
+          const sessionData = {
+            ...data,
+            doctorId,
+          };
+          delete sessionData.doctorIds;
+          return createSession.mutateAsync(sessionData);
+        });
+        await Promise.all(sessionPromises);
       }
       navigate("/sessions");
     } catch (error) {
@@ -112,24 +127,60 @@ const SessionForm = ({ mode = "create" }) => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="doctorId"
+                name="doctorIds"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Doctor *</FormLabel>
+                    <FormLabel>
+                      Doctors * (select multiple to create sessions for all
+                      selected doctors)
+                    </FormLabel>
                     <FormControl>
-                      <select
-                        {...field}
-                        className="w-full px-3 py-2 border rounded-md"
-                      >
-                        <option value="">Select a doctor...</option>
-                        {doctors.map((doctor) => (
-                          <option key={doctor.id} value={doctor.id}>
-                            {doctor.name} - {doctor.speciality}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                        {doctors.length === 0 ? (
+                          <p className="text-gray-500">No doctors available</p>
+                        ) : (
+                          doctors.map((doctor) => (
+                            <label
+                              key={doctor.id}
+                              className="flex items-center space-x-2"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  field.value?.includes(doctor.id) || false
+                                }
+                                onChange={(e) => {
+                                  const currentValue = field.value || [];
+                                  if (e.target.checked) {
+                                    field.onChange([
+                                      ...currentValue,
+                                      doctor.id,
+                                    ]);
+                                  } else {
+                                    field.onChange(
+                                      currentValue.filter(
+                                        (id) => id !== doctor.id
+                                      )
+                                    );
+                                  }
+                                }}
+                              />
+                              <span className="text-sm">
+                                {doctor.name} - {doctor.speciality}
+                              </span>
+                            </label>
+                          ))
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
+                    {field.value && field.value.length > 0 && (
+                      <p className="text-sm text-blue-600">
+                        {field.value.length === 1
+                          ? `1 session will be created`
+                          : `${field.value.length} sessions will be created (one for each selected doctor)`}
+                      </p>
+                    )}
                   </FormItem>
                 )}
               />

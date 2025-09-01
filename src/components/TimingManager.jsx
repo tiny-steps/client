@@ -109,9 +109,7 @@ const TimingManager = () => {
   }
   const queryClient = useQueryClient();
   const [selectedDoctor, setSelectedDoctor] = useState("");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [sessions, setSessions] = useState([
     {
@@ -121,6 +119,7 @@ const TimingManager = () => {
       isEmergency: false,
     },
   ]);
+  const [selectedDays, setSelectedDays] = useState([]);
 
   // Debug logs
 
@@ -128,11 +127,8 @@ const TimingManager = () => {
   const doctors = doctorsData?.data?.content || [];
 
   const { data: availabilityData, isLoading } = useQuery({
-    queryKey: ["availability", selectedDoctor, selectedDate],
-    queryFn: () =>
-      timingService.getDoctorAvailability(selectedDoctor, {
-        date: selectedDate,
-      }),
+    queryKey: ["availability", selectedDoctor],
+    queryFn: () => timingService.getDoctorAvailability(selectedDoctor),
     enabled: !!selectedDoctor,
   });
 
@@ -148,6 +144,15 @@ const TimingManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(["availability"]);
       setShowAddModal(false);
+      setSelectedDays([]);
+      setSessions([
+        {
+          startTime: "",
+          endTime: "",
+          description: "",
+          isEmergency: false,
+        },
+      ]);
     },
   });
 
@@ -282,7 +287,7 @@ const TimingManager = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
               <select
                 className="px-3 py-2 border rounded-md"
                 value={selectedDoctor}
@@ -295,11 +300,6 @@ const TimingManager = () => {
                   </option>
                 ))}
               </select>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
             </div>
           )}
         </CardContent>
@@ -562,12 +562,18 @@ const TimingManager = () => {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+
+                  if (selectedDays.length === 0) {
+                    alert("Please select at least one day");
+                    return;
+                  }
+
                   const formData = new FormData(e.target);
-                  const dayOfWeek = Number(formData.get("dayOfWeek"));
                   const practiceId =
                     formData.get("practiceId") ||
                     "b2a1c3d4-5678-4321-9876-abcdef123456"; // Replace with actual logic
                   const isActive = true;
+
                   // Calculate slot duration as the max duration among sessions
                   const durations = sessions.map((s, idx) => ({
                     sessionIndex: idx + 1,
@@ -581,29 +587,55 @@ const TimingManager = () => {
                       (s) => getMinutes(s.endTime) - getMinutes(s.startTime)
                     )
                   );
-                  createAvailability.mutate({
-                    practiceId,
-                    dayOfWeek,
-                    slotDurationMinutes,
-                    isActive,
-                    durations,
+
+                  // Create availability for each selected day
+                  selectedDays.forEach((dayOfWeek) => {
+                    createAvailability.mutate({
+                      practiceId,
+                      dayOfWeek,
+                      slotDurationMinutes,
+                      isActive,
+                      durations: durations.map((d) => ({ ...d })), // Clone durations for each day
+                    });
                   });
                 }}
                 className="space-y-4"
               >
                 <Input name="practiceId" placeholder="Practice ID (optional)" />
-                <select
-                  name="dayOfWeek"
-                  className="w-full px-3 py-2 border rounded-md"
-                  required
-                >
-                  <option value="">Select day...</option>
-                  {weekDays.map((day) => (
-                    <option key={day.value} value={day.value}>
-                      {day.name}
-                    </option>
-                  ))}
-                </select>
+                {/* Multi-day selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Select Days (check multiple to apply to all selected days)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {weekDays.map((day) => (
+                      <label
+                        key={day.value}
+                        className="flex items-center space-x-2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDays.includes(day.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDays([...selectedDays, day.value]);
+                            } else {
+                              setSelectedDays(
+                                selectedDays.filter((d) => d !== day.value)
+                              );
+                            }
+                          }}
+                        />
+                        <span className="text-sm">{day.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedDays.length === 0 && (
+                    <p className="text-red-500 text-sm">
+                      Please select at least one day
+                    </p>
+                  )}
+                </div>
                 {/* Sessions UI */}
                 {sessions.map((session, idx) => (
                   <div key={idx} className="border p-3 rounded mb-2">
@@ -707,6 +739,7 @@ const TimingManager = () => {
                           isEmergency: false,
                         },
                       ]);
+                      setSelectedDays([]);
                     }}
                   >
                     Cancel

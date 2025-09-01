@@ -50,7 +50,11 @@ const AppointmentDetailsModal = ({
           statusData.status = "COMPLETED";
           statusData.reason = "Appointment completed successfully";
           break;
-
+        case "cancel":
+          statusData.status = "CANCELLED";
+          statusData.reason = "Appointment cancelled by doctor";
+          statusData.cancellationType = "CANCELLED_BY_DOCTOR";
+          break;
         default:
           return;
       }
@@ -176,6 +180,19 @@ const AppointmentDetailsModal = ({
                       Complete
                     </button>
                   )}
+
+                  {(appointment.status === "SCHEDULED" ||
+                    appointment.status === "CHECKED_IN") && (
+                    <button
+                      onClick={() =>
+                        setConfirmModal({ open: true, action: "cancel" })
+                      }
+                      className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <XCircle size={16} />
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -189,7 +206,11 @@ const AppointmentDetailsModal = ({
         onOpenChange={(open) => setConfirmModal({ open, action: null })}
         onConfirm={() => handleAction(confirmModal.action)}
         title={`${
-          confirmModal.action === "check-in" ? "Check In" : "Complete"
+          confirmModal.action === "check-in"
+            ? "Check In"
+            : confirmModal.action === "complete"
+            ? "Complete"
+            : "Cancel"
         } Appointment`}
         message={`Are you sure you want to ${confirmModal.action} this appointment?`}
       />
