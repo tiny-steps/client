@@ -13,79 +13,92 @@ import { navItems, createBottomItems } from "@/config/navigation.js";
 import { useDashboardData } from "@/hooks/useDashboardData.js";
 
 function HomePage() {
- const pageRef = useRef(null);
- const { logoutMutation, isLogoutPending } = useAuth();
- const [isNavOpen, setIsNavOpen] = useState(false);
- const [activeItem, setActiveItem] = useState(navItems[0]);
- const { data: user, isLoading, isError, error } = useUserProfile();
- const email = useUserStore((state) => state.email);
+  const pageRef = useRef(null);
+  const { logoutMutation, isLogoutPending } = useAuth();
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const [activeItem, setActiveItem] = useState(navItems[0]);
+  const { data: user, isLoading, isError, error } = useUserProfile();
+  const email = useUserStore((state) => state.email);
 
- // Use the custom hook for dashboard data management
- const {
- appointments,
- doctors,
- bookingStats,
- handleAppointmentStatus,
- handleDoctorStatus,
- handleSlotSelection,
- } = useDashboardData();
+  // Use the custom hook for dashboard data management
+  const {
+    appointments,
+    doctors,
+    bookingStats,
+    handleAppointmentStatus,
+    handleDoctorStatus,
+    handleSlotSelection,
+  } = useDashboardData();
 
- const handleLogout = () => {
- logoutMutation();
- };
+  const handleLogout = () => {
+    logoutMutation();
+  };
 
- // Create bottom items with current email and logout handler
- const bottomItems = createBottomItems(email, handleLogout);
+  // Create bottom items with current email and logout handler
+  const bottomItems = createBottomItems(email, handleLogout);
 
- // When nav item clicked: mark active
- const handleNavItemClick = (item) => {
- setActiveItem(item);
- setIsNavOpen(false);
- };
+  // When nav item clicked: mark active
+  const handleNavItemClick = (item) => {
+    setActiveItem(item);
+    setIsNavOpen(false);
+  };
 
- useGSAP(() => {
- if (!pageRef.current) return;
- gsap.fromTo(
- pageRef.current,
- { scale: 0, opacity: 0, transformOrigin: "center center" },
- { scale: 1, opacity: 1, duration: 0.6, ease: "power3.out" }
- );
- }, []);
+  useGSAP(() => {
+    if (!pageRef.current) return;
+    gsap.fromTo(
+      pageRef.current,
+      { scale: 0, opacity: 0, transformOrigin: "center center" },
+      { scale: 1, opacity: 1, duration: 0.6, ease: "power3.out" }
+    );
+  }, []);
 
- return (
- <div className="min-h-screen bg-gray-50">
- <Header isNavOpen={isNavOpen} setIsNavOpen={setIsNavOpen} />
- <SideNav
- isOpen={isNavOpen}
- setIsOpen={setIsNavOpen}
- items={navItems}
- activeItem={activeItem}
- onItemClick={handleNavItemClick}
- bottomContent={bottomItems}
- />
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header isNavOpen={isNavOpen} setIsNavOpen={setIsNavOpen} />
+      
+      {/* Mobile overlay */}
+      {isNavOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setIsNavOpen(false)}
+        />
+      )}
+      
+      <SideNav
+        isOpen={isNavOpen}
+        setIsOpen={setIsNavOpen}
+        items={navItems}
+        activeItem={activeItem}
+        onItemClick={handleNavItemClick}
+        bottomContent={bottomItems}
+      />
 
- {/* Main content area with dynamic left margin */}
- <main className="transition-all duration-400 ease-in-out pt-16 h-screen w-screen">
- <DashboardHeader
- userName={user?.data.name}
- activeItemDescription={activeItem.description}
- />
+      {/* Main content area with dynamic left margin */}
+      <main
+        className={`transition-all duration-400 ease-in-out pt-16 h-screen w-screen px-4 sm:px-6 lg:px-8 ${
+          isNavOpen ? "ml-64" : "ml-[80px]"
+        }`}
+      >
+        <DashboardHeader
+          userName={user?.data.name}
+          activeItemDescription={activeItem.description}
+        />
 
- <DashboardCards
- appointments={appointments}
- doctors={doctors}
- bookingStats={bookingStats}
- onAppointmentStatusChange={handleAppointmentStatus}
- onDoctorStatusChange={handleDoctorStatus}
- onSlotSelection={handleSlotSelection}
- />
+        <DashboardCards
+          appointments={appointments}
+          doctors={doctors}
+          bookingStats={bookingStats}
+          onAppointmentStatusChange={handleAppointmentStatus}
+          onDoctorStatusChange={handleDoctorStatus}
+          onSlotSelection={handleSlotSelection}
+        />
 
- <div className="mx-4 sm:mx-6 lg:mx-20 px-4 sm:px-6 lg:pl-10">
-           <CalendarView appointments={appointments} doctors={doctors} />
-         </div>
- </main>
- </div>
- );
+        <div>
+          <CalendarView appointments={appointments} doctors={doctors} />
+        </div>
+      </main>
+    </div>
+  );
 }
 
 export default HomePage;

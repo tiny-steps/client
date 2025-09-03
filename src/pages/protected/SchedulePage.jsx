@@ -11,7 +11,10 @@ import {
   useGetAllAppointments,
   useCreateAppointment,
 } from "@/hooks/useScheduleQueries.js";
-import { useGetDoctorAvailability, useGetTimeSlots } from "@/hooks/useTimingQueries.js";
+import {
+  useGetDoctorAvailability,
+  useGetTimeSlots,
+} from "@/hooks/useTimingQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
 
 const SchedulePage = () => {
@@ -31,8 +34,6 @@ const SchedulePage = () => {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [showDayDetail, setShowDayDetail] = useState(false);
-
-
 
   const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
   const { data: patientsData } = useGetAllEnrichedPatients({ size: 100 });
@@ -126,8 +127,8 @@ const SchedulePage = () => {
 
   // Get available time slots from the API
   const availableTimeSlots = timeSlots
-    .filter(slot => slot.status === 'available')
-    .map(slot => slot.startTime.substring(0, 5))
+    .filter((slot) => slot.status === "available")
+    .map((slot) => slot.startTime.substring(0, 5))
     .sort();
 
   const handleTimeSlotClick = (time) => {
@@ -185,7 +186,7 @@ const SchedulePage = () => {
         activeItemDescription={activeItem.description}
       />
 
-      <div className="mx-4 sm:mx-6 lg:mx-20 px-4 sm:px-6 lg:pl-10">
+      <div className="px-4 sm:px-6">
         {showDayDetail ? (
           <DayDetailView
             selectedDate={selectedDate}

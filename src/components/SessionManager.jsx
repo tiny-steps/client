@@ -167,7 +167,7 @@ const SessionManager = () => {
  }
 
  return (
-    <div className="px-4 sm:px-6 lg:px-8">
+    <div>
  {/* Header */}
  <div className="flex justify-between items-center mb-6">
  <div className="flex items-center space-x-1">

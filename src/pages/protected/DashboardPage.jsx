@@ -61,16 +61,18 @@ const DashboardPage = () => {
 
         {/* Error Display */}
         {errors && Object.values(errors).some((error) => error) && (
-          <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 p-4 sm:p-6 
+          <div
+            className="mt-4 p-4 sm:p-6 
                          bg-yellow-50 border border-yellow-200 rounded-lg sm:rounded-xl 
-                         shadow-sm">
+                         shadow-sm"
+          >
             <h3 className="text-base sm:text-lg font-semibold text-yellow-800 mb-2">
               Dashboard Data Issues
             </h3>
             <p className="text-yellow-700 text-sm sm:text-base leading-relaxed">
-              Some dashboard data could not be loaded. This may be due to backend
-              service issues or network problems. The application will continue to
-              work with available data.
+              Some dashboard data could not be loaded. This may be due to
+              backend service issues or network problems. The application will
+              continue to work with available data.
             </p>
           </div>
         )}
