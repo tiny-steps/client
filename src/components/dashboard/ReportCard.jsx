@@ -86,54 +86,75 @@ const ReportCard = ({ selectedDate = new Date() }) => {
   );
 
   const backContent = (
-    <div
-      className="w-full h-full overflow-y-auto p-4"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="text-sm font-semibold text-gray-700 mb-4 text-center">
-        Quick Actions
+    <div className="w-full h-full flex flex-col">
+      {/* Header positioned inline with back icon */}
+      <div className="absolute top-3 left-12 sm:top-4 sm:left-14 z-10 flex-shrink-0">
+        <h3 className="font-bold text-gray-800 text-base whitespace-nowrap">
+          Quick Actions
+        </h3>
       </div>
 
-      <div className="space-y-3">
-        <button
-          onClick={handleGenerateDailyReport}
-          disabled={isLoading}
-          className="w-full bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Calendar size={16} />
-          Generate Daily Report
-        </button>
+      <div className="flex-1 overflow-y-auto pt-8">
+        <div className="space-y-3">
+          <button
+            onClick={handleGenerateDailyReport}
+            disabled={isLoading}
+            className="w-full bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <Calendar size={16} />
+            Generate Daily Report
+          </button>
 
-        <button
-          onClick={handleGenerateMonthlyReport}
-          disabled={isLoading}
-          className="w-full bg-green-100 hover:bg-green-200 text-green-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <BarChart3 size={16} />
-          Generate Monthly Report
-        </button>
+          <button
+            onClick={handleGenerateMonthlyReport}
+            disabled={isLoading}
+            className="w-full bg-green-100 hover:bg-green-200 text-green-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <BarChart3 size={16} />
+            Generate Monthly Report
+          </button>
 
-        <button
-          onClick={handleGeneratePerformanceReport}
-          disabled={isLoading}
-          className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Users size={16} />
-          Doctor Performance Report
-        </button>
+          <button
+            onClick={handleGeneratePerformanceReport}
+            disabled={isLoading}
+            className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <Users size={16} />
+            Doctor Performance Report
+          </button>
 
-        <button
-          onClick={handleGenerateRevenueReport}
-          disabled={isLoading}
-          className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <DollarSign size={16} />
-          Revenue Analytics Report
-        </button>
+          <button
+            onClick={handleGenerateRevenueReport}
+            disabled={isLoading}
+            className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <DollarSign size={16} />
+            Revenue Analytics Report
+          </button>
+
+          {/* Additional report options for testing scrolling */}
+          <button
+            onClick={handleGenerateDailyReport}
+            disabled={isLoading}
+            className="w-full bg-cyan-100 hover:bg-cyan-200 text-cyan-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <Download size={16} />
+            Export Data Report
+          </button>
+
+          <button
+            onClick={handleGenerateDailyReport}
+            disabled={isLoading}
+            className="w-full bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <TrendingUp size={16} />
+            Trend Analysis Report
+          </button>
+        </div>
       </div>
 
       {isLoading && (
-        <div className="mt-4 text-center">
+        <div className="mt-4 text-center flex-shrink-0">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
           <p className="text-xs text-gray-500 mt-2">Generating report...</p>
         </div>

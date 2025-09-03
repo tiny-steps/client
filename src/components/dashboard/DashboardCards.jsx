@@ -6,6 +6,8 @@ import NotificationCard from "./NotificationCard.jsx";
 import ReportCard from "./ReportCard.jsx";
 import PaymentCard from "./PaymentCard.jsx";
 import AnalyticsCard from "./AnalyticsCard.jsx";
+import { useCreateAppointment } from "@/hooks/useScheduleQueries.js";
+import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
 
 const DashboardCards = ({
   appointments,
@@ -18,6 +20,19 @@ const DashboardCards = ({
   rawPatients = [],
   rawDoctors = [],
 }) => {
+  const createAppointmentMutation = useCreateAppointment();
+  const { data: sessionsData } = useGetAllSessions();
+  const sessions = sessionsData?.data?.content || [];
+
+  const handleNewAppointment = async (appointmentData) => {
+    try {
+      await createAppointmentMutation.mutateAsync(appointmentData);
+      // The query cache will be invalidated automatically by the mutation
+    } catch (error) {
+      console.error("Failed to create appointment:", error);
+      throw error; // Re-throw to let the modal handle it
+    }
+  };
   return (
     <div className="w-full">
       {/* Primary Dashboard Cards - Core Metrics */}
@@ -29,6 +44,8 @@ const DashboardCards = ({
             selectedDate={selectedDate}
             patients={rawPatients}
             doctors={rawDoctors}
+            sessions={sessions}
+            onNewAppointment={handleNewAppointment}
           />
         </div>
         <div className="w-full flex justify-center">
@@ -36,6 +53,7 @@ const DashboardCards = ({
             doctors={doctors}
             onStatusChange={onDoctorStatusChange}
             onSlotSelection={onSlotSelection}
+            selectedDate={selectedDate}
           />
         </div>
         <div className="w-full flex justify-center md:col-span-2 xl:col-span-1">

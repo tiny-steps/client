@@ -5,7 +5,7 @@ import { useGetAllAvailabilities } from "./useTimingQueries.js";
 import { useChangeAppointmentStatus } from "./useScheduleQueries.js";
 import useUserStore from "../store/useUserStore.js";
 
-export const useDashboardData = () => {
+export const useDashboardData = (selectedDate = new Date()) => {
   // Get the logged-in user's ID
   const userId = useUserStore((state) => state.userId);
 
@@ -90,15 +90,39 @@ export const useDashboardData = () => {
       })) || [],
   };
 
-  // Calculate booking statistics with fallback data
+  // Calculate booking statistics filtered by selected date
+  const selectedDateString = selectedDate
+    ? selectedDate.toISOString().split("T")[0]
+    : new Date().toISOString().split("T")[0];
+
+  // Filter appointments for the selected date
+  const selectedDateAppointments = allAppointments.filter((apt) => {
+    const aptDate = new Date(apt.appointmentDate).toISOString().split("T")[0];
+    return aptDate === selectedDateString;
+  });
+
+  const cancelledCount =
+    selectedDateAppointments.filter((apt) => apt.status === "CANCELLED")
+      .length || 0;
+  const completedCount =
+    selectedDateAppointments.filter((apt) => apt.status === "COMPLETED")
+      .length || 0;
+  const scheduledCount =
+    selectedDateAppointments.filter((apt) => apt.status === "SCHEDULED")
+      .length || 0;
+  const checkedInCount =
+    selectedDateAppointments.filter((apt) => apt.status === "CHECKED_IN")
+      .length || 0;
+
   const bookingStats = {
-    total: appointments.total || 0,
-    completed: appointments.completed || 0,
-    cancelled:
-      allAppointments.filter((apt) => apt.status === "CANCELLED").length || 0,
+    total: selectedDateAppointments.length || 0,
+    completed: completedCount,
+    cancelled: cancelledCount,
+    scheduled: scheduledCount,
+    checkedIn: checkedInCount,
     rescheduled: 0, // This will be calculated from history if needed
-    byDoctor: doctors.availableCount || 0,
-    byPatient: patientsData?.data?.totalElements || 0,
+    byDoctor: 0, // This would come from appointment cancellation type if available
+    byPatient: 0, // This would come from appointment cancellation type if available
     missedNoShow: 0, // This will be calculated from history if needed
     missedRescheduled: 0, // This will be calculated from history if needed
   };
