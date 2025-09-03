@@ -62,13 +62,15 @@ const DashboardLayout = () => {
  />
 
  {/* Main content area - responsive to sidebar state */}
- <main
- className={`transition-all duration-400 ease-in-out pt-16 min-h-screen relative z-10 ${
- isNavOpen ? "ml-64" : "ml-16"
- }`}
- >
- <Outlet context={{ activeItem }} />
- </main>
+    <main
+      className={`transition-all duration-400 ease-in-out pt-16 h-screen overflow-y-auto relative z-10 ${
+        isNavOpen ? "lg:ml-64 ml-0" : "lg:ml-[80px] ml-0"
+      }`}
+    >
+      <div className="pb-6">
+        <Outlet context={{ activeItem }} />
+      </div>
+    </main>
  </div>
  );
 };

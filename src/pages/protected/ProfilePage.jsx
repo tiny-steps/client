@@ -17,7 +17,7 @@ const ProfilePage = () => {
  activeItemDescription="Manage your profile and account settings"
  />
 
- <div className="container ml-20 mt-6">
+ <div className="container mx-auto px-4 sm:px-6 lg:px-8 lg:ml-20 mt-6">
  <div className="max-w-4xl mx-auto">
  {/* Profile Header */}
  <div className="bg-white/20 backdrop-blur-md border border-white/30 rounded-lg shadow-lg p-6 mb-6">

@@ -247,7 +247,7 @@ const QualificationsPage = () => {
  }
 
  return (
- <div className="p-6 h-full w-full">
+ <div className="container mx-auto px-4 sm:px-6 lg:px-8 lg:ml-20 mt-6 h-full w-full">
  <div className="flex justify-between items-center mb-6">
  <div>
  <h1 className="text-2xl font-bold">Qualifications Management</h1>

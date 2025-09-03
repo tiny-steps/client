@@ -15,9 +15,9 @@ const PatientsPage = () => {
  activeItemDescription={activeItem.description}
  />
 
- <div className="container ml-20 mt-6">
- <PatientsList />
- </div>
+ <div className="container mx-auto px-4 sm:px-6 lg:px-8 lg:ml-20 mt-6">
+      <PatientsList />
+    </div>
  </>
  );
 };

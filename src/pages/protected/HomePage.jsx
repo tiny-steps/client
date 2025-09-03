@@ -80,9 +80,9 @@ function HomePage() {
  onSlotSelection={handleSlotSelection}
  />
 
- <div className="mx-20 pl-10">
- <CalendarView appointments={appointments} doctors={doctors} />
- </div>
+ <div className="mx-4 sm:mx-6 lg:mx-20 px-4 sm:px-6 lg:pl-10">
+           <CalendarView appointments={appointments} doctors={doctors} />
+         </div>
  </main>
  </div>
  );

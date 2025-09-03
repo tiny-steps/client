@@ -15,9 +15,7 @@ const SessionPage = () => {
  activeItemDescription="Session Management - Create and manage session offerings"
  />
 
- <div className="container ml-20 mt-6">
  <SessionManager />
- </div>
  </>
  );
 };

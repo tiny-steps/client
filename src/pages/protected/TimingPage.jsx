@@ -15,9 +15,9 @@ const TimingPage = () => {
  activeItemDescription={activeItem.description}
  />
 
- <div className="container ml-20 mt-6">
- <TimingManager />
- </div>
+ <div className="container mx-auto px-4 sm:px-6 lg:px-8 lg:ml-20 mt-6">
+      <TimingManager />
+    </div>
  </>
  );
 };

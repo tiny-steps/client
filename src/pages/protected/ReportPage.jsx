@@ -15,9 +15,7 @@ const ReportPage = () => {
  activeItemDescription={activeItem.description}
  />
 
- <div className="container ml-20 mt-6">
  <ReportsManager />
- </div>
  </>
  );
 };

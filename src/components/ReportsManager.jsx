@@ -60,7 +60,7 @@ const ReportsManager = () => {
     );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-4 sm:px-6 lg:px-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Reports</h1>
         <Button
