@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useWindowSize } from "../hooks/useWindowSize";
 import AppointmentActions from "./AppointmentActions.jsx";
+import { useGetTimeSlotsForWeek, useGetTimeSlotsForMonth } from "../hooks/useTimingBatchQueries.js";
 
 const CalendarView = ({
   appointments,
@@ -49,6 +50,51 @@ const CalendarView = ({
   const currentDate = selectedDate
     ? new Date(selectedDate)
     : internalCurrentDate;
+
+  // Calculate week start for batch timeslots fetching
+  const getWeekStart = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    return new Date(d.setDate(diff));
+  };
+
+  // Batch fetch timeslots for weekly view
+  const weekStartDate = getWeekStart(currentDate);
+  const { data: weekTimeSlotsData } = useGetTimeSlotsForWeek(
+    selectedDoctor,
+    weekStartDate,
+    null, // practiceId
+    { enabled: !!selectedDoctor && view === "weekly" }
+  );
+
+  // Batch fetch timeslots for monthly view
+  const { data: monthTimeSlotsData } = useGetTimeSlotsForMonth(
+    selectedDoctor,
+    currentDate,
+    null, // practiceId
+    { enabled: !!selectedDoctor && view === "monthly" }
+  );
+
+  // Get timeslots map based on current view
+  const getTimeSlotsForDate = (date) => {
+    const dateStr = typeof date === 'string' ? date : date.toISOString().split('T')[0];
+    
+    if (view === "weekly" && weekTimeSlotsData?.data) {
+      return weekTimeSlotsData.data[dateStr] || [];
+    }
+    
+    if (view === "monthly" && monthTimeSlotsData?.data) {
+      return monthTimeSlotsData.data[dateStr] || [];
+    }
+    
+    // Fallback to single date timeslots for today view
+    if (view === "today" && timeSlots && dateStr === (selectedDate || currentDate.toISOString().split('T')[0])) {
+      return timeSlots;
+    }
+    
+    return [];
+  };
 
   useEffect(() => {
     if (isMobile) {
@@ -416,18 +462,19 @@ const CalendarView = ({
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 border-t border-l border-gray-200 ">
+        <div className="grid grid-cols-7 border-t border-l border-gray-200 sm:text-sm text-xs">
           {days.map((day) => {
             const dayOfWeek = day.getDay();
             const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
             
-            // Check if we have time slots for this specific date
-            const dayTimeSlots = timeSlots.length > 0 
-              ? timeSlots.filter(slot => slot.status === 'available').map(slot => slot.startTime.substring(0, 5))
+            // Get timeslots for this specific date using the efficient API
+            const dayTimeSlotsFromAPI = getTimeSlotsForDate(day);
+            const dayTimeSlots = dayTimeSlotsFromAPI.length > 0 
+              ? dayTimeSlotsFromAPI.filter(slot => slot.status === 'available').map(slot => slot.startTime.substring(0, 5))
               : [];
             
-            // Fallback to availability logic if no time slots
-            const dayAvailabilities = timeSlots.length === 0 && availabilities
+            // Fallback to availability logic if no time slots from API
+            const dayAvailabilities = dayTimeSlots.length === 0 && availabilities
               ? availabilities.filter(
                   (availability) =>
                     availability.dayOfWeek === backendDayOfWeek &&
@@ -441,7 +488,7 @@ const CalendarView = ({
             return (
               <div
                 key={day.toISOString()}
-                className={`p-2 h-24 border-r border-b border-gray-200 relative ${
+                className={`p-1 sm:p-2 h-16 sm:h-24 border-r border-b border-gray-200 relative ${
                   day.toDateString() === today.toDateString()
                     ? "bg-blue-50 "
                     : ""
@@ -465,18 +512,19 @@ const CalendarView = ({
 
                   if (dayAppointments.length > 0) {
                     // Show red dots for booked appointments
-                    const dayTimeSlots =
-                      generateTimeSlotsFromAvailability(dayAvailabilities);
-                    const totalSlots = dayTimeSlots.length;
+                    const allDayTimeSlots = dayTimeSlots.length > 0 
+                      ? dayTimeSlots 
+                      : generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = allDayTimeSlots.length;
                     const availableCount = Math.max(
                       0,
-                      dayTimeSlots.length - dayAppointments.length
+                      allDayTimeSlots.length - dayAppointments.length
                     );
 
                     return (
                       <div className="mt-2">
                         {/* Slot count in top right */}
-                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 ">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-xs font-medium text-gray-600 ">
                           {availableCount}/{totalSlots}
                         </div>
 
@@ -494,16 +542,16 @@ const CalendarView = ({
                             />
                           ))}
                         </div>
-                        <div className="flex space-x-2 mt-2">
+                        <div className="flex space-x-1 sm:space-x-2 mt-1 sm:mt-2">
                           <button
-                            className="text-xs text-blue-600 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-blue-600 cursor-pointer hover:underline"
                             onClick={() => handleDayClick(formatLocalDate(day))}
                           >
                             View Details
                           </button>
                           {availableCount > 0 && (
                             <button
-                              className="text-xs text-green-600 cursor-pointer hover:underline"
+                              className="text-xs sm:text-sm text-green-600 cursor-pointer hover:underline"
                               onClick={() =>
                                 onDateClick && onDateClick(formatLocalDate(day))
                               }
@@ -516,15 +564,16 @@ const CalendarView = ({
                     );
                   } else if (selectedDoctor && hasAvailability) {
                     // Show green dots for available time slots
-                    const dayTimeSlots =
-                      generateTimeSlotsFromAvailability(dayAvailabilities);
-                    const totalSlots = dayTimeSlots.length;
-                    const availableCount = dayTimeSlots.length;
+                    const allDayTimeSlots = dayTimeSlots.length > 0 
+                      ? dayTimeSlots 
+                      : generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = allDayTimeSlots.length;
+                    const availableCount = allDayTimeSlots.length;
 
                     return (
                       <div className="mt-2">
                         {/* Slot count in top right */}
-                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 ">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-xs font-medium text-gray-600 ">
                           {availableCount}/{totalSlots}
                         </div>
 
@@ -546,15 +595,15 @@ const CalendarView = ({
                             />
                           )}
                         </div>
-                        <div className="flex space-x-2 mt-2">
+                        <div className="flex space-x-1 sm:space-x-2 mt-1 sm:mt-2">
                           <button
-                            className="text-xs text-blue-600 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-blue-600 cursor-pointer hover:underline"
                             onClick={() => handleDayClick(formatLocalDate(day))}
                           >
                             View Details
                           </button>
                           <button
-                            className="text-xs text-green-600 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-green-600 cursor-pointer hover:underline"
                             onClick={() =>
                               onDateClick && onDateClick(formatLocalDate(day))
                             }
@@ -698,7 +747,7 @@ const CalendarView = ({
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 border-t border-l border-gray-200 ">
+        <div className="grid grid-cols-7 border-t border-l border-gray-200 sm:text-sm text-xs">
           {calendarDays.map((d) => {
             if (!d.day) {
               return (
@@ -722,7 +771,15 @@ const CalendarView = ({
 
             const dayOfWeek = dayDate.getDay();
             const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-            const dayAvailabilities = availabilities
+            
+            // Get timeslots for this specific date using the efficient API
+            const dayTimeSlotsFromAPI = getTimeSlotsForDate(dayDate);
+            const dayTimeSlots = dayTimeSlotsFromAPI.length > 0 
+              ? dayTimeSlotsFromAPI.filter(slot => slot.status === 'available').map(slot => slot.startTime.substring(0, 5))
+              : [];
+            
+            // Fallback to availability logic if no time slots from API
+            const dayAvailabilities = dayTimeSlots.length === 0 && availabilities
               ? availabilities.filter(
                   (availability) =>
                     availability.dayOfWeek === backendDayOfWeek &&
@@ -731,12 +788,12 @@ const CalendarView = ({
                     availability.durations.length > 0
                 )
               : [];
-            const hasAvailability = dayAvailabilities.length > 0;
+            const hasAvailability = dayTimeSlots.length > 0 || dayAvailabilities.length > 0;
 
             return (
               <div
                 key={d.key}
-                className={`p-2 h-24 border-r border-b border-gray-200 relative ${
+                className={`p-1 sm:p-2 h-16 sm:h-24 border-r border-b border-gray-200 relative ${
                   d.day === today.getDate() && d.isCurrentMonth
                     ? "bg-blue-50 "
                     : ""
@@ -758,18 +815,19 @@ const CalendarView = ({
 
                   if (dayAppointments.length > 0) {
                     // Show red dots for booked appointments
-                    const dayTimeSlots =
-                      generateTimeSlotsFromAvailability(dayAvailabilities);
-                    const totalSlots = dayTimeSlots.length;
+                    const allDayTimeSlots = dayTimeSlots.length > 0 
+                      ? dayTimeSlots 
+                      : generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = allDayTimeSlots.length;
                     const availableCount = Math.max(
                       0,
-                      dayTimeSlots.length - dayAppointments.length
+                      allDayTimeSlots.length - dayAppointments.length
                     );
 
                     return (
-                      <div className="mt-2">
+                      <div className="mt-1 sm:mt-2">
                         {/* Slot count in top right */}
-                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 ">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-xs font-medium text-gray-600 ">
                           {availableCount}/{totalSlots}
                         </div>
 
@@ -797,9 +855,9 @@ const CalendarView = ({
                             />
                           )}
                         </div>
-                        <div className="flex space-x-2 mt-2">
+                        <div className="flex space-x-1 sm:space-x-2 mt-1 sm:mt-2">
                           <button
-                            className="text-xs text-blue-600 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-blue-600 cursor-pointer hover:underline"
                             onClick={() =>
                               handleDayClick(formatLocalDate(dayDate))
                             }
@@ -808,7 +866,7 @@ const CalendarView = ({
                           </button>
                           {availableCount > 0 && (
                             <button
-                              className="text-xs text-green-600 cursor-pointer hover:underline"
+                              className="text-xs sm:text-sm text-green-600 cursor-pointer hover:underline"
                               onClick={() => {
                                 const dateString = formatLocalDate(dayDate);
                                 onDateClick && onDateClick(dateString);
@@ -822,20 +880,21 @@ const CalendarView = ({
                     );
                   } else if (selectedDoctor && hasAvailability) {
                     // Show green dots for available time slots
-                    const dayTimeSlots =
-                      generateTimeSlotsFromAvailability(dayAvailabilities);
-                    const totalSlots = dayTimeSlots.length;
-                    const availableCount = dayTimeSlots.length;
+                    const allDayTimeSlots = dayTimeSlots.length > 0 
+                      ? dayTimeSlots 
+                      : generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = allDayTimeSlots.length;
+                    const availableCount = allDayTimeSlots.length;
 
                     return (
-                      <div className="mt-2">
+                      <div className="mt-1 sm:mt-2">
                         {/* Slot count in top right */}
-                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 ">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-xs font-medium text-gray-600 ">
                           {availableCount}/{totalSlots}
                         </div>
 
                         <div className="flex flex-wrap gap-1">
-                          {dayTimeSlots.slice(0, 6).map((time, index) => (
+                          {allDayTimeSlots.slice(0, 6).map((time, index) => (
                             <div
                               key={index}
                               className="w-1.5 h-1.5 bg-green-500 rounded-full cursor-pointer hover:scale-125 transition-transform"
@@ -846,16 +905,16 @@ const CalendarView = ({
                               }}
                             />
                           ))}
-                          {dayTimeSlots.length > 6 && (
+                          {allDayTimeSlots.length > 6 && (
                             <div
                               className="w-1.5 h-1.5 bg-green-400 rounded-full"
-                              title={`+${dayTimeSlots.length - 6} more slots`}
+                              title={`+${allDayTimeSlots.length - 6} more slots`}
                             />
                           )}
                         </div>
-                        <div className="flex space-x-2 mt-2">
+                        <div className="flex space-x-1 sm:space-x-2 mt-1 sm:mt-2">
                           <button
-                            className="text-xs text-blue-600 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-blue-600 cursor-pointer hover:underline"
                             onClick={() =>
                               handleDayClick(formatLocalDate(dayDate))
                             }
@@ -863,7 +922,7 @@ const CalendarView = ({
                             View Details
                           </button>
                           <button
-                            className="text-xs text-green-600 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-green-600 cursor-pointer hover:underline"
                             onClick={() => {
                               const dateString = formatLocalDate(dayDate);
                               onDateClick && onDateClick(dateString);
