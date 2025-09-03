@@ -10,7 +10,7 @@ import {
   useGetAllAppointments,
   useCreateAppointment,
 } from "@/hooks/useScheduleQueries.js";
-import { useGetDoctorAvailability } from "@/hooks/useTimingQueries.js";
+import { useGetDoctorAvailability, useGetTimeSlots } from "@/hooks/useTimingQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
 import {
   Card,
@@ -76,9 +76,10 @@ const SchedulePage = () => {
   const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
   const { data: patientsData } = useGetAllEnrichedPatients({ size: 100 });
   const { data: appointmentsData } = useGetAllAppointments({ size: 100 });
-  const { data: availabilityData } = useGetDoctorAvailability(
+  const { data: timeSlotsData } = useGetTimeSlots(
     selectedDoctor,
-    { date: selectedDate },
+    selectedDate,
+    null, // practiceId
     { enabled: !!selectedDoctor }
   );
   const createAppointmentMutation = useCreateAppointment();
@@ -94,7 +95,7 @@ const SchedulePage = () => {
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
   const appointments = appointmentsData?.data?.content || [];
-  const availabilities = availabilityData || [];
+  const timeSlots = timeSlotsData?.data?.slots || [];
 
   // Set the first doctor as default when doctors data is loaded
   useEffect(() => {
@@ -163,66 +164,11 @@ const SchedulePage = () => {
   );
   console.log("Sessions for selected doctor:", doctorSessions);
 
-  // Filter availabilities by the selected date's day of week
-  const selectedDateObj = new Date(selectedDate);
-  const dayOfWeek = selectedDateObj.getDay();
-  const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-  const filteredAvailabilities = availabilities.filter((availability) => {
-    return availability.dayOfWeek === backendDayOfWeek && availability.active;
-  });
-
-  // Helper function to generate available time slots for the selected date
-  const generateAvailableTimeSlots = () => {
-    if (!selectedDoctor || !availabilities.length) return [];
-
-    // Recalculate filtered availabilities based on current selectedDate
-    const selectedDateObj = new Date(selectedDate);
-    const dayOfWeek = selectedDateObj.getDay();
-    const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-    const dayAvailabilities = availabilities.filter((availability) => {
-      return availability.dayOfWeek === backendDayOfWeek && availability.active;
-    });
-
-    const availableSlots = new Set();
-    dayAvailabilities.forEach((availability) => {
-      if (availability.durations) {
-        availability.durations.forEach((duration) => {
-          if (duration.startTime && duration.endTime) {
-            const start = new Date(`2000-01-01T${duration.startTime}`);
-            let end = new Date(`2000-01-01T${duration.endTime}`);
-
-            // Handle case where end time is earlier than start time (crosses midnight)
-            if (end < start) {
-              const endHour = parseInt(duration.endTime.split(":")[0]);
-              if (
-                endHour < 12 &&
-                endHour < parseInt(duration.startTime.split(":")[0])
-              ) {
-                // This looks like it should be PM, not AM
-                const correctedEndTime = duration.endTime.replace(
-                  /^(\d{1,2}):/,
-                  (match, hour) => {
-                    const correctedHour = parseInt(hour) + 12;
-                    return `${correctedHour.toString().padStart(2, "0")}:`;
-                  }
-                );
-                end = new Date(`2000-01-01T${correctedEndTime}`);
-              } else {
-                end.setDate(end.getDate() + 1);
-              }
-            }
-
-            while (start < end) {
-              availableSlots.add(start.toTimeString().slice(0, 5));
-              start.setMinutes(start.getMinutes() + 30);
-            }
-          }
-        });
-      }
-    });
-    const timeSlots = Array.from(availableSlots).sort();
-    return timeSlots;
-  };
+  // Get available time slots from the API
+  const availableTimeSlots = timeSlots
+    .filter(slot => slot.status === 'available')
+    .map(slot => slot.startTime.substring(0, 5))
+    .sort();
 
   const handleTimeSlotClick = (time) => {
     setSelectedTimeSlot(time);
@@ -304,8 +250,8 @@ const SchedulePage = () => {
         ) : (
           <CalendarView
             appointments={enrichedAppointments}
-            availabilities={availabilities}
-            filteredAvailabilities={filteredAvailabilities}
+            timeSlots={timeSlots}
+            availableTimeSlots={availableTimeSlots}
             selectedDoctor={selectedDoctor}
             selectedDate={selectedDate}
             onDateChange={setSelectedDate}
@@ -499,7 +445,7 @@ const SchedulePage = () => {
                             className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
                           >
                             <option value="">Select a time...</option>
-                            {generateAvailableTimeSlots().map((time) => (
+                            {availableTimeSlots.map((time) => (
                               <option key={time} value={time}>
                                 {time}
                               </option>

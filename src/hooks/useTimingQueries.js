@@ -20,6 +20,13 @@ export const timingKeys = {
  doctorId,
  params,
  ],
+ timeSlots: (doctorId, date, practiceId) => [
+ ...timingKeys.all,
+ "timeSlots",
+ doctorId,
+ date,
+ practiceId,
+ ],
 };
 
 export const useGetDoctorAvailability = (
@@ -101,5 +108,19 @@ export const useCreateTimeOff = () => {
  queryKey: [...timingKeys.all, "timeOffs", doctorId],
  });
  },
+ });
+};
+
+export const useGetTimeSlots = (
+ doctorId,
+ date,
+ practiceId = null,
+ options = {}
+) => {
+ return useQuery({
+ queryKey: timingKeys.timeSlots(doctorId, date, practiceId),
+ queryFn: () => timingService.getTimeSlots(doctorId, date, practiceId),
+ enabled: !!doctorId && !!date,
+ ...options,
  });
 };

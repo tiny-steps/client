@@ -270,6 +270,26 @@ class TimingService {
     }
     return response.ok;
   }
+
+  async getTimeSlots(doctorId, date, practiceId = null) {
+    const response = await fetch("/api/v1/timings", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        doctorId,
+        date,
+        practiceId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch time slots");
+    }
+    return response.json();
+  }
 }
 
 export const timingService = new TimingService();

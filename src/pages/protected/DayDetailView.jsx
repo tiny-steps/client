@@ -8,7 +8,7 @@ import {
   useGetAllAppointments,
   useCreateAppointment,
 } from "../../hooks/useScheduleQueries";
-import { useGetDoctorAvailability } from "../../hooks/useTimingQueries";
+import { useGetDoctorAvailability, useGetTimeSlots } from "../../hooks/useTimingQueries";
 import { useGetAllSessions } from "../../hooks/useSessionQueries";
 const DayDetailView = ({
   selectedDate,
@@ -37,9 +37,10 @@ const DayDetailView = ({
   const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
   const { data: patientsData } = useGetAllEnrichedPatients({ size: 100 });
   const { data: appointmentsData } = useGetAllAppointments({ size: 100 });
-  const { data: availabilityData } = useGetDoctorAvailability(
+  const { data: timeSlotsData } = useGetTimeSlots(
     selectedDoctor,
-    { date: currentDate },
+    currentDate,
+    null, // practiceId
     { enabled: !!selectedDoctor }
   );
   const { data: sessionsData } = useGetAllSessions({
@@ -51,7 +52,7 @@ const DayDetailView = ({
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
   const appointments = appointmentsData?.data?.content || [];
-  const availabilities = availabilityData || [];
+  const timeSlots = timeSlotsData?.data?.slots || [];
   const allSessions = sessionsData?.content || [];
 
   // Filter data for current date and doctor, excluding cancelled appointments
@@ -66,71 +67,11 @@ const DayDetailView = ({
     (s) => s.doctorId === selectedDoctor
   );
 
-  // Generate available time slots
-  const generateAvailableTimeSlots = () => {
-    if (!selectedDoctor || !availabilities.length) return [];
-
-    const selectedDateObj = new Date(currentDate);
-    const dayOfWeek = selectedDateObj.getDay();
-    const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-    const dayAvailabilities = availabilities.filter((availability) => {
-      return availability.dayOfWeek === backendDayOfWeek && availability.active;
-    });
-
-    const availableSlots = new Set();
-    dayAvailabilities.forEach((availability) => {
-      if (availability.durations) {
-        availability.durations.forEach((duration) => {
-          if (duration.startTime && duration.endTime) {
-            const start = new Date(`2000-01-01T${duration.startTime}`);
-            let end = new Date(`2000-01-01T${duration.endTime}`);
-
-            if (end < start) {
-              const endHour = parseInt(duration.endTime.split(":")[0]);
-              if (
-                endHour < 12 &&
-                endHour < parseInt(duration.startTime.split(":")[0])
-              ) {
-                const correctedEndTime = duration.endTime.replace(
-                  /^(\d{1,2}):/,
-                  (match, hour) => {
-                    const correctedHour = parseInt(hour) + 12;
-                    return `${correctedHour.toString().padStart(2, "0")}:`;
-                  }
-                );
-                end = new Date(`2000-01-01T${correctedEndTime}`);
-              } else {
-                end.setDate(end.getDate() + 1);
-              }
-            }
-
-            // Generate 30-minute slots
-            const current = new Date(start);
-            while (current < end) {
-              const timeString = current.toTimeString().substring(0, 5);
-              availableSlots.add(timeString);
-              current.setMinutes(current.getMinutes() + 30);
-            }
-          }
-        });
-      }
-    });
-
-    // Filter out booked slots
-    const bookedSlots = new Set(
-      dayAppointments
-        .filter(
-          (apt) => apt.status === "SCHEDULED" || apt.status === "CHECKED_IN"
-        )
-        .map((apt) => apt.startTime?.substring(0, 5))
-    );
-
-    return Array.from(availableSlots)
-      .filter((slot) => !bookedSlots.has(slot))
-      .sort();
-  };
-
-  const availableSlots = generateAvailableTimeSlots();
+  // Get available time slots from API
+  const availableSlots = timeSlots
+    .filter(slot => slot.status === 'available')
+    .map(slot => slot.startTime.substring(0, 5))
+    .sort();
 
   // Navigation handlers
   const handlePrevDay = () => {

@@ -5,6 +5,7 @@ import AppointmentActions from "./AppointmentActions.jsx";
 const DashboardCalendar = ({
   appointments = [],
   availabilities = [],
+  timeSlots = [],
   doctors = [],
   patients = [],
   onAppointmentClick = () => {},
@@ -131,24 +132,27 @@ const DashboardCalendar = ({
     ),
   });
 
-  // Generate all available time slots for the day
-  const allAvailableSlots =
-    generateTimeSlotsFromAvailability(dayAvailabilities);
+  // Use new time slots API if available, otherwise fallback to availability logic
+  const allAvailableSlots = timeSlots.length > 0 
+    ? timeSlots.filter(slot => slot.status === 'available').map(slot => slot.startTime.substring(0, 5))
+    : generateTimeSlotsFromAvailability(dayAvailabilities);
 
   // Get booked time slots
-  const bookedSlots = dayAppointments.map((a) => a.startTime?.substring(0, 5));
+  const bookedSlots = timeSlots.length > 0
+    ? timeSlots.filter(slot => slot.status === 'booked').map(slot => slot.startTime.substring(0, 5))
+    : dayAppointments.map((a) => a.startTime?.substring(0, 5));
 
   // Create a set of all relevant time slots (available + booked)
   const relevantSlots = new Set([...allAvailableSlots, ...bookedSlots]);
-  const timeSlots = Array.from(relevantSlots).sort();
+  const displayTimeSlots = Array.from(relevantSlots).sort();
 
   // Check if there are any slots for today
-  const hasAnySlots = timeSlots.length > 0;
+  const hasAnySlots = displayTimeSlots.length > 0;
 
   console.log("🔍 DashboardCalendar Slots:", {
     availableSlots: allAvailableSlots.length,
     bookedSlots: bookedSlots.length,
-    totalSlots: timeSlots.length,
+    totalSlots: displayTimeSlots.length,
   });
 
   const formatDate = (date) => {
@@ -200,7 +204,7 @@ const DashboardCalendar = ({
         </div>
       ) : (
         <div className="space-y-3">
-          {timeSlots.map((time) => {
+          {displayTimeSlots.map((time) => {
             // Check if this time slot has an appointment
             const appointment = dayAppointments.find(
               (a) => a.startTime?.substring(0, 5) === time

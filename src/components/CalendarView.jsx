@@ -7,6 +7,8 @@ const CalendarView = ({
   appointments,
   availabilities,
   filteredAvailabilities,
+  timeSlots = [],
+  availableTimeSlots = [],
   selectedDoctor,
   selectedDate,
   onDateChange,
@@ -249,11 +251,12 @@ const CalendarView = ({
     const hours = Array.from({ length: 12 }, (_, i) => i + 8); // 8 AM to 7 PM
     const displayDate = selectedDate ? new Date(selectedDate) : today;
 
-    // Generate time slots based on availability if provided
-    const timeSlots =
-      filteredAvailabilities && filteredAvailabilities.length > 0
+    // Use new time slots API if available, otherwise generate from availability
+    const displayTimeSlots = timeSlots.length > 0 
+      ? timeSlots.map(slot => slot.startTime.substring(0, 5)).sort()
+      : (filteredAvailabilities && filteredAvailabilities.length > 0
         ? generateTimeSlotsFromAvailability(filteredAvailabilities)
-        : [];
+        : []);
 
     const handlePrevDay = () => {
       if (onDateChange) {
@@ -294,9 +297,7 @@ const CalendarView = ({
             </button>
           )}
         </div>
-        {((filteredAvailabilities && filteredAvailabilities.length === 0) ||
-          timeSlots.length === 0) &&
-          selectedDoctor && (
+        {displayTimeSlots.length === 0 && selectedDoctor && (
             <div className="text-center py-8 mb-4">
               <div className="text-gray-500 text-lg mb-2">
                 No slots available for today.
@@ -306,9 +307,9 @@ const CalendarView = ({
               </div>
             </div>
           )}
-        {timeSlots.length > 0 && (
+        {displayTimeSlots.length > 0 && (
           <div className="space-y-4">
-            {timeSlots.map((time) => {
+            {displayTimeSlots.map((time) => {
               const hour = parseInt(time.split(":")[0]);
               // Find appointment for this time slot and date
               const appointment = appointments?.find((a) => {
@@ -319,10 +320,11 @@ const CalendarView = ({
                   a.appointmentDate === formatLocalDate(displayDate)
                 );
               });
-              const isAvailable = filteredAvailabilities
-                ? isTimeSlotAvailable(time, filteredAvailabilities) &&
-                  !appointment
-                : !appointment;
+              const isAvailable = timeSlots.length > 0
+                ? timeSlots.some(slot => slot.startTime.substring(0, 5) === time && slot.status === 'available')
+                : (filteredAvailabilities
+                  ? isTimeSlotAvailable(time, filteredAvailabilities) && !appointment
+                  : !appointment);
 
               return (
                 <div key={time} className="flex border-t border-gray-200 pt-2">
@@ -418,7 +420,14 @@ const CalendarView = ({
           {days.map((day) => {
             const dayOfWeek = day.getDay();
             const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-            const dayAvailabilities = availabilities
+            
+            // Check if we have time slots for this specific date
+            const dayTimeSlots = timeSlots.length > 0 
+              ? timeSlots.filter(slot => slot.status === 'available').map(slot => slot.startTime.substring(0, 5))
+              : [];
+            
+            // Fallback to availability logic if no time slots
+            const dayAvailabilities = timeSlots.length === 0 && availabilities
               ? availabilities.filter(
                   (availability) =>
                     availability.dayOfWeek === backendDayOfWeek &&
@@ -427,7 +436,7 @@ const CalendarView = ({
                     availability.durations.length > 0
                 )
               : [];
-            const hasAvailability = dayAvailabilities.length > 0;
+            const hasAvailability = dayTimeSlots.length > 0 || dayAvailabilities.length > 0;
 
             return (
               <div

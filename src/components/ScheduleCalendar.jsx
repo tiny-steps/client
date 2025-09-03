@@ -13,7 +13,7 @@ import {
 } from "../hooks/useScheduleQueries.js";
 import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
 import { useGetAllPatients } from "../hooks/usePatientQueries.js";
-import { useGetDoctorAvailability } from "../hooks/useTimingQueries.js";
+import { useGetDoctorAvailability, useGetTimeSlots } from "../hooks/useTimingQueries.js";
 import useUserStore from "../store/useUserStore.js";
 import { Eye, CheckCircle, X, Clock } from "lucide-react";
 
@@ -55,16 +55,13 @@ const ScheduleCalendar = () => {
   const { data: doctorsData } = useGetAllDoctors({ size: 100 });
   const { data: patientsData } = useGetAllPatients({ size: 100 });
 
-  // Fetch doctor availability for the selected date
-  const selectedDateObj = new Date(selectedDate);
-  const dayOfWeek = selectedDateObj.getDay(); // 0 = Sunday, 1 = Monday, etc.
-
-  const { data: availabilityData, isLoading: availabilityLoading } =
-    useGetDoctorAvailability(
-      selectedDoctor,
-      { date: selectedDate },
-      { enabled: !!selectedDoctor }
-    );
+  // Fetch time slots for the selected date and doctor
+  const { data: timeSlotsData, isLoading: timeSlotsLoading } = useGetTimeSlots(
+    selectedDoctor,
+    selectedDate,
+    null, // practiceId
+    { enabled: !!selectedDoctor }
+  );
 
   const createAppointment = useCreateAppointment();
   const changeStatus = useChangeAppointmentStatus();
@@ -77,95 +74,27 @@ const ScheduleCalendar = () => {
   );
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
-  const allAvailabilities = availabilityData || [];
-
-  // Filter availabilities by day of week
-  const availabilities = allAvailabilities.filter((availability) => {
-    // Backend uses 1 = Monday, 7 = Sunday, frontend uses 0 = Sunday, 1 = Monday
-    const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-    return availability.dayOfWeek === backendDayOfWeek && availability.active;
-  });
-
-  // Debug: Log availability data
+  
+  // Extract time slots from the new API response
+  const timeSlots = timeSlotsData?.data?.slots || [];
+  
+  // Debug: Log time slots data
   console.log("Schedule Calendar Debug:", {
     selectedDoctor,
     selectedDate,
-    dayOfWeek,
-    allAvailabilities,
-    filteredAvailabilities: availabilities,
+    timeSlots,
+    timeSlotsData,
   });
 
-  // Generate time slots based on doctor availability
-  const timeSlots = useMemo(() => {
-    if (!selectedDoctor || !availabilities.length) {
-      // Return empty array if no doctor selected or no availability
-      return [];
-    }
+  // Get available and booked time slots from API
+  const availableTimeSlots = timeSlots.filter(slot => slot.status === 'available');
+  const bookedTimeSlots = timeSlots.filter(slot => slot.status === 'booked');
+  
+  // Convert slots to simple time format for display
+  const displayTimeSlots = timeSlots.map(slot => slot.startTime.substring(0, 5)).sort();
 
-    // Get available time slots from doctor's availability durations
-    const availableSlots = new Set();
-    availabilities.forEach((availability) => {
-      console.log("Processing availability:", availability);
-      if (availability.durations) {
-        availability.durations.forEach((duration) => {
-          console.log("Processing duration:", duration);
-          if (duration.startTime && duration.endTime) {
-            // Generate slots between start and end time
-            const start = new Date(`2000-01-01T${duration.startTime}`);
-            let end = new Date(`2000-01-01T${duration.endTime}`);
-
-            console.log("Time range:", {
-              startTime: duration.startTime,
-              endTime: duration.endTime,
-              start: start.toTimeString(),
-              end: end.toTimeString(),
-            });
-
-            // Handle case where end time is earlier than start time (crosses midnight)
-            if (end < start) {
-              // Check if this might be a PM time that was stored as AM
-              const endHour = parseInt(duration.endTime.split(":")[0]);
-              if (
-                endHour < 12 &&
-                endHour < parseInt(duration.startTime.split(":")[0])
-              ) {
-                // This looks like it should be PM, not AM
-                const correctedEndTime = duration.endTime.replace(
-                  /^(\d{1,2}):/,
-                  (match, hour) => {
-                    const correctedHour = parseInt(hour) + 12;
-                    return `${correctedHour.toString().padStart(2, "0")}:`;
-                  }
-                );
-                end = new Date(`2000-01-01T${correctedEndTime}`);
-                console.log("Corrected end time (AM to PM):", correctedEndTime);
-              } else {
-                end.setDate(end.getDate() + 1);
-                console.log(
-                  "Adjusted end time (crossed midnight):",
-                  end.toTimeString()
-                );
-              }
-            }
-
-            // Generate slots every 30 minutes within the duration range
-            const slotInterval = 30; // 30-minute intervals
-            while (start < end) {
-              const timeSlot = start.toTimeString().slice(0, 5);
-              availableSlots.add(timeSlot);
-              console.log("Added time slot:", timeSlot);
-              start.setMinutes(start.getMinutes() + slotInterval);
-            }
-          }
-        });
-      }
-    });
-
-    return Array.from(availableSlots).sort();
-  }, [selectedDoctor, availabilities]);
-
-  // Debug: Log time slots after generation
-  console.log("Generated time slots:", timeSlots.slice(0, 10));
+  // Debug: Log time slots after processing
+  console.log("Processed time slots:", { availableTimeSlots, bookedTimeSlots, displayTimeSlots });
 
   const getAppointmentForSlot = (time) => {
     return appointments.find((apt) => {
@@ -177,34 +106,8 @@ const ScheduleCalendar = () => {
   };
 
   const isTimeSlotAvailable = (time) => {
-    // Check if the time slot is within doctor's availability
-    if (!selectedDoctor || !availabilities.length) {
-      return false; // Show as unavailable if no doctor selected or no availability data
-    }
-
-    // Check if there's an appointment at this time
-    const appointment = getAppointmentForSlot(time);
-    if (appointment) {
-      return false; // Slot is booked
-    }
-
-    // Check if the time is within any availability duration
-    return availabilities.some((availability) =>
-      availability.durations?.some((duration) => {
-        if (!duration.startTime || !duration.endTime) return false;
-
-        const slotTime = new Date(`2000-01-01T${time}`);
-        const startTime = new Date(`2000-01-01T${duration.startTime}`);
-        const endTime = new Date(`2000-01-01T${duration.endTime}`);
-
-        // Handle case where end time is earlier than start time (crosses midnight)
-        if (endTime < startTime) {
-          endTime.setDate(endTime.getDate() + 1);
-        }
-
-        return slotTime >= startTime && slotTime < endTime;
-      })
-    );
+    // Check if the time slot exists in available slots from API
+    return availableTimeSlots.some(slot => slot.startTime.substring(0, 5) === time);
   };
 
   const handleCancelAppointment = async () => {
@@ -316,7 +219,7 @@ const ScheduleCalendar = () => {
     });
   };
 
-  if (appointmentsLoading || (selectedDoctor && availabilityLoading))
+  if (appointmentsLoading || (selectedDoctor && timeSlotsLoading))
     return (
       <div className="flex justify-center items-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -408,18 +311,18 @@ const ScheduleCalendar = () => {
             )}
           </CardHeader>
           <CardContent>
-            {timeSlots.length === 0 ? (
+            {displayTimeSlots.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-gray-500 text-lg mb-2">
                   No slots available for today.
                 </div>
                 <div className="text-gray-400 text-sm">
-                  Please add doctor's availability in timing section.
+                  Please select a doctor and date to view available slots.
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-2">
-                {timeSlots.map((time) => {
+                {displayTimeSlots.map((time) => {
                   const appointment = getAppointmentForSlot(time);
                   return (
                     <div
@@ -552,7 +455,7 @@ const ScheduleCalendar = () => {
                   </div>
                 );
               })}
-              {timeSlots
+              {displayTimeSlots
                 .filter((_, i) => i % 2 === 0)
                 .map((time) => (
                   <React.Fragment key={time}>
