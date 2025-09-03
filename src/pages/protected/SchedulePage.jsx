@@ -4,6 +4,7 @@ import { useUserProfile } from "@/hooks/useUserQuery.js";
 import DashboardHeader from "@/components/dashboard/DashboardHeader.jsx";
 import CalendarView from "@/components/CalendarView.jsx";
 import DayDetailView from "./DayDetailView.jsx";
+import EnhancedAppointmentModal from "@/components/EnhancedAppointmentModal.jsx";
 import { useGetAllEnrichedDoctors } from "@/hooks/useEnrichedDoctorQueries.js";
 import { useGetAllEnrichedPatients } from "@/hooks/useEnrichedPatientQueries.js";
 import {
@@ -12,35 +13,6 @@ import {
 } from "@/hooks/useScheduleQueries.js";
 import { useGetDoctorAvailability, useGetTimeSlots } from "@/hooks/useTimingQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card.jsx";
-import { Button } from "@/components/ui/button.jsx";
-import { Input } from "@/components/ui/input.jsx";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form.jsx";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-
-const appointmentSchema = z.object({
-  patientId: z.string().min(1, "Patient is required"),
-  doctorId: z.string().min(1, "Doctor is required"),
-  appointmentDate: z.string().min(1, "Date is required"),
-  startTime: z.string().min(1, "Time is required"),
-  sessionId: z.string().min(1, "Session is required"),
-  consultationType: z.string().default("IN_PERSON"),
-  notes: z.string().optional(),
-});
 
 const SchedulePage = () => {
   const { activeItem } = useOutletContext();
@@ -60,18 +32,7 @@ const SchedulePage = () => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [showDayDetail, setShowDayDetail] = useState(false);
 
-  const form = useForm({
-    resolver: zodResolver(appointmentSchema),
-    defaultValues: {
-      patientId: "",
-      doctorId: selectedDoctor,
-      appointmentDate: selectedDate,
-      startTime: "",
-      sessionId: "",
-      consultationType: "IN_PERSON",
-      notes: "",
-    },
-  });
+
 
   const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
   const { data: patientsData } = useGetAllEnrichedPatients({ size: 100 });
@@ -102,9 +63,8 @@ const SchedulePage = () => {
     if (doctors.length > 0 && !selectedDoctor) {
       const firstDoctor = doctors[0];
       setSelectedDoctor(firstDoctor.id);
-      form.setValue("doctorId", firstDoctor.id);
     }
-  }, [doctors, selectedDoctor, form]);
+  }, [doctors, selectedDoctor]);
 
   // Filter sessions by selected doctor on the frontend
   const allSessions = sessionsData?.content || [];
@@ -172,16 +132,11 @@ const SchedulePage = () => {
 
   const handleTimeSlotClick = (time) => {
     setSelectedTimeSlot(time);
-    form.setValue("startTime", time);
-    form.setValue("doctorId", selectedDoctor);
-    form.setValue("appointmentDate", selectedDate);
     setShowAppointmentModal(true);
   };
 
   const handleDateClick = (date) => {
     setSelectedDate(date);
-    form.setValue("appointmentDate", date);
-    form.setValue("doctorId", selectedDoctor);
     setShowAppointmentModal(true);
   };
 
@@ -217,15 +172,6 @@ const SchedulePage = () => {
       console.log("Appointment created successfully!");
       setShowAppointmentModal(false);
       setSelectedTimeSlot(null);
-      form.reset({
-        patientId: "",
-        doctorId: selectedDoctor,
-        appointmentDate: selectedDate,
-        startTime: "",
-        sessionId: "",
-        consultationType: "IN_PERSON",
-        notes: "",
-      });
     } catch (error) {
       console.error("Failed to create appointment:", error);
       // You might want to show an error message to the user here
@@ -326,245 +272,23 @@ const SchedulePage = () => {
         )}
       </div>
 
-      {/* Appointment Creation Modal */}
-      {showAppointmentModal && (
-        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4 bg-white/90 backdrop-blur-lg border border-white/50 shadow-xl">
-            <CardHeader className="pb-4">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-xl font-semibold text-gray-800">
-                  Create New Appointment
-                </CardTitle>
-                <button
-                  onClick={() => {
-                    setShowAppointmentModal(false);
-                    setSelectedTimeSlot(null);
-                    form.reset();
-                  }}
-                  className="text-gray-500 hover:text-gray-700 p-1 rounded"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(handleAppointmentSubmit)}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={form.control}
-                    name="patientId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Patient *</FormLabel>
-                        <FormControl>
-                          <select
-                            {...field}
-                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
-                          >
-                            <option value="">Select a patient...</option>
-                            {patients.map((patient) => (
-                              <option key={patient.id} value={patient.id}>
-                                {patient.firstName} {patient.lastName} -{" "}
-                                {patient.email}
-                              </option>
-                            ))}
-                          </select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="doctorId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Doctor *</FormLabel>
-                        <FormControl>
-                          <select
-                            {...field}
-                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
-                          >
-                            <option value="">Select a doctor...</option>
-                            {doctors.map((doctor) => (
-                              <option key={doctor.id} value={doctor.id}>
-                                {doctor.firstName} {doctor.lastName} -{" "}
-                                {doctor.speciality || "General"}
-                              </option>
-                            ))}
-                          </select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="appointmentDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="date"
-                            {...field}
-                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="startTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Time *</FormLabel>
-                        <FormControl>
-                          <select
-                            {...field}
-                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800"
-                          >
-                            <option value="">Select a time...</option>
-                            {availableTimeSlots.map((time) => (
-                              <option key={time} value={time}>
-                                {time}
-                              </option>
-                            ))}
-                          </select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sessionId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Session *</FormLabel>
-                        <FormControl>
-                          <select
-                            {...field}
-                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={sessions.length === 0}
-                          >
-                            <option value="">Select a session...</option>
-                            {sessions.length === 0 ? (
-                              <option value="" disabled>
-                                No sessions available for this doctor
-                              </option>
-                            ) : (
-                              sessions.map((session) => (
-                                <option key={session.id} value={session.id}>
-                                  {session.sessionType?.name ||
-                                    "Unknown Session"}{" "}
-                                  - ${session.price}
-                                </option>
-                              ))
-                            )}
-                          </select>
-                        </FormControl>
-                        {sessions.length === 0 && (
-                          <div className="mt-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-3">
-                            <div className="flex items-start">
-                              <svg
-                                className="h-4 w-4 text-amber-400 mt-0.5 mr-2 flex-shrink-0"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              <div>
-                                <p className="font-medium">
-                                  No sessions available for this doctor
-                                </p>
-                                <p className="text-xs mt-1">
-                                  Please create sessions for this doctor in the
-                                  Sessions page, or select a different doctor
-                                  who has sessions.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes</FormLabel>
-                        <FormControl>
-                          <textarea
-                            {...field}
-                            className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/80 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-gray-800 resize-none"
-                            rows={3}
-                            placeholder="Optional notes..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex gap-4 pt-6">
-                    <Button
-                      type="submit"
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-md hover:shadow-lg"
-                      disabled={createAppointmentMutation.isPending}
-                    >
-                      {createAppointmentMutation.isPending
-                        ? "Creating..."
-                        : "Create Appointment"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowAppointmentModal(false);
-                        setSelectedTimeSlot(null);
-                        form.reset();
-                      }}
-                      className="flex-1 bg-white/70 border-white/50 text-gray-700 hover:bg-white/80 font-medium py-2 px-4 rounded-lg transition-colors shadow-sm"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Enhanced Appointment Creation Modal */}
+      <EnhancedAppointmentModal
+        isOpen={showAppointmentModal}
+        onClose={() => {
+          setShowAppointmentModal(false);
+          setSelectedTimeSlot(null);
+        }}
+        onSubmit={handleAppointmentSubmit}
+        selectedDoctor={selectedDoctor}
+        selectedDate={selectedDate}
+        selectedTimeSlot={selectedTimeSlot}
+        patients={patients}
+        doctors={doctors}
+        sessions={sessions}
+        appointments={appointments}
+        isLoading={createAppointmentMutation.isPending}
+      />
     </>
   );
 };
