@@ -55,15 +55,7 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header isNavOpen={isNavOpen} setIsNavOpen={setIsNavOpen} />
-      
-      {/* Mobile overlay */}
-      {isNavOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
-          onClick={() => setIsNavOpen(false)}
-        />
-      )}
-      
+
       <SideNav
         isOpen={isNavOpen}
         setIsOpen={setIsNavOpen}
@@ -73,12 +65,8 @@ function HomePage() {
         bottomContent={bottomItems}
       />
 
-      {/* Main content area with dynamic left margin */}
-      <main
-        className={`transition-all duration-400 ease-in-out pt-16 h-screen w-screen px-4 sm:px-6 lg:px-8 ${
-          isNavOpen ? "ml-64" : "ml-[80px]"
-        }`}
-      >
+      {/* Main content area - fixed position, no margin shifts */}
+      <main className="transition-all duration-400 ease-in-out pt-16 h-screen w-screen px-4 sm:px-6 lg:px-8 ml-16">
         <DashboardHeader
           userName={user?.data.name}
           activeItemDescription={activeItem.description}
