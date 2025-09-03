@@ -9,9 +9,11 @@ import {
   Share2,
 } from "lucide-react";
 import FlippableCard from "../FlipableCard.jsx";
+import { useWindowSize } from "../../hooks/useWindowSize.js";
 
 const AnalyticsCard = ({ selectedDate = new Date() }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const { isMobile, isTablet } = useWindowSize();
 
   const handleViewTodayStats = async () => {
     setIsLoading(true);
@@ -74,13 +76,20 @@ const AnalyticsCard = ({ selectedDate = new Date() }) => {
   };
 
   const frontContent = (
-    <div className="flex flex-col items-center justify-center gap-4 w-full">
-      <BarChart3 size={48} className="text-indigo-600" />
+    <div className="flex flex-col items-center justify-center gap-3 sm:gap-4 w-full">
+      <BarChart3 
+        size={isMobile ? 36 : isTablet ? 42 : 48} 
+        className="text-indigo-600" 
+      />
       <div className="text-center">
-        <div className="text-xl font-semibold text-gray-800 mb-2">
+        <div className={`font-semibold text-gray-800 mb-2 ${
+          isMobile ? 'text-lg' : 'text-xl'
+        }`}>
           Analytics
         </div>
-        <div className="text-sm text-gray-600">
+        <div className={`text-gray-600 ${
+          isMobile ? 'text-xs' : 'text-sm'
+        }`}>
           Real-time insights & metrics
         </div>
       </div>
@@ -88,55 +97,120 @@ const AnalyticsCard = ({ selectedDate = new Date() }) => {
   );
 
   const backContent = (
-    <div
-      className="w-full h-full overflow-y-auto p-4"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="text-sm font-semibold text-gray-700 mb-4 text-center">
-        Quick Actions
+    <div className="w-full h-full flex flex-col">
+      <div className="flex justify-between items-center mb-3 sm:mb-4">
+        <h3 className={`font-semibold text-gray-800 ${
+          isMobile ? 'text-base' : 'text-lg'
+        }`}>
+          Analytics Hub
+        </h3>
+        <span className="text-xs sm:text-sm text-gray-600">
+          {selectedDate.toLocaleDateString()}
+        </span>
       </div>
-
-      <div className="space-y-3">
+      <div className="flex-1 space-y-2 sm:space-y-3">
         <button
           onClick={handleViewTodayStats}
           disabled={isLoading}
-          className="w-full bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          className={`w-full flex items-center gap-2 sm:gap-3 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors disabled:opacity-50 ${
+            isMobile ? 'p-2.5' : 'p-3'
+          }`}
         >
-          <Activity size={16} />
-          Today's Statistics
+          <Activity className={`text-blue-600 flex-shrink-0 ${
+            isMobile ? 'w-4 h-4' : 'w-5 h-5'
+          }`} />
+          <div className="text-left flex-1 min-w-0">
+            <div className={`font-medium text-blue-900 truncate ${
+              isMobile ? 'text-sm' : 'text-base'
+            }`}>
+              Today's Statistics
+            </div>
+            <div className={`text-blue-700 truncate ${
+              isMobile ? 'text-xs' : 'text-sm'
+            }`}>
+              {isMobile ? 'Daily metrics' : 'View today\'s performance metrics'}
+            </div>
+          </div>
         </button>
 
         <button
           onClick={handlePerformanceDashboard}
           disabled={isLoading}
-          className="w-full bg-green-100 hover:bg-green-200 text-green-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          className={`w-full flex items-center gap-2 sm:gap-3 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors disabled:opacity-50 ${
+            isMobile ? 'p-2.5' : 'p-3'
+          }`}
         >
-          <Target size={16} />
-          Performance Dashboard
+          <Target className={`text-green-600 flex-shrink-0 ${
+            isMobile ? 'w-4 h-4' : 'w-5 h-5'
+          }`} />
+          <div className="text-left flex-1 min-w-0">
+            <div className={`font-medium text-green-900 truncate ${
+              isMobile ? 'text-sm' : 'text-base'
+            }`}>
+              Performance Dashboard
+            </div>
+            <div className={`text-green-700 truncate ${
+              isMobile ? 'text-xs' : 'text-sm'
+            }`}>
+              {isMobile ? 'KPI overview' : 'Comprehensive performance overview'}
+            </div>
+          </div>
         </button>
 
         <button
           onClick={handleRevenueAnalytics}
           disabled={isLoading}
-          className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          className={`w-full flex items-center gap-2 sm:gap-3 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors disabled:opacity-50 ${
+            isMobile ? 'p-2.5' : 'p-3'
+          }`}
         >
-          <TrendingUp size={16} />
-          Revenue Analytics
+          <TrendingUp className={`text-purple-600 flex-shrink-0 ${
+            isMobile ? 'w-4 h-4' : 'w-5 h-5'
+          }`} />
+          <div className="text-left flex-1 min-w-0">
+            <div className={`font-medium text-purple-900 truncate ${
+              isMobile ? 'text-sm' : 'text-base'
+            }`}>
+              Revenue Analytics
+            </div>
+            <div className={`text-purple-700 truncate ${
+              isMobile ? 'text-xs' : 'text-sm'
+            }`}>
+              {isMobile ? 'Financial insights' : 'Revenue trends and insights'}
+            </div>
+          </div>
         </button>
 
         <button
           onClick={handlePatientAnalytics}
           disabled={isLoading}
-          className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg p-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          className={`w-full flex items-center gap-2 sm:gap-3 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors disabled:opacity-50 ${
+            isMobile ? 'p-2.5' : 'p-3'
+          }`}
         >
-          <Eye size={16} />
-          Patient Analytics
+          <Eye className={`text-orange-600 flex-shrink-0 ${
+            isMobile ? 'w-4 h-4' : 'w-5 h-5'
+          }`} />
+          <div className="text-left flex-1 min-w-0">
+            <div className={`font-medium text-orange-900 truncate ${
+              isMobile ? 'text-sm' : 'text-base'
+            }`}>
+              Patient Analytics
+            </div>
+            <div className={`text-orange-700 truncate ${
+              isMobile ? 'text-xs' : 'text-sm'
+            }`}>
+              {isMobile ? 'Patient insights' : 'Patient behavior and trends'}
+            </div>
+          </div>
         </button>
       </div>
 
       {isLoading && (
-        <div className="mt-4 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto"></div>
+        <div className="mt-3 sm:mt-4 text-center">
+          <div className={`animate-spin rounded-full border-b-2 border-indigo-600 mx-auto ${
+            isMobile ? 'h-5 w-5' : 'h-6 w-6'
+          }`}></div>
           <p className="text-xs text-gray-500 mt-2">Loading analytics...</p>
         </div>
       )}

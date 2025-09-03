@@ -19,26 +19,45 @@ const DashboardCards = ({
   rawDoctors = [],
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-6">
-      <AppointmentCard
-        appointments={appointments}
-        onStatusChange={onAppointmentStatusChange}
-        selectedDate={selectedDate}
-        patients={rawPatients}
-        doctors={rawDoctors}
-      />
-      <DoctorCard
-        doctors={doctors}
-        onStatusChange={onDoctorStatusChange}
-        onSlotSelection={onSlotSelection}
-      />
-      <BookingStatsCard bookingStats={bookingStats} />
+    <div className="w-full px-4 sm:px-6 lg:px-8">
+      {/* Primary Dashboard Cards - Core Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8">
+        <div className="w-full flex justify-center">
+          <AppointmentCard
+            appointments={appointments}
+            onStatusChange={onAppointmentStatusChange}
+            selectedDate={selectedDate}
+            patients={rawPatients}
+            doctors={rawDoctors}
+          />
+        </div>
+        <div className="w-full flex justify-center">
+          <DoctorCard
+            doctors={doctors}
+            onStatusChange={onDoctorStatusChange}
+            onSlotSelection={onSlotSelection}
+          />
+        </div>
+        <div className="w-full flex justify-center md:col-span-2 xl:col-span-1">
+          <BookingStatsCard bookingStats={bookingStats} />
+        </div>
+      </div>
 
-      {/* Quick Action Cards */}
-      <NotificationCard selectedDate={selectedDate} />
-      <ReportCard selectedDate={selectedDate} />
-      <PaymentCard selectedDate={selectedDate} />
-      <AnalyticsCard selectedDate={selectedDate} />
+      {/* Quick Action Cards - Secondary Features */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="w-full flex justify-center">
+          <NotificationCard selectedDate={selectedDate} />
+        </div>
+        <div className="w-full flex justify-center">
+          <ReportCard selectedDate={selectedDate} />
+        </div>
+        <div className="w-full flex justify-center">
+          <PaymentCard selectedDate={selectedDate} />
+        </div>
+        <div className="w-full flex justify-center">
+          <AnalyticsCard selectedDate={selectedDate} />
+        </div>
+      </div>
     </div>
   );
 };
