@@ -35,6 +35,15 @@ const appointmentSchema = z.object({
     .number()
     .min(5, "Duration must be at least 5 minutes")
     .max(480, "Duration must be less than 8 hours"),
+}).refine((data) => {
+  // Validate that the appointment is not in the past
+  if (data.appointmentDate && data.startTime) {
+    return !isPastTimeSlot(data.appointmentDate, data.startTime);
+  }
+  return true;
+}, {
+  message: "Cannot book appointments in the past",
+  path: ["startTime"], // This will show the error on the time field
 });
 
 const EnhancedAppointmentModal = ({
@@ -177,7 +186,7 @@ const EnhancedAppointmentModal = ({
       
       // If it's today, filter out past time slots
       if (selectedDate === new Date().toISOString().split('T')[0]) {
-        return !isPastTimeSlot(timeString);
+        return !isPastTimeSlot(selectedDate, timeString);
       }
       return true;
     });
@@ -456,7 +465,7 @@ const EnhancedAppointmentModal = ({
                           <span>{conflictWarning}</span>
                         </div>
                       )}
-                      {field.value && isPastTimeSlot(field.value) && watchedDate === new Date().toISOString().split('T')[0] && (
+                      {field.value && isPastTimeSlot(watchedDate, field.value) && (
                         <div className="flex items-center gap-2 text-red-600 text-sm mt-1">
                           <AlertTriangle className="h-4 w-4" />
                           <span>Cannot book appointments in the past</span>
