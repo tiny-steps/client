@@ -8,8 +8,12 @@ import {
   useGetAllAppointments,
   useCreateAppointment,
 } from "../../hooks/useScheduleQueries";
-import { useGetDoctorAvailability, useGetTimeSlots } from "../../hooks/useTimingQueries";
+import {
+  useGetDoctorAvailability,
+  useGetTimeSlots,
+} from "../../hooks/useTimingQueries";
 import { useGetAllSessions } from "../../hooks/useSessionQueries";
+import useAddressStore from "../../store/useAddressStore.js";
 const DayDetailView = ({
   selectedDate,
   selectedDoctor,
@@ -19,6 +23,9 @@ const DayDetailView = ({
   const [currentDate, setCurrentDate] = useState(selectedDate);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
 
   const [bookingForm, setBookingForm] = useState({
     patientId: "",
@@ -34,19 +41,49 @@ const DayDetailView = ({
   });
 
   // Fetch data
-  const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
-  const { data: patientsData } = useGetAllEnrichedPatients({ size: 100 });
-  const { data: appointmentsData } = useGetAllAppointments({ size: 100 });
+  const { data: doctorsData } = useGetAllEnrichedDoctors(
+    {
+      size: 100,
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
+  const { data: patientsData } = useGetAllEnrichedPatients(
+    {
+      size: 100,
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
+  const { data: appointmentsData } = useGetAllAppointments(
+    {
+      size: 100,
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
   const { data: timeSlotsData } = useGetTimeSlots(
     selectedDoctor,
     currentDate,
     null, // practiceId
-    { enabled: !!selectedDoctor }
+    { enabled: !!selectedDoctor && !!selectedAddressId }
   );
-  const { data: sessionsData } = useGetAllSessions({
-    isActive: true,
-    size: 100,
-  });
+  const { data: sessionsData } = useGetAllSessions(
+    {
+      isActive: true,
+      size: 100,
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
   const createAppointmentMutation = useCreateAppointment();
 
   const doctors = doctorsData?.data?.content || [];
@@ -69,8 +106,8 @@ const DayDetailView = ({
 
   // Get available time slots from API
   const availableSlots = timeSlots
-    .filter(slot => slot.status === 'available')
-    .map(slot => slot.startTime.substring(0, 5))
+    .filter((slot) => slot.status === "available")
+    .map((slot) => slot.startTime.substring(0, 5))
     .sort();
 
   // Navigation handlers

@@ -9,6 +9,7 @@ import {
   useDeactivateSessionType,
 } from "../hooks/useSessionQueries.js";
 import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import useAddressStore from "../store/useAddressStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
@@ -29,6 +30,9 @@ const UnifiedSessionManager = () => {
   });
   const [showSessionTypeForm, setShowSessionTypeForm] = useState(false);
   const { role } = useUserStore();
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
 
   // Search states for both tabs
   const [sessionSearchInputs, setSessionSearchInputs] = useState({
@@ -54,6 +58,7 @@ const UnifiedSessionManager = () => {
     refetch: refetchSessions,
   } = useGetAllSessions({
     size: 1000,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   const {
@@ -63,6 +68,7 @@ const UnifiedSessionManager = () => {
     refetch: refetchSessionTypes,
   } = useGetAllSessionTypes({
     size: 1000,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations
@@ -71,7 +77,10 @@ const UnifiedSessionManager = () => {
   const activateSessionType = useActivateSessionType();
   const deactivateSessionType = useDeactivateSessionType();
 
-  const { data: doctorsData } = useGetAllDoctors({ size: 100 });
+  const { data: doctorsData } = useGetAllDoctors({
+    size: 100,
+    branchId: selectedAddressId, // Use selected address ID as branchId
+  });
 
   // Filter sessions based on search
   const filteredSessions = useMemo(() => {

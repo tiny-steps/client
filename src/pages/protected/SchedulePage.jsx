@@ -16,10 +16,14 @@ import {
   useGetTimeSlots,
 } from "@/hooks/useTimingQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
+import useAddressStore from "@/store/useAddressStore.js";
 
 const SchedulePage = () => {
   const { activeItem } = useOutletContext();
   const { data: user } = useUserProfile();
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
 
   // Helper function to format date as YYYY-MM-DD using local timezone
   const formatLocalDate = (date) => {
@@ -35,24 +39,54 @@ const SchedulePage = () => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [showDayDetail, setShowDayDetail] = useState(false);
 
-  const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
-  const { data: patientsData } = useGetAllEnrichedPatients({ size: 100 });
-  const { data: appointmentsData } = useGetAllAppointments({ size: 100 });
+  const { data: doctorsData } = useGetAllEnrichedDoctors(
+    {
+      size: 100,
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
+  const { data: patientsData } = useGetAllEnrichedPatients(
+    {
+      size: 100,
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
+  const { data: appointmentsData } = useGetAllAppointments(
+    {
+      size: 100,
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
   const { data: timeSlotsData } = useGetTimeSlots(
     selectedDoctor,
     selectedDate,
     null, // practiceId
-    { enabled: !!selectedDoctor }
+    { enabled: !!selectedDoctor && !!selectedAddressId }
   );
   const createAppointmentMutation = useCreateAppointment();
   const {
     data: sessionsData,
     isLoading: sessionsLoading,
     error: sessionsError,
-  } = useGetAllSessions({
-    isActive: true,
-    size: 100,
-  });
+  } = useGetAllSessions(
+    {
+      isActive: true,
+      size: 100,
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
 
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];

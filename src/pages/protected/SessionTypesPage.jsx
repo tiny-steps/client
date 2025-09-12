@@ -7,6 +7,7 @@ import {
   useActivateSessionType,
   useDeactivateSessionType,
 } from "../../hooks/useSessionQueries.js";
+import useAddressStore from "../../store/useAddressStore.js";
 import {
   Card,
   CardHeader,
@@ -46,6 +47,9 @@ const SessionTypesPage = () => {
   const [editingSessionType, setEditingSessionType] = useState(null);
   const { role } = useUserStore();
 
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Search and filter states
   const [searchInputs, setSearchInputs] = useState({
     name: "",
@@ -63,6 +67,7 @@ const SessionTypesPage = () => {
     refetch,
   } = useGetAllSessionTypes({
     size: 1000, // Fetch all for client-side filtering
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations

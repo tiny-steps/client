@@ -4,46 +4,74 @@ import { useGetAllPatients } from "./usePatientQueries.js";
 import { useGetAllAvailabilities } from "./useTimingQueries.js";
 import { useChangeAppointmentStatus } from "./useScheduleQueries.js";
 import useUserStore from "../store/useUserStore.js";
+import useAddressStore from "../store/useAddressStore.js";
 
 export const useDashboardData = (selectedDate = new Date()) => {
   // Get the logged-in user's ID
   const userId = useUserStore((state) => state.userId);
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
 
   // Fetch real data from backend
   const {
     data: appointmentsData,
     isLoading: appointmentsLoading,
     error: appointmentsError,
-  } = useGetAllAppointments({
-    size: 100, // Get more appointments to filter locally
-  });
+  } = useGetAllAppointments(
+    {
+      size: 100, // Get more appointments to filter locally
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
 
   const {
     data: doctorsData,
     isLoading: doctorsLoading,
     error: doctorsError,
-  } = useGetAllDoctors({
-    size: 10, // Get recent doctors
-  });
+  } = useGetAllDoctors(
+    {
+      size: 10, // Get recent doctors
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
 
   const {
     data: patientsData,
     isLoading: patientsLoading,
     error: patientsError,
-  } = useGetAllPatients({
-    size: 10, // Get recent patients
-  });
+  } = useGetAllPatients(
+    {
+      size: 10, // Get recent patients
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
 
   const {
     data: availabilitiesData,
     isLoading: availabilitiesLoading,
     error: availabilitiesError,
-  } = useGetAllAvailabilities({
-    startDate: new Date().toISOString().split("T")[0], // Today
-    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0], // Next 7 days
-  });
+  } = useGetAllAvailabilities(
+    {
+      startDate: new Date().toISOString().split("T")[0], // Today
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0], // Next 7 days
+      branchId: selectedAddressId, // Use selected address ID as branchId
+    },
+    {
+      enabled: !!selectedAddressId, // Only fetch when address is selected
+    }
+  );
 
   // Get the status change mutation
   const changeStatusMutation = useChangeAppointmentStatus();

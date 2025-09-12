@@ -3,23 +3,58 @@
 class TimingService {
   async getAllAvailabilities(params = {}) {
     try {
-      console.log("🔍 TimingService Debug - Using new direct API endpoint");
+      console.log(
+        "🔍 TimingService Debug - Using branch-specific availability endpoint"
+      );
 
-      // Use the new direct API endpoint
-      const response = await fetch("/api/v1/timings", {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      let availabilities = [];
 
-      if (!response.ok) {
-        console.warn("Failed to fetch availabilities from new endpoint");
-        return { data: { content: [] } };
+      // If branchId is provided, use the branch-specific endpoint
+      if (params.branchId) {
+        const searchParams = new URLSearchParams();
+        if (params.page !== undefined) searchParams.append("page", params.page);
+        if (params.size !== undefined) searchParams.append("size", params.size);
+        if (params.doctorId) searchParams.append("doctorId", params.doctorId);
+        if (params.isActive !== undefined)
+          searchParams.append("isActive", params.isActive);
+
+        // Use a placeholder doctorId in the path (required by API design) and actual filtering via request params
+        // The API design requires a doctorId path variable but uses request parameters for actual filtering
+        const placeholderDoctorId = "00000000-0000-0000-0000-000000000000";
+        const response = await fetch(
+          `/api/v1/timings/doctors/${placeholderDoctorId}/availabilities/branch/${params.branchId}?${searchParams}`,
+          {
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          console.warn("Failed to fetch availabilities from branch endpoint");
+          return { data: { content: [] } };
+        }
+
+        const responseData = await response.json();
+        availabilities = responseData.content || [];
+      } else {
+        // Fallback to the general endpoint for admin users
+        const response = await fetch(`/api/v1/timings`, {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          console.warn("Failed to fetch availabilities from general endpoint");
+          return { data: { content: [] } };
+        }
+
+        const responseData = await response.json();
+        availabilities = responseData.data || [];
       }
-
-      const responseData = await response.json();
-      const availabilities = responseData.data || [];
 
       console.log(
         "🔍 TimingService Debug - Availabilities from new API:",
@@ -27,12 +62,36 @@ class TimingService {
       );
 
       // Get doctor names to enrich the data
-      const doctorsResponse = await fetch("/api/v1/doctors?size=100", {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      let doctorsResponse;
+      if (params.branchId) {
+        // Use branch-specific endpoint for doctors
+        const doctorsSearchParams = new URLSearchParams();
+        doctorsSearchParams.append("size", "100");
+
+        doctorsResponse = await fetch(
+          `/api/v1/doctors/branch/${params.branchId}?${doctorsSearchParams}`,
+          {
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      } else {
+        // Use general endpoint for doctors
+        const doctorsSearchParams = new URLSearchParams();
+        doctorsSearchParams.append("size", "100");
+
+        doctorsResponse = await fetch(
+          `/api/v1/doctors?${doctorsSearchParams}`,
+          {
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
 
       let doctorsMap = new Map();
       if (doctorsResponse.ok) {

@@ -2,6 +2,40 @@
 
 class ScheduleService {
   async getAllAppointments(params = {}) {
+    // If branchId is provided, use the branch-specific endpoint
+    if (params.branchId) {
+      const searchParams = new URLSearchParams();
+      if (params.page !== undefined) searchParams.append("page", params.page);
+      if (params.size !== undefined) searchParams.append("size", params.size);
+      if (params.doctorId) searchParams.append("doctorId", params.doctorId);
+      if (params.patientId) searchParams.append("patientId", params.patientId);
+      if (params.date) searchParams.append("date", params.date);
+      if (params.startDate) searchParams.append("startDate", params.startDate);
+      if (params.endDate) searchParams.append("endDate", params.endDate);
+
+      const response = await fetch(
+        `/api/v1/appointments/branch/${params.branchId}?${searchParams}`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response
+          .json()
+          .catch(() => ({ message: "Failed to fetch appointments by branch" }));
+        throw new Error(
+          error.message ||
+            `Failed to fetch appointments by branch: ${response.status}`
+        );
+      }
+      return response.json();
+    }
+
+    // Otherwise, use the general endpoint for all appointments
     const searchParams = new URLSearchParams();
     if (params.page !== undefined) searchParams.append("page", params.page);
     if (params.size !== undefined) searchParams.append("size", params.size);

@@ -11,6 +11,7 @@ import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import SessionTypeForm from "./forms/SessionTypeForm.jsx";
+import useAddressStore from "../store/useAddressStore.js";
 
 const SessionTypesList = () => {
   const navigate = useNavigate();
@@ -28,10 +29,14 @@ const SessionTypesList = () => {
   const [showSessionTypeForm, setShowSessionTypeForm] = useState(false);
   const [editingSessionType, setEditingSessionType] = useState(null);
 
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Fetch session types
   const { data, isLoading, error, refetch } = useGetAllSessionTypes({
     page: currentPage,
     size: 1000, // Fetch all for client-side filtering
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations

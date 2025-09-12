@@ -13,13 +13,20 @@ import {
 } from "../hooks/useScheduleQueries.js";
 import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
 import { useGetAllPatients } from "../hooks/usePatientQueries.js";
-import { useGetDoctorAvailability, useGetTimeSlots } from "../hooks/useTimingQueries.js";
+import {
+  useGetDoctorAvailability,
+  useGetTimeSlots,
+} from "../hooks/useTimingQueries.js";
 import useUserStore from "../store/useUserStore.js";
+import useAddressStore from "../store/useAddressStore.js";
 import { Eye, CheckCircle, X, Clock } from "lucide-react";
 
 const ScheduleCalendar = () => {
   // Get the logged-in user's ID
   const userId = useUserStore((state) => state.userId);
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
 
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(
@@ -50,10 +57,17 @@ const ScheduleCalendar = () => {
   } = useGetAllAppointments({
     date: selectedDate,
     doctorId: selectedDoctor || undefined,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
-  const { data: doctorsData } = useGetAllDoctors({ size: 100 });
-  const { data: patientsData } = useGetAllPatients({ size: 100 });
+  const { data: doctorsData } = useGetAllDoctors({
+    size: 100,
+    branchId: selectedAddressId, // Use selected address ID as branchId
+  });
+  const { data: patientsData } = useGetAllPatients({
+    size: 100,
+    branchId: selectedAddressId, // Use selected address ID as branchId
+  });
 
   // Fetch time slots for the selected date and doctor
   const { data: timeSlotsData, isLoading: timeSlotsLoading } = useGetTimeSlots(
@@ -74,10 +88,10 @@ const ScheduleCalendar = () => {
   );
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
-  
+
   // Extract time slots from the new API response
   const timeSlots = timeSlotsData?.data?.slots || [];
-  
+
   // Debug: Log time slots data
   console.log("Schedule Calendar Debug:", {
     selectedDoctor,
@@ -87,14 +101,22 @@ const ScheduleCalendar = () => {
   });
 
   // Get available and booked time slots from API
-  const availableTimeSlots = timeSlots.filter(slot => slot.status === 'available');
-  const bookedTimeSlots = timeSlots.filter(slot => slot.status === 'booked');
-  
+  const availableTimeSlots = timeSlots.filter(
+    (slot) => slot.status === "available"
+  );
+  const bookedTimeSlots = timeSlots.filter((slot) => slot.status === "booked");
+
   // Convert slots to simple time format for display
-  const displayTimeSlots = timeSlots.map(slot => slot.startTime.substring(0, 5)).sort();
+  const displayTimeSlots = timeSlots
+    .map((slot) => slot.startTime.substring(0, 5))
+    .sort();
 
   // Debug: Log time slots after processing
-  console.log("Processed time slots:", { availableTimeSlots, bookedTimeSlots, displayTimeSlots });
+  console.log("Processed time slots:", {
+    availableTimeSlots,
+    bookedTimeSlots,
+    displayTimeSlots,
+  });
 
   const getAppointmentForSlot = (time) => {
     return appointments.find((apt) => {
@@ -107,7 +129,9 @@ const ScheduleCalendar = () => {
 
   const isTimeSlotAvailable = (time) => {
     // Check if the time slot exists in available slots from API
-    return availableTimeSlots.some(slot => slot.startTime.substring(0, 5) === time);
+    return availableTimeSlots.some(
+      (slot) => slot.startTime.substring(0, 5) === time
+    );
   };
 
   const handleCancelAppointment = async () => {

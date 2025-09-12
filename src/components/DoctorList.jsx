@@ -12,6 +12,7 @@ import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import useUserStore from "../store/useUserStore.js";
+import useAddressStore from "../store/useAddressStore.js";
 
 const DoctorList = () => {
   const navigate = useNavigate();
@@ -19,6 +20,9 @@ const DoctorList = () => {
   const [pageSize] = useState(10);
   const [deleteModal, setDeleteModal] = useState({ open: false, doctor: null });
   const { role } = useUserStore();
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
 
   // Client-side search state
   const [searchInputs, setSearchInputs] = useState({
@@ -33,6 +37,7 @@ const DoctorList = () => {
   const { data, isLoading, error, refetch } = useGetAllDoctors({
     page: currentPage,
     size: 1000, // Fetch all for client-side filtering
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   const deleteDoctorMutation = useDeleteDoctor();

@@ -16,6 +16,7 @@ import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import { CreateDoctorFormSchema } from "../schema/doctors/create.js";
 import { UpdateDoctorFormSchema } from "../schema/doctors/update.js";
 import useUserStore from "../store/useUserStore.js";
+import useBranchStore from "../store/useBranchStore.js";
 import { authService } from "../services/authService.js";
 
 const DoctorForm = () => {
@@ -25,6 +26,8 @@ const DoctorForm = () => {
   const [updateModal, setUpdateModal] = useState(false);
   const [formData, setFormData] = useState(null);
   const { userId } = useUserStore();
+  const branches = useBranchStore((state) => state.branches);
+  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
 
   const {
     register,
@@ -45,6 +48,7 @@ const DoctorForm = () => {
           imageUrl: "",
           experienceYears: 0,
           speciality: "",
+          branchId: selectedBranchId || "",
           // No password field for edit mode
         }
       : {
@@ -58,6 +62,7 @@ const DoctorForm = () => {
           experienceYears: 0,
           speciality: "",
           password: "",
+          branchId: selectedBranchId || "",
         },
   });
 
@@ -92,11 +97,12 @@ const DoctorForm = () => {
       setValue("imageUrl", doctor.imageUrl || "");
       setValue("experienceYears", doctor.experienceYears || 0);
       setValue("speciality", doctor.speciality || "");
+      setValue("branchId", selectedBranchId || "");
 
       // Note: Email and phone are not stored in doctor entity, so we don't set them in edit mode
       // The doctor service will handle user updates internally
     }
-  }, [doctorData, isEdit, setValue]);
+  }, [doctorData, isEdit, setValue, selectedBranchId]);
 
   const onSubmit = async (data) => {
     console.log("🚀 onSubmit called - Form submitted with data:", data);
@@ -297,6 +303,28 @@ const DoctorForm = () => {
                 {errors.experienceYears && (
                   <p className="text-sm text-red-600 mt-1">
                     {errors.experienceYears.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Branch Selection */}
+              <div>
+                <Label htmlFor="branchId">Branch *</Label>
+                <select
+                  id="branchId"
+                  {...register("branchId")}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  defaultValue={selectedBranchId || ""}
+                >
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} {branch.isPrimary ? "(Primary)" : ""}
+                    </option>
+                  ))}
+                </select>
+                {errors.branchId && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.branchId.message}
                   </p>
                 )}
               </div>

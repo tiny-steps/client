@@ -2,6 +2,28 @@
 
 class PatientService {
   async getAllPatients(params = {}) {
+    // If branchId is provided, use the branch-specific endpoint
+    if (params.branchId) {
+      const searchParams = new URLSearchParams();
+      if (params.page !== undefined) searchParams.append("page", params.page);
+      if (params.size !== undefined) searchParams.append("size", params.size);
+
+      const response = await fetch(
+        `/api/v1/patients/branch/${params.branchId}?${searchParams}`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch patients by branch");
+      const result = await response.json();
+      return result; // Backend returns ResponseModel<Page<PatientDto>>
+    }
+
+    // Otherwise, use the general endpoint for all patients
     const searchParams = new URLSearchParams();
     if (params.page !== undefined) searchParams.append("page", params.page);
     if (params.size !== undefined) searchParams.append("size", params.size);

@@ -1,16 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { timingService } from "../services/timingService.js";
 import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import useAddressStore from "../store/useAddressStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ErrorModal } from "./ui/error-modal.jsx";
+
 function getMinutes(timeStr) {
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
 }
+
 const TimingManager = () => {
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Mutation for updating a duration
   const updateDurationMutation = useMutation({
     mutationFn: ({ doctorId, availabilityId, durationId, data }) =>
@@ -58,7 +63,7 @@ const TimingManager = () => {
       timingService.deleteAvailability(availabilityId),
     onSuccess: () => queryClient.invalidateQueries(["availability"]),
   });
-  // ...existing code...
+
   // Add missing editModal state for editing durations
   const [editModal, setEditModal] = useState({
     open: false,
@@ -107,6 +112,7 @@ const TimingManager = () => {
       createTimeOff.mutate(timeOffData);
     }
   }
+
   const queryClient = useQueryClient();
   const [selectedDoctor, setSelectedDoctor] = useState("");
 
@@ -123,7 +129,12 @@ const TimingManager = () => {
 
   // Debug logs
 
-  const { data: doctorsData } = useGetAllDoctors({ size: 100 });
+  // Pass branchId to get doctors for the selected address
+  const { data: doctorsData } = useGetAllDoctors({
+    size: 100,
+    branchId: selectedAddressId,
+  });
+
   const doctors = doctorsData?.data?.content || [];
 
   const { data: availabilityData, isLoading } = useQuery({
@@ -199,6 +210,11 @@ const TimingManager = () => {
     },
   ];
 
+  // Reset doctor selection when address changes
+  useEffect(() => {
+    setSelectedDoctor("");
+  }, [selectedAddressId]);
+
   return (
     <div className="p-6 space-y-6">
       {/* Edit Duration Modal */}
@@ -273,6 +289,8 @@ const TimingManager = () => {
       )}
       <h1 className="text-2xl font-bold">Timing Management</h1>
 
+      {/* Branch Selection */}
+
       <Card>
         <CardHeader>
           <CardTitle>Select Doctor</CardTitle>
@@ -292,6 +310,7 @@ const TimingManager = () => {
                 className="px-3 py-2 border rounded-md"
                 value={selectedDoctor}
                 onChange={(e) => setSelectedDoctor(e.target.value)}
+                disabled={!selectedAddressId} // Disable until address is selected
               >
                 <option value="">Select a doctor...</option>
                 {doctors.map((doc) => (
@@ -301,6 +320,11 @@ const TimingManager = () => {
                 ))}
               </select>
             </div>
+          )}
+          {!selectedAddressId && (
+            <p className="text-sm text-blue-600 mt-2">
+              Please select an address first to see available doctors.
+            </p>
           )}
         </CardContent>
       </Card>

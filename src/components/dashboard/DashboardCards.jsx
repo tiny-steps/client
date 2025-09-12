@@ -8,6 +8,7 @@ import PaymentCard from "./PaymentCard.jsx";
 import AnalyticsCard from "./AnalyticsCard.jsx";
 import { useCreateAppointment } from "@/hooks/useScheduleQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
+import useAddressStore from "@/store/useAddressStore.js";
 
 const DashboardCards = ({
   appointments,
@@ -21,7 +22,13 @@ const DashboardCards = ({
   rawDoctors = [],
 }) => {
   const createAppointmentMutation = useCreateAppointment();
-  const { data: sessionsData } = useGetAllSessions();
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
+  const { data: sessionsData } = useGetAllSessions({
+    branchId: selectedAddressId, // Use selected address ID as branchId
+  });
   const sessions = sessionsData?.data?.content || [];
 
   const handleNewAppointment = async (appointmentData) => {

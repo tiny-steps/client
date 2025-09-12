@@ -10,6 +10,7 @@ import {
 } from "../../hooks/useSessionQueries.js";
 import { useGetAllSessionTypes } from "../../hooks/useSessionQueries.js";
 import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
+import useBranchStore from "../../store/useBranchStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card.jsx";
 import { Button } from "../ui/button.jsx";
 import { Input } from "../ui/input.jsx";
@@ -29,6 +30,7 @@ const sessionSchema = z.object({
   }),
   price: z.number().min(0, "Price must be non-negative"),
   isActive: z.boolean().default(true),
+  branchId: z.string().min(1, "Branch is required"), // Add branch validation
 });
 
 const SessionForm = ({ mode = "create" }) => {
@@ -37,6 +39,10 @@ const SessionForm = ({ mode = "create" }) => {
   const isEditMode = mode === "edit" || !!id;
   const navigate = useNavigate();
 
+  // Get branch information
+  const branches = useBranchStore((state) => state.branches);
+  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
+
   const form = useForm({
     resolver: zodResolver(sessionSchema),
     defaultValues: {
@@ -44,6 +50,7 @@ const SessionForm = ({ mode = "create" }) => {
       sessionType: { id: "" },
       price: 0,
       isActive: true,
+      branchId: selectedBranchId || "", // Set default to selected branch
     },
   });
 
@@ -52,10 +59,16 @@ const SessionForm = ({ mode = "create" }) => {
   const { data: existingSession, isLoading } = useGetSessionById(
     isEditMode ? id : null
   );
-  const { data: sessionTypesData } = useGetAllSessionTypes({ size: 100 });
-  const { data: doctorsData } = useGetAllDoctors({ size: 100 });
+  const { data: sessionTypesData } = useGetAllSessionTypes({
+    size: 100,
+    branchId: form.watch("branchId") || selectedBranchId,
+  });
+  // Filter doctors by selected branch
+  const { data: doctorsData } = useGetAllDoctors({
+    size: 100,
+    branchId: form.watch("branchId") || selectedBranchId,
+  });
 
-  // Ensure we have valid data structures
   // Load existing data for edit mode
   useEffect(() => {
     if (isEditMode && existingSession) {
@@ -67,9 +80,13 @@ const SessionForm = ({ mode = "create" }) => {
           existingSession.isActive !== undefined
             ? existingSession.isActive
             : true,
+        branchId: existingSession.branchId || selectedBranchId || "",
       });
+    } else if (!isEditMode) {
+      // For create mode, set default branch
+      form.setValue("branchId", selectedBranchId || "");
     }
-  }, [existingSession, form, isEditMode]);
+  }, [existingSession, form, isEditMode, selectedBranchId]);
 
   const onSubmit = async (data) => {
     try {
@@ -125,6 +142,36 @@ const SessionForm = ({ mode = "create" }) => {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Branch Selection */}
+              <FormField
+                control={form.control}
+                name="branchId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Branch *</FormLabel>
+                    <FormControl>
+                      <select
+                        value={field.value}
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                          // Reset doctors when branch changes
+                          form.setValue("doctorIds", []);
+                        }}
+                        className="w-full px-3 py-2 border rounded-md"
+                      >
+                        <option value="">Select a branch...</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name} {branch.isPrimary ? "(Primary)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="doctorIds"
@@ -137,7 +184,9 @@ const SessionForm = ({ mode = "create" }) => {
                     <FormControl>
                       <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
                         {doctors.length === 0 ? (
-                          <p className="text-gray-500">No doctors available</p>
+                          <p className="text-gray-500">
+                            No doctors available for selected branch
+                          </p>
                         ) : (
                           doctors.map((doctor) => (
                             <label

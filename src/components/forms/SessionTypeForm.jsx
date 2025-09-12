@@ -8,6 +8,7 @@ import {
   useUpdateSessionType,
   useGetSessionTypeById,
 } from "../../hooks/useSessionQueries.js";
+import useBranchStore from "../../store/useBranchStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card.jsx";
 import { Button } from "../ui/button.jsx";
 import { Input } from "../ui/input.jsx";
@@ -32,12 +33,17 @@ const sessionTypeSchema = z.object({
     .max(480, "Duration must be less than 8 hours"),
   isTelemedicineAvailable: z.boolean().default(false),
   isActive: z.boolean().default(true),
+  branchId: z.string().min(1, "Branch is required"), // Add branch validation
 });
 
 const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
   const navigate = useNavigate();
   const { id: routeId } = useParams();
   const id = sessionTypeId || routeId;
+
+  // Get branch information
+  const branches = useBranchStore((state) => state.branches);
+  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
 
   const form = useForm({
     resolver: zodResolver(sessionTypeSchema),
@@ -47,6 +53,7 @@ const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
       defaultDurationMinutes: 30,
       isTelemedicineAvailable: false,
       isActive: true,
+      branchId: selectedBranchId || "", // Set default to selected branch
     },
   });
 
@@ -68,9 +75,13 @@ const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
           existingSessionType.isActive !== undefined
             ? existingSessionType.isActive
             : true,
+        branchId: existingSessionType.branchId || selectedBranchId || "",
       });
+    } else if (!isEditMode) {
+      // For create mode, set default branch
+      form.setValue("branchId", selectedBranchId || "");
     }
-  }, [existingSessionType, form, mode]);
+  }, [existingSessionType, form, mode, selectedBranchId]);
 
   const onSubmit = async (data) => {
     try {
@@ -117,6 +128,33 @@ const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
                   onSubmit={form.handleSubmit(onSubmit)}
                   className="space-y-6"
                 >
+                  {/* Branch Selection */}
+                  <FormField
+                    control={form.control}
+                    name="branchId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Branch *</FormLabel>
+                        <FormControl>
+                          <select
+                            value={field.value}
+                            onChange={field.onChange}
+                            className="w-full px-3 py-2 border rounded-md"
+                          >
+                            <option value="">Select a branch...</option>
+                            {branches.map((branch) => (
+                              <option key={branch.id} value={branch.id}>
+                                {branch.name}{" "}
+                                {branch.isPrimary ? "(Primary)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField
                     control={form.control}
                     name="name"
@@ -253,6 +291,32 @@ const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
       ) : (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Branch Selection */}
+            <FormField
+              control={form.control}
+              name="branchId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Branch *</FormLabel>
+                  <FormControl>
+                    <select
+                      value={field.value}
+                      onChange={field.onChange}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="">Select a branch...</option>
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.id}>
+                          {branch.name} {branch.isPrimary ? "(Primary)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="name"

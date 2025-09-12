@@ -10,6 +10,7 @@ import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import useUserStore from "../store/useUserStore.js";
+import useAddressStore from "../store/useAddressStore.js";
 import { BookOpen, Plus, Search, Settings } from "lucide-react";
 
 const SessionManager = () => {
@@ -21,6 +22,9 @@ const SessionManager = () => {
     item: null,
   });
   const { role } = useUserStore();
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
 
   // Search states for sessions
   const [sessionSearchInputs, setSessionSearchInputs] = useState({
@@ -38,12 +42,16 @@ const SessionManager = () => {
     refetch: refetchSessions,
   } = useGetAllSessions({
     size: 1000,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations
   const deleteSession = useDeleteSession();
 
-  const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
+  const { data: doctorsData } = useGetAllEnrichedDoctors({
+    size: 100,
+    branchId: selectedAddressId, // Use selected address ID as branchId
+  });
 
   // Enrich sessions with doctor information
   const enrichedSessions = useMemo(() => {

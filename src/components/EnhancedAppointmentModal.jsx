@@ -14,37 +14,44 @@ import {
   FormMessage,
 } from "./ui/form.jsx";
 import { Clock, Info, AlertTriangle } from "lucide-react";
+import useBranchStore from "../store/useBranchStore.js";
 import { useGetTimeSlots } from "../hooks/useTimingQueries.js";
 import {
   isPastDate,
   isPastTimeSlot,
   validateAppointmentBooking,
   getMinSelectableDate,
-  checkAppointmentConflicts
+  checkAppointmentConflicts,
 } from "../utils/appointmentValidation.js";
 
-const appointmentSchema = z.object({
-  patientId: z.string().min(1, "Patient is required"),
-  doctorId: z.string().min(1, "Doctor is required"),
-  appointmentDate: z.string().min(1, "Date is required"),
-  startTime: z.string().min(1, "Time is required"),
-  sessionId: z.string().min(1, "Session is required"),
-  consultationType: z.string().default("IN_PERSON"),
-  notes: z.string().optional(),
-  sessionDurationMinutes: z
-    .number()
-    .min(5, "Duration must be at least 5 minutes")
-    .max(480, "Duration must be less than 8 hours"),
-}).refine((data) => {
-  // Validate that the appointment is not in the past
-  if (data.appointmentDate && data.startTime) {
-    return !isPastTimeSlot(data.appointmentDate, data.startTime);
-  }
-  return true;
-}, {
-  message: "Cannot book appointments in the past",
-  path: ["startTime"], // This will show the error on the time field
-});
+const appointmentSchema = z
+  .object({
+    patientId: z.string().min(1, "Patient is required"),
+    doctorId: z.string().min(1, "Doctor is required"),
+    appointmentDate: z.string().min(1, "Date is required"),
+    startTime: z.string().min(1, "Time is required"),
+    sessionId: z.string().min(1, "Session is required"),
+    consultationType: z.string().default("IN_PERSON"),
+    notes: z.string().optional(),
+    sessionDurationMinutes: z
+      .number()
+      .min(5, "Duration must be at least 5 minutes")
+      .max(480, "Duration must be less than 8 hours"),
+    branchId: z.string().min(1, "Branch is required"), // Add branch validation
+  })
+  .refine(
+    (data) => {
+      // Validate that the appointment is not in the past
+      if (data.appointmentDate && data.startTime) {
+        return !isPastTimeSlot(data.appointmentDate, data.startTime);
+      }
+      return true;
+    },
+    {
+      message: "Cannot book appointments in the past",
+      path: ["startTime"], // This will show the error on the time field
+    }
+  );
 
 const EnhancedAppointmentModal = ({
   isOpen,
@@ -63,8 +70,12 @@ const EnhancedAppointmentModal = ({
   const [selectedSession, setSelectedSession] = useState(null);
   const [currentDuration, setCurrentDuration] = useState(30);
   const [validationErrors, setValidationErrors] = useState([]);
-  const [conflictWarning, setConflictWarning] = useState('');
-  
+  const [conflictWarning, setConflictWarning] = useState("");
+
+  // Get branch information
+  const branches = useBranchStore((state) => state.branches);
+  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
+
   // Get minimum selectable date (today)
   const minDate = getMinSelectableDate();
 
@@ -79,6 +90,7 @@ const EnhancedAppointmentModal = ({
       consultationType: "IN_PERSON",
       notes: "",
       sessionDurationMinutes: 30,
+      branchId: selectedBranchId || "", // Set default to selected branch
     },
   });
 
@@ -92,7 +104,7 @@ const EnhancedAppointmentModal = ({
       setSelectedSession(null);
       setCurrentDuration(30);
       setValidationErrors([]);
-      setConflictWarning('');
+      setConflictWarning("");
       form.reset({
         patientId: "",
         doctorId: selectedDoctor || "",
@@ -102,14 +114,15 @@ const EnhancedAppointmentModal = ({
         consultationType: "IN_PERSON",
         notes: "",
         sessionDurationMinutes: 30,
+        branchId: selectedBranchId || "",
       });
     }
-  }, [isOpen, selectedDoctor, selectedDate, form]);
+  }, [isOpen, selectedDoctor, selectedDate, form, selectedBranchId]);
 
   // Watch for form changes to validate in real-time
   const watchedDate = form.watch("appointmentDate");
   const watchedTime = form.watch("startTime");
-  
+
   // Validate appointment when date, time, or duration changes
   useEffect(() => {
     if (watchedDate && watchedTime && currentDuration) {
@@ -119,17 +132,20 @@ const EnhancedAppointmentModal = ({
         appointments,
         watchedDate
       );
-      
+
       if (conflictCheck.hasConflict) {
-        const conflictMessage = `This time slot conflicts with: ${conflictCheck.conflictingAppointments.map(apt => {
-          const patientName = apt.patient?.firstName && apt.patient?.lastName 
-            ? `${apt.patient.firstName} ${apt.patient.lastName}`
-            : 'Unknown Patient';
-          return `${apt.startTime} - ${patientName}`;
-        }).join(', ')}`;
+        const conflictMessage = `This time slot conflicts with: ${conflictCheck.conflictingAppointments
+          .map((apt) => {
+            const patientName =
+              apt.patient?.firstName && apt.patient?.lastName
+                ? `${apt.patient.firstName} ${apt.patient.lastName}`
+                : "Unknown Patient";
+            return `${apt.startTime} - ${patientName}`;
+          })
+          .join(", ")}`;
         setConflictWarning(conflictMessage);
       } else {
-        setConflictWarning('');
+        setConflictWarning("");
       }
     }
   }, [watchedDate, watchedTime, currentDuration, appointments]);
@@ -153,23 +169,25 @@ const EnhancedAppointmentModal = ({
   }, [watchedSessionId, sessions, form]);
 
   // Get available time slots
-  const { data: availableSlotsData, isLoading: slotsLoading } =
-    useGetTimeSlots(
-      form.watch("doctorId"),
-      form.watch("appointmentDate"),
-      null, // practiceId - not used currently
-      {
-        enabled: !!(
-          form.watch("doctorId") &&
-          form.watch("appointmentDate")
-        ),
-      }
-    );
+  const { data: availableSlotsData, isLoading: slotsLoading } = useGetTimeSlots(
+    form.watch("doctorId"),
+    form.watch("appointmentDate"),
+    null, // practiceId - not used currently
+    {
+      enabled: !!(form.watch("doctorId") && form.watch("appointmentDate")),
+    }
+  );
 
   const availableSlots = useMemo(() => {
     // Ensure we have valid data structure: ResponseModel<TimeSlots> where TimeSlots has slots array
-    if (!availableSlotsData?.data?.slots || !Array.isArray(availableSlotsData.data.slots)) {
-      console.log('🔍 EnhancedAppointmentModal - No valid slots data:', availableSlotsData);
+    if (
+      !availableSlotsData?.data?.slots ||
+      !Array.isArray(availableSlotsData.data.slots)
+    ) {
+      console.log(
+        "🔍 EnhancedAppointmentModal - No valid slots data:",
+        availableSlotsData
+      );
       return [];
     }
 
@@ -183,9 +201,9 @@ const EnhancedAppointmentModal = ({
     const filteredSlots = availableSlotsData.data.slots.filter((slot) => {
       // Convert slot.startTime to HH:MM format for comparison
       const timeString = slot.startTime.substring(0, 5); // Extract HH:MM from HH:MM:SS
-      
+
       // If it's today, filter out past time slots
-      if (selectedDate === new Date().toISOString().split('T')[0]) {
+      if (selectedDate === new Date().toISOString().split("T")[0]) {
         return !isPastTimeSlot(selectedDate, timeString);
       }
       return true;
@@ -209,8 +227,8 @@ const EnhancedAppointmentModal = ({
     try {
       // Clear previous validation errors
       setValidationErrors([]);
-      setConflictWarning('');
-      
+      setConflictWarning("");
+
       // Comprehensive validation
       const validation = validateAppointmentBooking(
         data.appointmentDate,
@@ -218,18 +236,18 @@ const EnhancedAppointmentModal = ({
         currentDuration,
         appointments
       );
-      
+
       if (!validation.isValid) {
         setValidationErrors(validation.errors);
         return; // Don't submit if validation fails
       }
-      
+
       const submitData = {
         ...data,
         sessionDurationMinutes: currentDuration,
         sessionTypeId: selectedSession?.sessionType?.id,
       };
-      
+
       await onSubmit(submitData);
     } catch (error) {
       console.error("Failed to create appointment:", error);
@@ -282,6 +300,37 @@ const EnhancedAppointmentModal = ({
               onSubmit={form.handleSubmit(handleSubmit)}
               className="space-y-4"
             >
+              {/* Branch Selection */}
+              <FormField
+                control={form.control}
+                name="branchId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Branch *</FormLabel>
+                    <FormControl>
+                      <select
+                        value={field.value}
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                          // Reset doctor and session when branch changes
+                          form.setValue("doctorId", "");
+                          form.setValue("sessionId", "");
+                        }}
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
+                      >
+                        <option value="">Select a branch...</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name} {branch.isPrimary ? "(Primary)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               {/* Patient Selection */}
               <FormField
                 control={form.control}
@@ -319,16 +368,28 @@ const EnhancedAppointmentModal = ({
                       <select
                         {...field}
                         className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
+                        disabled={!form.watch("branchId")} // Disable until branch is selected
                       >
                         <option value="">Select a doctor...</option>
-                        {doctors.map((doctor) => (
-                          <option key={doctor.id} value={doctor.id}>
-                            {doctor.firstName} {doctor.lastName} -{" "}
-                            {doctor.speciality || "General"}
-                          </option>
-                        ))}
+                        {doctors
+                          .filter(
+                            (doctor) =>
+                              !form.watch("branchId") ||
+                              doctor.branchId === form.watch("branchId")
+                          )
+                          .map((doctor) => (
+                            <option key={doctor.id} value={doctor.id}>
+                              {doctor.firstName} {doctor.lastName} -{" "}
+                              {doctor.speciality || "General"}
+                            </option>
+                          ))}
                       </select>
                     </FormControl>
+                    {!form.watch("branchId") && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        Please select a branch first to see available doctors.
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -348,6 +409,7 @@ const EnhancedAppointmentModal = ({
                           {...field}
                           min={minDate}
                           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
+                          disabled={!form.watch("doctorId")} // Disable until doctor is selected
                         />
                       </FormControl>
                       <FormMessage />
@@ -372,27 +434,35 @@ const EnhancedAppointmentModal = ({
                         <select
                           {...field}
                           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
-                          disabled={sessions.length === 0}
+                          disabled={
+                            sessions.length === 0 || !form.watch("branchId")
+                          }
                         >
                           <option value="">Select a session...</option>
-                          {sessions.length === 0 ? (
-                            <option value="" disabled>
-                              No sessions available for this doctor
-                            </option>
-                          ) : (
-                            sessions.map((session) => (
+                          {sessions
+                            .filter(
+                              (session) =>
+                                !form.watch("branchId") ||
+                                session.branchId === form.watch("branchId")
+                            )
+                            .map((session) => (
                               <option key={session.id} value={session.id}>
-                                {session.sessionType?.name || "Unknown Session"} -
-                                ${session.price}
+                                {session.sessionType?.name || "Unknown Session"}{" "}
+                                - ${session.price}
                                 {session.sessionType?.defaultDurationMinutes &&
                                   ` (${formatTime(
                                     session.sessionType.defaultDurationMinutes
                                   )})`}
                               </option>
-                            ))
-                          )}
+                            ))}
                         </select>
                       </FormControl>
+                      {!form.watch("branchId") && (
+                        <p className="text-sm text-blue-600 mt-1">
+                          Please select a branch first to see available
+                          sessions.
+                        </p>
+                      )}
                       {sessions.length === 0 && (
                         <div className="mt-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-3">
                           <div className="flex items-start">
@@ -422,58 +492,59 @@ const EnhancedAppointmentModal = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Time *</FormLabel>
-                      <FormControl>
-                        <select
-                          {...field}
-                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
-                          disabled={
-                            slotsLoading || !currentDuration || !selectedSession
-                          }
-                        >
-                          <option value="">
-                            {!selectedSession
-                              ? "Select a session first..."
-                              : slotsLoading
-                              ? "Loading available slots..."
-                              : "Select a time..."}
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
+                        disabled={
+                          slotsLoading || !currentDuration || !selectedSession
+                        }
+                      >
+                        <option value="">
+                          {!selectedSession
+                            ? "Select a session first..."
+                            : slotsLoading
+                            ? "Loading available slots..."
+                            : "Select a time..."}
+                        </option>
+                        {availableSlots.map((slot) => (
+                          <option key={slot.value} value={slot.value}>
+                            {slot.label}
                           </option>
-                          {availableSlots.map((slot) => (
-                            <option key={slot.value} value={slot.value}>
-                              {slot.label}
-                            </option>
-                          ))}
-                        </select>
-                      </FormControl>
-                      <FormMessage />
-                      {!selectedSession && (
-                        <p className="text-sm text-blue-600 mt-1">
-                          Please select a session to see available time slots.
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                    {!selectedSession && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        Please select a session to see available time slots.
+                      </p>
+                    )}
+                    {selectedSession &&
+                      availableSlots.length === 0 &&
+                      !slotsLoading &&
+                      currentDuration && (
+                        <p className="text-sm text-amber-600 mt-1">
+                          No available slots for {formatTime(currentDuration)}{" "}
+                          duration on this date.
                         </p>
                       )}
-                      {selectedSession &&
-                        availableSlots.length === 0 &&
-                        !slotsLoading &&
-                        currentDuration && (
-                          <p className="text-sm text-amber-600 mt-1">
-                            No available slots for {formatTime(currentDuration)}{" "}
-                            duration on this date.
-                          </p>
-                        )}
-                      {conflictWarning && (
-                        <div className="flex items-center gap-2 text-red-600 text-sm mt-1">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span>{conflictWarning}</span>
-                        </div>
-                      )}
-                      {field.value && isPastTimeSlot(watchedDate, field.value) && (
+                    {conflictWarning && (
+                      <div className="flex items-center gap-2 text-red-600 text-sm mt-1">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span>{conflictWarning}</span>
+                      </div>
+                    )}
+                    {field.value &&
+                      isPastTimeSlot(watchedDate, field.value) && (
                         <div className="flex items-center gap-2 text-red-600 text-sm mt-1">
                           <AlertTriangle className="h-4 w-4" />
                           <span>Cannot book appointments in the past</span>
                         </div>
                       )}
-                    </FormItem>
-                  )}
-                />
+                  </FormItem>
+                )}
+              />
 
               {/* Session Duration Management */}
               {selectedSession && (
@@ -633,7 +704,13 @@ const EnhancedAppointmentModal = ({
                 <Button
                   type="submit"
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  disabled={isLoading || sessions.length === 0 || validationErrors.length > 0 || conflictWarning}
+                  disabled={
+                    isLoading ||
+                    sessions.length === 0 ||
+                    validationErrors.length > 0 ||
+                    conflictWarning ||
+                    !form.watch("branchId")
+                  }
                 >
                   {isLoading ? "Creating..." : "Create Appointment"}
                 </Button>

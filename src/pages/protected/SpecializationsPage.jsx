@@ -8,6 +8,7 @@ import {
   useUpdateSpecialization,
 } from "../../hooks/useSpecializationQueries.js";
 import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
+import useAddressStore from "../../store/useAddressStore.js";
 import {
   Card,
   CardHeader,
@@ -42,6 +43,9 @@ const SpecializationsPage = () => {
   const [editingSpecialization, setEditingSpecialization] = useState(null);
   const { role } = useUserStore();
 
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Search and filter states
   const [searchInputs, setSearchInputs] = useState({
     speciality: "",
@@ -61,6 +65,7 @@ const SpecializationsPage = () => {
 
   const { data: doctorsData } = useGetAllDoctors({
     size: 1000,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations

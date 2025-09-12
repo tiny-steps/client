@@ -8,6 +8,7 @@ import {
   useUpdateQualification,
 } from "../../hooks/useQualificationQueries.js";
 import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
+import useAddressStore from "../../store/useAddressStore.js";
 import {
   Card,
   CardHeader,
@@ -43,6 +44,9 @@ const QualificationsPage = () => {
   const [editingQualification, setEditingQualification] = useState(null);
   const { role } = useUserStore();
 
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Search and filter states
   const [searchInputs, setSearchInputs] = useState({
     qualificationName: "",
@@ -64,6 +68,7 @@ const QualificationsPage = () => {
 
   const { data: doctorsData } = useGetAllDoctors({
     size: 1000,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations
