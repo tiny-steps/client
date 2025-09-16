@@ -5,11 +5,15 @@ import {
   useGetAllSessionTypes,
   useDeleteSession,
   useDeleteSessionType,
+  useActivateSession,
+  useDeactivateSession,
   useActivateSessionType,
   useDeactivateSessionType,
+  useReactivateSession,
+  useReactivateSessionType,
 } from "../hooks/useSessionQueries.js";
 import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
-import useAddressStore from "../store/useAddressStore.js";
+import { useBranchFilter } from "../hooks/useBranchFilter.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
@@ -31,8 +35,8 @@ const UnifiedSessionManager = () => {
   const [showSessionTypeForm, setShowSessionTypeForm] = useState(false);
   const { role } = useUserStore();
 
-  // Get the selected address ID to use as branchId
-  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
 
   // Search states for both tabs
   const [sessionSearchInputs, setSessionSearchInputs] = useState({
@@ -44,7 +48,7 @@ const UnifiedSessionManager = () => {
 
   const [sessionTypeSearchInputs, setSessionTypeSearchInputs] = useState({
     name: "",
-    isActive: "",
+    isActive: "active", // Default to active
     isTelemedicineAvailable: "",
     minDuration: "",
     maxDuration: "",
@@ -56,31 +60,50 @@ const UnifiedSessionManager = () => {
     isLoading: sessionsLoading,
     error: sessionsError,
     refetch: refetchSessions,
-  } = useGetAllSessions({
-    size: 1000,
-    branchId: selectedAddressId, // Use selected address ID as branchId
-  });
+  } = useGetAllSessions(
+    {
+      size: 1000,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
 
   const {
     data: sessionTypesData,
     isLoading: sessionTypesLoading,
     error: sessionTypesError,
     refetch: refetchSessionTypes,
-  } = useGetAllSessionTypes({
-    size: 1000,
-    branchId: selectedAddressId, // Use selected address ID as branchId
-  });
+  } = useGetAllSessionTypes(
+    {
+      size: 1000,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
 
   // Mutations
   const deleteSession = useDeleteSession();
   const deleteSessionType = useDeleteSessionType();
+  const activateSession = useActivateSession();
+  const deactivateSession = useDeactivateSession();
   const activateSessionType = useActivateSessionType();
   const deactivateSessionType = useDeactivateSessionType();
+  const reactivateSession = useReactivateSession();
+  const reactivateSessionType = useReactivateSessionType();
 
-  const { data: doctorsData } = useGetAllDoctors({
-    size: 100,
-    branchId: selectedAddressId, // Use selected address ID as branchId
-  });
+  const { data: doctorsData } = useGetAllDoctors(
+    {
+      size: 100,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
 
   // Filter sessions based on search
   const filteredSessions = useMemo(() => {
@@ -113,13 +136,8 @@ const UnifiedSessionManager = () => {
   // Filter session types based on search
   const filteredSessionTypes = useMemo(() => {
     const allSessionTypes = sessionTypesData?.content || [];
-    const {
-      name,
-      isActive,
-      isTelemedicineAvailable,
-      minDuration,
-      maxDuration,
-    } = sessionTypeSearchInputs;
+    const { name, isActive, isTelemedicineAvailable, minDuration, maxDuration } =
+      sessionTypeSearchInputs;
 
     if (
       !name &&
@@ -134,8 +152,10 @@ const UnifiedSessionManager = () => {
     return allSessionTypes.filter((sessionType) => {
       if (name && !sessionType.name?.toLowerCase().includes(name.toLowerCase()))
         return false;
-      if (isActive && sessionType.isActive !== (isActive === "true"))
-        return false;
+      if (isActive && isActive !== "all") {
+        if (isActive === "active" && !sessionType.isActive) return false;
+        if (isActive === "inactive" && sessionType.isActive) return false;
+      }
       if (
         isTelemedicineAvailable &&
         sessionType.isTelemedicineAvailable !==
@@ -202,8 +222,14 @@ const UnifiedSessionManager = () => {
 
   const handleToggleActive = async (item, type) => {
     try {
-      if (type === "session-type") {
+      if (type === "session") {
         if (item.isActive) {
+          await deactivateSession.mutateAsync(item.id);
+        } else {
+          await activateSession.mutateAsync(item.id);
+        }
+      } else if (type === "session-type") {
+        if (item.active) {
           await deactivateSessionType.mutateAsync(item.id);
         } else {
           await activateSessionType.mutateAsync(item.id);
@@ -211,6 +237,18 @@ const UnifiedSessionManager = () => {
       }
     } catch (error) {
       console.error(`Failed to toggle ${type} status:`, error);
+    }
+  };
+
+  const handleReactivate = async (item, type) => {
+    try {
+      if (type === "session") {
+        await reactivateSession.mutateAsync(item.id);
+      } else if (type === "session-type") {
+        await reactivateSessionType.mutateAsync(item.id);
+      }
+    } catch (error) {
+      console.error(`Failed to reactivate ${type}:`, error);
     }
   };
 
@@ -225,7 +263,7 @@ const UnifiedSessionManager = () => {
     } else {
       setSessionTypeSearchInputs({
         name: "",
-        isActive: "",
+        isActive: "active", // Reset to active
         isTelemedicineAvailable: "",
         minDuration: "",
         maxDuration: "",
@@ -423,9 +461,9 @@ const UnifiedSessionManager = () => {
                     }))
                   }
                 >
-                  <option value="">All Status</option>
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
+                  <option value="all">All Session Types</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
                 </select>
                 <select
                   className="px-3 py-2 border rounded-md"
@@ -523,12 +561,12 @@ const UnifiedSessionManager = () => {
                   <div className="flex gap-2 mt-2">
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${
-                        item.isActive
+                        (activeTab === "sessions" ? item.isActive : item.active)
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {item.isActive ? "Active" : "Inactive"}
+                      {(activeTab === "sessions" ? item.isActive : item.active) ? "Active" : "Inactive"}
                     </span>
                     {activeTab === "session-types" &&
                       item.isTelemedicineAvailable && (
@@ -592,27 +630,33 @@ const UnifiedSessionManager = () => {
                 >
                   Edit
                 </Button>
-                {activeTab === "session-types" && (
+                {(activeTab === "sessions" ? item.isActive : item.active) ? (
                   <Button
                     size="sm"
-                    variant={item.isActive ? "outline" : "default"}
-                    onClick={() => handleToggleActive(item, "session-type")}
+                    variant="destructive"
+                    onClick={() =>
+                      handleDeleteClick(
+                        item,
+                        activeTab === "sessions" ? "session" : "session-type"
+                      )
+                    }
                   >
-                    {item.isActive ? "Deactivate" : "Activate"}
+                    Delete
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() =>
+                      handleToggleActive(
+                        item,
+                        activeTab === "sessions" ? "session" : "session-type"
+                      )
+                    }
+                  >
+                    Activate
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() =>
-                    handleDeleteClick(
-                      item,
-                      activeTab === "sessions" ? "session" : "session-type"
-                    )
-                  }
-                >
-                  Delete
-                </Button>
               </div>
             </CardContent>
           </Card>

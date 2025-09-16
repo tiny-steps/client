@@ -76,8 +76,9 @@ class AddressService {
 
   async deleteAddress(addressId) {
     try {
-      const response = await fetch(`${this.baseUrl}/${addressId}`, {
-        method: "DELETE",
+      // Use soft delete for addresses to preserve historical data
+      const response = await fetch(`${this.baseUrl}/${addressId}/soft-delete`, {
+        method: "PATCH",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -88,8 +89,32 @@ class AddressService {
         const error = await response.json();
         throw new Error(error.message || "Failed to delete address");
       }
+      const result = await response.json();
+      return result.data || result;
     } catch (error) {
       console.error("Error deleting address:", error);
+      throw error;
+    }
+  }
+
+  async reactivateAddress(addressId) {
+    try {
+      const response = await fetch(`${this.baseUrl}/${addressId}/reactivate`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to reactivate address");
+      }
+      const result = await response.json();
+      return result.data || result;
+    } catch (error) {
+      console.error("Error reactivating address:", error);
       throw error;
     }
   }

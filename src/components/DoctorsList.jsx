@@ -8,16 +8,19 @@ import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
-import useAddressStore from "../store/useAddressStore.js";
+import { useBranchFilter } from "../hooks/useBranchFilter.js";
+import BranchManagementModal from "./modals/BranchManagementModal.jsx";
+import { Building2, Plus, ArrowRightLeft } from "lucide-react";
 
 const DoctorsList = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(10);
   const [deleteModal, setDeleteModal] = useState({ open: false, doctor: null });
+  const [branchModal, setBranchModal] = useState({ open: false, doctor: null });
 
-  // Get the selected address ID to use as branchId
-  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
 
   // Client-side search state
   const [searchInputs, setSearchInputs] = useState({
@@ -27,11 +30,16 @@ const DoctorsList = () => {
   });
 
   // Fetch ALL doctors (no server-side filtering) - cache them locally
-  const { data, isLoading, error, refetch } = useGetAllDoctors({
-    page: 0,
-    size: 1000, // Fetch all doctors for client-side filtering
-    branchId: selectedAddressId, // Use selected address ID as branchId
-  });
+  const { data, isLoading, error, refetch } = useGetAllDoctors(
+    {
+      page: 0,
+      size: 1000, // Fetch all doctors for client-side filtering
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
 
   // Delete doctor mutation
   const deleteDoctorMutation = useDeleteDoctor();
@@ -318,8 +326,31 @@ const DoctorsList = () => {
                 {doctor.summary && (
                   <p className="text-sm text-gray-600 mt-2">{doctor.summary}</p>
                 )}
+
+                {/* Show current branches when "All" is selected */}
+                {!branchId &&
+                  doctor.doctorAddresses &&
+                  doctor.doctorAddresses.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-sm font-medium text-gray-700 mb-1">
+                        Current Branches:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {doctor.doctorAddresses.map((address, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                          >
+                            <Building2 className="h-3 w-3 mr-1" />
+                            {address.address?.name ||
+                              `${address.address?.type} - ${address.address?.city}`}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </div>
-              <div className="flex gap-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-4">
                 <Button
                   size="sm"
                   variant="outline"
@@ -334,6 +365,18 @@ const DoctorsList = () => {
                 >
                   Edit
                 </Button>
+
+                {/* Branch Management Buttons */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setBranchModal({ open: true, doctor })}
+                  className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Manage Branches
+                </Button>
+
                 <Button
                   size="sm"
                   variant="destructive"
@@ -398,6 +441,13 @@ const DoctorsList = () => {
         cancelText="Cancel"
         variant="destructive"
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Branch Management Modal */}
+      <BranchManagementModal
+        isOpen={branchModal.open}
+        onClose={() => setBranchModal({ open: false, doctor: null })}
+        doctor={branchModal.doctor}
       />
     </div>
   );

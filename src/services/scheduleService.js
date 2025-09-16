@@ -110,8 +110,9 @@ class ScheduleService {
   }
 
   async deleteAppointment(id) {
-    const response = await fetch(`/api/v1/appointments/${id}`, {
-      method: "DELETE",
+    // Use soft delete for appointments to preserve historical data
+    const response = await fetch(`/api/v1/appointments/${id}/soft-delete`, {
+      method: "PATCH",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -122,7 +123,23 @@ class ScheduleService {
       const error = await response.json();
       throw new Error(error.message || "Failed to delete appointment");
     }
-    return response.ok;
+    return response.json();
+  }
+
+  async reactivateAppointment(id) {
+    const response = await fetch(`/api/v1/appointments/${id}/reactivate`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate appointment");
+    }
+    return response.json();
   }
 
   async cancelAppointment(id, cancellationData) {

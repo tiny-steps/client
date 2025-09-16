@@ -4,14 +4,14 @@ import { useGetAllPatients } from "./usePatientQueries.js";
 import { useGetAllAvailabilities } from "./useTimingQueries.js";
 import { useChangeAppointmentStatus } from "./useScheduleQueries.js";
 import useUserStore from "../store/useUserStore.js";
-import useAddressStore from "../store/useAddressStore.js";
+import { useBranchFilter } from "./useBranchFilter.js";
 
 export const useDashboardData = (selectedDate = new Date()) => {
   // Get the logged-in user's ID
   const userId = useUserStore((state) => state.userId);
 
-  // Get the selected address ID to use as branchId
-  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
 
   // Fetch real data from backend
   const {
@@ -21,10 +21,10 @@ export const useDashboardData = (selectedDate = new Date()) => {
   } = useGetAllAppointments(
     {
       size: 100, // Get more appointments to filter locally
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
 
@@ -35,10 +35,10 @@ export const useDashboardData = (selectedDate = new Date()) => {
   } = useGetAllDoctors(
     {
       size: 10, // Get recent doctors
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
 
@@ -49,10 +49,10 @@ export const useDashboardData = (selectedDate = new Date()) => {
   } = useGetAllPatients(
     {
       size: 10, // Get recent patients
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
 
@@ -66,10 +66,10 @@ export const useDashboardData = (selectedDate = new Date()) => {
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0], // Next 7 days
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
 

@@ -25,9 +25,7 @@ import {
 
 const sessionSchema = z.object({
   doctorIds: z.array(z.string()).min(1, "At least one doctor is required"),
-  sessionType: z.object({
-    id: z.string().min(1, "Session type is required"),
-  }),
+  sessionTypeId: z.string().min(1, "Session type is required"),
   price: z.number().min(0, "Price must be non-negative"),
   isActive: z.boolean().default(true),
   branchId: z.string().min(1, "Branch is required"), // Add branch validation
@@ -47,7 +45,7 @@ const SessionForm = ({ mode = "create" }) => {
     resolver: zodResolver(sessionSchema),
     defaultValues: {
       doctorIds: [],
-      sessionType: { id: "" },
+      sessionTypeId: "",
       price: 0,
       isActive: true,
       branchId: selectedBranchId || "", // Set default to selected branch
@@ -74,7 +72,7 @@ const SessionForm = ({ mode = "create" }) => {
     if (isEditMode && existingSession) {
       form.reset({
         doctorIds: existingSession.doctorId ? [existingSession.doctorId] : [],
-        sessionType: { id: existingSession.sessionType?.id || "" },
+        sessionTypeId: existingSession.sessionType?.id || "",
         price: existingSession.price || 0,
         isActive:
           existingSession.isActive !== undefined
@@ -106,6 +104,12 @@ const SessionForm = ({ mode = "create" }) => {
             doctorId,
           };
           delete sessionData.doctorIds;
+          console.log(
+            "Creating session for doctor:",
+            doctorId,
+            "sessionData:",
+            sessionData
+          );
           return createSession.mutateAsync(sessionData);
         });
         await Promise.all(sessionPromises);
@@ -215,7 +219,10 @@ const SessionForm = ({ mode = "create" }) => {
                                 }}
                               />
                               <span className="text-sm">
-                                {doctor.name} - {doctor.speciality}
+                                {doctor.name}
+                                {doctor.speciality
+                                  ? ` - ${doctor.speciality}`
+                                  : ""}
                               </span>
                             </label>
                           ))
@@ -236,7 +243,7 @@ const SessionForm = ({ mode = "create" }) => {
 
               <FormField
                 control={form.control}
-                name="sessionType.id"
+                name="sessionTypeId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Session Type *</FormLabel>

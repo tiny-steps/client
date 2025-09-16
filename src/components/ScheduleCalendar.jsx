@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
@@ -19,6 +19,7 @@ import {
 } from "../hooks/useTimingQueries.js";
 import useUserStore from "../store/useUserStore.js";
 import useAddressStore from "../store/useAddressStore.js";
+import { useBranchFilter } from "../hooks/useBranchFilter.js";
 import { Eye, CheckCircle, X, Clock } from "lucide-react";
 
 const ScheduleCalendar = () => {
@@ -27,6 +28,9 @@ const ScheduleCalendar = () => {
 
   // Get the selected address ID to use as branchId
   const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
 
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(
@@ -74,7 +78,8 @@ const ScheduleCalendar = () => {
     selectedDoctor,
     selectedDate,
     null, // practiceId
-    { enabled: !!selectedDoctor }
+    branchId, // branchId
+    { enabled: !!selectedDoctor && hasSelection }
   );
 
   const createAppointment = useCreateAppointment();
@@ -88,6 +93,17 @@ const ScheduleCalendar = () => {
   );
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
+
+  // Set the first doctor as default when doctors data is loaded or branch changes
+  useEffect(() => {
+    if (doctors.length > 0) {
+      const firstDoctor = doctors[0];
+      setSelectedDoctor(firstDoctor.id);
+    } else {
+      // Clear selected doctor if no doctors available for the branch
+      setSelectedDoctor("");
+    }
+  }, [doctors, branchId]); // Reset when branchId changes
 
   // Extract time slots from the new API response
   const timeSlots = timeSlotsData?.data?.slots || [];

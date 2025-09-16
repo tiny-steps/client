@@ -82,7 +82,11 @@ function HomePage() {
         />
 
         <div>
-          <CalendarView appointments={appointments} doctors={doctors} />
+          <CalendarView
+            appointments={appointments}
+            doctors={doctors}
+            branchId={null}
+          />
         </div>
       </main>
     </div>

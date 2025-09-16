@@ -16,14 +16,14 @@ import {
   useGetTimeSlots,
 } from "@/hooks/useTimingQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
-import useAddressStore from "@/store/useAddressStore.js";
+import { useBranchFilter } from "@/hooks/useBranchFilter.js";
 
 const SchedulePage = () => {
   const { activeItem } = useOutletContext();
   const { data: user } = useUserProfile();
 
-  // Get the selected address ID to use as branchId
-  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
 
   // Helper function to format date as YYYY-MM-DD using local timezone
   const formatLocalDate = (date) => {
@@ -42,35 +42,36 @@ const SchedulePage = () => {
   const { data: doctorsData } = useGetAllEnrichedDoctors(
     {
       size: 100,
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
   const { data: patientsData } = useGetAllEnrichedPatients(
     {
       size: 100,
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
   const { data: appointmentsData } = useGetAllAppointments(
     {
       size: 100,
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
   const { data: timeSlotsData } = useGetTimeSlots(
     selectedDoctor,
     selectedDate,
     null, // practiceId
-    { enabled: !!selectedDoctor && !!selectedAddressId }
+    branchId, // branchId
+    { enabled: !!selectedDoctor && hasSelection }
   );
   const createAppointmentMutation = useCreateAppointment();
   const {
@@ -81,10 +82,10 @@ const SchedulePage = () => {
     {
       isActive: true,
       size: 100,
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
 
@@ -93,13 +94,16 @@ const SchedulePage = () => {
   const appointments = appointmentsData?.data?.content || [];
   const timeSlots = timeSlotsData?.data?.slots || [];
 
-  // Set the first doctor as default when doctors data is loaded
+  // Set the first doctor as default when doctors data is loaded or branch changes
   useEffect(() => {
-    if (doctors.length > 0 && !selectedDoctor) {
+    if (doctors.length > 0) {
       const firstDoctor = doctors[0];
       setSelectedDoctor(firstDoctor.id);
+    } else {
+      // Clear selected doctor if no doctors available for the branch
+      setSelectedDoctor("");
     }
-  }, [doctors, selectedDoctor]);
+  }, [doctors, branchId]); // Reset when branchId changes
 
   // Filter sessions by selected doctor on the frontend
   const allSessions = sessionsData?.content || [];
@@ -245,6 +249,7 @@ const SchedulePage = () => {
             setShowAppointmentModal={setShowAppointmentModal}
             selectedTimeSlot={selectedTimeSlot}
             setSelectedTimeSlot={setSelectedTimeSlot}
+            branchId={branchId}
             onAppointmentClick={(appointment) => {
               console.log("Appointment clicked:", appointment);
               // TODO: Open appointment details modal

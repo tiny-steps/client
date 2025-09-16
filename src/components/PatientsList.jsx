@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import {
   useGetAllEnrichedPatients,
   useDeleteEnrichedPatient,
+  useReactivatePatient,
 } from "../hooks/useEnrichedPatientQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
@@ -13,7 +14,9 @@ const PatientsList = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(12);
-  const [searchParams, setSearchParams] = useState({});
+  const [searchParams, setSearchParams] = useState({
+    status: "ACTIVE", // Default to active patients only
+  });
   const [deleteModal, setDeleteModal] = useState({
     open: false,
     patient: null,
@@ -26,15 +29,37 @@ const PatientsList = () => {
   });
 
   const deletePatient = useDeleteEnrichedPatient();
+  const reactivatePatient = useReactivatePatient();
+
+  const handleReactivateClick = async (patient) => {
+    try {
+      await reactivatePatient.mutateAsync(patient.id);
+      // Optionally show success message
+    } catch (error) {
+      console.error("Failed to reactivate patient:", error);
+      // Optionally show error message
+    }
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    setSearchParams({
+    const newParams = {
       name: formData.get("name") || undefined,
       email: formData.get("email") || undefined,
       phone: formData.get("phone") || undefined,
-    });
+    };
+
+    const statusValue = formData.get("status") || "active";
+    // Apply status filter for API call
+    if (statusValue === "active") {
+      newParams.status = "ACTIVE";
+    } else if (statusValue === "inactive") {
+      newParams.status = "INACTIVE";
+    }
+    // For "all", don't set status parameter to get all records
+
+    setSearchParams(newParams);
     setCurrentPage(0);
   };
 
@@ -83,18 +108,27 @@ const PatientsList = () => {
         <CardContent>
           <form
             onSubmit={handleSearch}
-            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            className="grid grid-cols-1 md:grid-cols-4 gap-4"
           >
             <Input name="name" placeholder="Patient name..." />
             <Input name="email" placeholder="Email..." />
             <Input name="phone" placeholder="Phone..." />
-            <div className="md:col-span-3 flex gap-2">
+            <select
+              name="status"
+              defaultValue="active"
+              className="w-full px-3 py-2 border rounded-md"
+            >
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+              <option value="all">All Patients</option>
+            </select>
+            <div className="md:col-span-4 flex gap-2">
               <Button type="submit">Search</Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setSearchParams({});
+                  setSearchParams({ status: "ACTIVE" });
                   setCurrentPage(0);
                 }}
               >
@@ -143,13 +177,24 @@ const PatientsList = () => {
                 >
                   Edit
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => setDeleteModal({ open: true, patient })}
-                >
-                  Delete
-                </Button>
+                {patient.status === "ACTIVE" ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setDeleteModal({ open: true, patient })}
+                  >
+                    Delete
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleReactivateClick(patient)}
+                    disabled={reactivatePatient.isPending}
+                  >
+                    {reactivatePatient.isPending ? "Activating..." : "Activate"}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

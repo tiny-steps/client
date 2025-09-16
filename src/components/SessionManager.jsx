@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import {
   useGetAllSessions,
   useDeleteSession,
+  useActivateSession,
 } from "../hooks/useSessionQueries.js";
 import { useGetAllEnrichedDoctors } from "../hooks/useEnrichedDoctorQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
@@ -34,6 +35,9 @@ const SessionManager = () => {
     maxPrice: "",
   });
 
+  // Status filter state
+  const [statusFilter, setStatusFilter] = useState("all"); // "active", "inactive", "all"
+
   // Fetch data for sessions
   const {
     data: sessionsData,
@@ -47,6 +51,7 @@ const SessionManager = () => {
 
   // Mutations
   const deleteSession = useDeleteSession();
+  const activateSession = useActivateSession();
 
   const { data: doctorsData } = useGetAllEnrichedDoctors({
     size: 100,
@@ -79,11 +84,22 @@ const SessionManager = () => {
   const filteredSessions = useMemo(() => {
     const { sessionType, doctor, minPrice, maxPrice } = sessionSearchInputs;
 
+    let filtered = enrichedSessions;
+
+    // Apply status filter
+    if (statusFilter === "active") {
+      filtered = filtered.filter((session) => session.isActive === true);
+    } else if (statusFilter === "inactive") {
+      filtered = filtered.filter((session) => session.isActive === false);
+    }
+    // "all" shows all sessions regardless of status
+
+    // Apply search filters
     if (!sessionType && !doctor && !minPrice && !maxPrice) {
-      return enrichedSessions;
+      return filtered;
     }
 
-    return enrichedSessions.filter((session) => {
+    return filtered.filter((session) => {
       if (
         sessionType &&
         !session.sessionType?.name
@@ -100,7 +116,7 @@ const SessionManager = () => {
       if (maxPrice && session.price > parseFloat(maxPrice)) return false;
       return true;
     });
-  }, [enrichedSessions, sessionSearchInputs]);
+  }, [enrichedSessions, sessionSearchInputs, statusFilter]);
 
   // Pagination
   const paginatedData = useMemo(() => {
@@ -135,6 +151,14 @@ const SessionManager = () => {
     }
   };
 
+  const handleActivateSession = async (sessionId) => {
+    try {
+      await activateSession.mutateAsync(sessionId);
+    } catch (error) {
+      console.error("Failed to activate session:", error);
+    }
+  };
+
   const clearSearch = () => {
     setSessionSearchInputs({
       sessionType: "",
@@ -142,12 +166,13 @@ const SessionManager = () => {
       minPrice: "",
       maxPrice: "",
     });
+    setStatusFilter("all");
     setCurrentPage(0);
   };
 
   const isLoading = sessionsLoading;
   const error = sessionsError;
-  const hasActiveFilters = Object.values(sessionSearchInputs).some((v) => v);
+  const hasActiveFilters = Object.values(sessionSearchInputs).some((v) => v) || statusFilter !== "all";
 
   if (isLoading) {
     return (
@@ -212,6 +237,20 @@ const SessionManager = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* Status Filter Dropdown */}
+            <div className="flex items-center gap-4 mb-4">
+              <label className="text-sm font-medium text-gray-700">Filter by Status:</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Sessions</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Input
                 placeholder="Search by session type..."
@@ -347,13 +386,29 @@ const SessionManager = () => {
                 >
                   Edit
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDeleteClick(item)}
-                >
-                  Delete
-                </Button>
+                {item.isActive ? (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteClick(item);
+                    }}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    Delete
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleActivateSession(item.id);
+                    }}
+                    variant="default"
+                    size="sm"
+                  >
+                    Activate
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

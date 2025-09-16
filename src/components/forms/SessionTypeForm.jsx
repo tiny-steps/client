@@ -40,6 +40,7 @@ const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
   const navigate = useNavigate();
   const { id: routeId } = useParams();
   const id = sessionTypeId || routeId;
+  const isEditMode = mode === "edit" || !!id;
 
   // Get branch information
   const branches = useBranchStore((state) => state.branches);

@@ -105,12 +105,24 @@ export default function Header({ isNavOpen, setIsNavOpen }) {
     }
   }, [userId, fetchAddresses]);
 
+  // Debug logging for addresses
+  useEffect(() => {
+    console.log("🔍 Debug - Header addresses:", addresses);
+    console.log("🔍 Debug - Header addresses.length:", addresses?.length);
+    console.log("🔍 Debug - Header selectedAddressId:", selectedAddressId);
+  }, [addresses, selectedAddressId]);
+
   const handleBranchChange = (event) => {
     setSelectedBranchId(event.target.value);
   };
 
   const handleAddressChange = (event) => {
     setSelectedAddressId(event.target.value);
+  };
+
+  // Helper function to get effective branchId for API calls
+  const getEffectiveBranchId = () => {
+    return selectedAddressId === "all" ? null : selectedAddressId;
   };
 
   useGSAP(() => {
@@ -152,45 +164,38 @@ export default function Header({ isNavOpen, setIsNavOpen }) {
         </a>
       </div>
       <div className="navbar-end flex items-center gap-2">
-        {/* Address Selection Dropdown - Always show for testing */}
+        {/* Address/Branch Selection Dropdown - Shows all available addresses/branches */}
         <div className="form-control">
           <select
             className="select select-bordered select-sm w-full max-w-xs"
-            value={selectedAddressId || ""}
-            onChange={handleAddressChange}
-            title="Select Address"
+            value={selectedAddressId || selectedBranchId || ""}
+            onChange={
+              addresses.length > 0 ? handleAddressChange : handleBranchChange
+            }
+            title="Select Address/Branch"
           >
             <option value="">
-              {addresses.length === 0
-                ? "No Addresses Available"
-                : "Select Address"}
+              {addresses.length === 0 && branches.length === 0
+                ? "No Options Available"
+                : addresses.length > 0
+                ? "Select Address/Branch"
+                : "Select Branch"}
             </option>
-            {addresses.map((address) => (
-              <option key={address.id} value={address.id}>
-                {address.name || `${address.type} - ${address.city}`}
-                {address.isDefault ? " (Default)" : ""}
-              </option>
-            ))}
+            {addresses.length > 0 && <option value="all">All Branches</option>}
+            {addresses.length > 0
+              ? addresses.map((address) => (
+                  <option key={address.id} value={address.id}>
+                    {address.name || `${address.type} - ${address.city}`}
+                    {address.isDefault ? " (Default)" : ""}
+                  </option>
+                ))
+              : branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} {branch.isPrimary ? "(Primary)" : ""}
+                  </option>
+                ))}
           </select>
         </div>
-
-        {/* Branch Selection Dropdown */}
-        {branches.length > 1 && (
-          <div className="form-control">
-            <select
-              className="select select-bordered select-sm w-full max-w-xs"
-              value={selectedBranchId || ""}
-              onChange={handleBranchChange}
-              title="Select Branch"
-            >
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name} {branch.isPrimary ? "(Primary)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         <button className="btn btn-ghost btn-circle nav-item">
           <svg

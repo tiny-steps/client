@@ -52,8 +52,8 @@ class UserService {
   }
 
   async deleteUser(userId) {
-    const response = await fetch(`/api/v1/users/${userId}`, {
-      method: "DELETE",
+    const response = await fetch(`/api/v1/users/${userId}/soft-delete`, {
+      method: "PATCH",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -63,6 +63,23 @@ class UserService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || "Failed to delete user");
+    }
+    const result = await response.json();
+    return result;
+  }
+
+  async reactivateUser(userId) {
+    const response = await fetch(`/api/v1/users/${userId}/reactivate`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate user");
     }
     const result = await response.json();
     return result;

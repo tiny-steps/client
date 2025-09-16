@@ -13,7 +13,7 @@ import {
   useGetTimeSlots,
 } from "../../hooks/useTimingQueries";
 import { useGetAllSessions } from "../../hooks/useSessionQueries";
-import useAddressStore from "../../store/useAddressStore.js";
+import { useBranchFilter } from "../../hooks/useBranchFilter.js";
 const DayDetailView = ({
   selectedDate,
   selectedDoctor,
@@ -24,8 +24,8 @@ const DayDetailView = ({
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
 
-  // Get the selected address ID to use as branchId
-  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
 
   const [bookingForm, setBookingForm] = useState({
     patientId: "",
@@ -44,44 +44,45 @@ const DayDetailView = ({
   const { data: doctorsData } = useGetAllEnrichedDoctors(
     {
       size: 100,
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
   const { data: patientsData } = useGetAllEnrichedPatients(
     {
       size: 100,
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
   const { data: appointmentsData } = useGetAllAppointments(
     {
       size: 100,
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
   const { data: timeSlotsData } = useGetTimeSlots(
     selectedDoctor,
     currentDate,
     null, // practiceId
-    { enabled: !!selectedDoctor && !!selectedAddressId }
+    branchId, // branchId
+    { enabled: !!selectedDoctor && hasSelection }
   );
   const { data: sessionsData } = useGetAllSessions(
     {
       isActive: true,
       size: 100,
-      branchId: selectedAddressId, // Use selected address ID as branchId
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
-      enabled: !!selectedAddressId, // Only fetch when address is selected
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
   const createAppointmentMutation = useCreateAppointment();

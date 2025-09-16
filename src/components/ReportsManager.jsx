@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   useGetAllReports,
+  useSearchReports,
   useGenerateReport,
   useDeleteReport,
 } from "../hooks/useReportQueries.js";
@@ -10,16 +11,41 @@ import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
+import useAddressStore from "../store/useAddressStore.js";
+import useUserStore from "../store/useUserStore.js"; // Import user store to get logged-in user ID
 
 const ReportsManager = () => {
-  const [filters, setFilters] = useState({});
+  const [searchFilters, setSearchFilters] = useState({
+    startDate: "",
+    endDate: "",
+    reportType: "",
+    branchId: "",
+    userId: "",
+  });
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, report: null });
+  const [reportForm, setReportForm] = useState({
+    name: "",
+    type: "",
+    startDate: "",
+    endDate: "",
+    branchId: "",
+    statuses: [],
+    format: "EXCEL", // Default to PDF format
+  });
 
-  const { data: reportsData, isLoading, refetch } = useGetAllReports(filters);
+  // Get addresses for branch selection
+  const { addresses } = useAddressStore();
+  
+  // Get logged-in user ID from user store
+  const userId = useUserStore((state) => state.userId);
+
+  // Use search API instead of getAllReports - the backend now handles all filtering logic
+  const { data: reportsData, isLoading, refetch } = useSearchReports(searchFilters);
 
   const generateReport = useGenerateReport(() => {
     setShowGenerateModal(false);
+    refetch(); // Refresh the reports list after generation
   });
   const deleteReport = useDeleteReport();
 
@@ -35,12 +61,20 @@ const ReportsManager = () => {
     },
   });
 
-  const reports = reportsData?.data || [];
+  const reports = reportsData || []; // Backend now returns array directly, not wrapped in data property
 
   const reportTypes = [
     { value: "APPOINTMENT_SUMMARY", label: "Appointment Summary" },
-    { value: "CONSULTATION_HISTORY", label: "Session/Consultation History" },
-    { value: "DOCTOR_PERFORMANCE", label: "Doctor Performance" },
+    { value: "DOCTOR_SCHEDULE", label: "Doctor Schedule" },
+    { value: "PATIENT_HISTORY", label: "Patient History" },
+  ];
+
+  const appointmentStatuses = [
+    { value: "SCHEDULED", label: "Scheduled" },
+    { value: "CONFIRMED", label: "Confirmed" },
+    { value: "CHECKED_IN", label: "Checked In" },
+    { value: "COMPLETED", label: "Completed" },
+    { value: "CANCELLED", label: "Cancelled" },
   ];
 
   const getStatusBadge = (status) => {
@@ -76,10 +110,11 @@ const ReportsManager = () => {
           <CardTitle>Filter Reports</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <select
               className="px-3 py-2 border rounded-md"
-              onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+              value={searchFilters.reportType}
+              onChange={(e) => setSearchFilters({ ...searchFilters, reportType: e.target.value })}
             >
               <option value="">All Types</option>
               {reportTypes.map((type) => (
@@ -91,18 +126,41 @@ const ReportsManager = () => {
             <Input
               type="date"
               placeholder="Start Date"
+              value={searchFilters.startDate}
               onChange={(e) =>
-                setFilters({ ...filters, startDate: e.target.value })
+                setSearchFilters({ ...searchFilters, startDate: e.target.value })
               }
             />
             <Input
               type="date"
               placeholder="End Date"
+              value={searchFilters.endDate}
               onChange={(e) =>
-                setFilters({ ...filters, endDate: e.target.value })
+                setSearchFilters({ ...searchFilters, endDate: e.target.value })
               }
             />
-            <Button onClick={() => refetch()}>Apply Filters</Button>
+            <select
+              className="px-3 py-2 border rounded-md"
+              value={searchFilters.branchId}
+              onChange={(e) => setSearchFilters({ ...searchFilters, branchId: e.target.value })}
+            >
+              <option value="">All Branches</option>
+              <option value="all">All Branches (Explicit)</option>
+              {addresses?.map((address) => (
+                <option key={address.id} value={address.id}>
+                  {address.branchName || `Branch ${address.id}`}
+                </option>
+              ))}
+            </select>
+            <Input
+               type="text"
+               placeholder="User ID"
+               value={searchFilters.userId}
+               onChange={(e) =>
+                 setSearchFilters({ ...searchFilters, userId: e.target.value })
+               }
+             />
+             <Button onClick={() => refetch()}>Apply Filters</Button>
           </div>
         </CardContent>
       </Card>
@@ -127,8 +185,13 @@ const ReportsManager = () => {
                     {report.reportType}
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    Generated: {new Date(report.createdAt).toLocaleString()}
+                    Generated: {new Date(report.generatedAt).toLocaleString()}
                   </p>
+                  {report.branchId && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Branch: {report.branchId === 'all' ? 'All Branches' : report.branchId}
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   {report.status === "PENDING" && (
@@ -183,20 +246,36 @@ const ReportsManager = () => {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const formData = new FormData(e.target);
                   generateReport.mutate({
-                    reportType: formData.get("type"),
-                    title: formData.get("name"),
-                    startDate: formData.get("startDate"),
-                    endDate: formData.get("endDate"),
+                    reportType: reportForm.type,
+                    title: reportForm.name,
+                    startDate: reportForm.startDate,
+                    endDate: reportForm.endDate,
+                    branchId: reportForm.branchId || null,
+                    statuses: reportForm.statuses,
+                    format: reportForm.format, // Include format in the request
+                    userId: userId, // Include logged-in user ID
                   });
                 }}
                 className="space-y-4"
               >
-                <Input name="name" placeholder="Report Name" required />
+                <Input
+                  name="name"
+                  placeholder="Report Name"
+                  value={reportForm.name}
+                  onChange={(e) =>
+                    setReportForm({ ...reportForm, name: e.target.value })
+                  }
+                  required
+                />
+
                 <select
                   name="type"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={reportForm.type}
+                  onChange={(e) =>
+                    setReportForm({ ...reportForm, type: e.target.value })
+                  }
                   required
                 >
                   <option value="">Select Type...</option>
@@ -206,8 +285,111 @@ const ReportsManager = () => {
                     </option>
                   ))}
                 </select>
-                <Input name="startDate" type="date" required />
-                <Input name="endDate" type="date" required />
+
+                <Input
+                  name="startDate"
+                  type="date"
+                  value={reportForm.startDate}
+                  onChange={(e) =>
+                    setReportForm({ ...reportForm, startDate: e.target.value })
+                  }
+                  required
+                />
+
+                <Input
+                  name="endDate"
+                  type="date"
+                  value={reportForm.endDate}
+                  onChange={(e) =>
+                    setReportForm({ ...reportForm, endDate: e.target.value })
+                  }
+                  required
+                />
+
+                {/* Branch Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Branch (Leave empty for all branches)
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={reportForm.branchId}
+                    onChange={(e) =>
+                      setReportForm({ ...reportForm, branchId: e.target.value })
+                    }
+                  >
+                    <option value="">All Branches</option>
+                    {addresses.map((address) => (
+                      <option key={address.id} value={address.id}>
+                        {address.name || `${address.street}, ${address.city}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Format Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Report Format
+                  </label>
+                  <select
+                    name="format"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={reportForm.format}
+                    onChange={(e) =>
+                      setReportForm({ ...reportForm, format: e.target.value })
+                    }
+                    required
+                  >
+                    <option value="PDF">PDF</option>
+                    <option value="EXCEL">Excel</option>
+                  </select>
+                </div>
+
+                {/* Status Selection - Only show for appointment summary reports */}
+                {reportForm.type === "APPOINTMENT_SUMMARY" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Appointment Statuses (Leave empty for all statuses)
+                    </label>
+                    <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
+                      {appointmentStatuses.map((status) => (
+                        <label
+                          key={status.value}
+                          className="flex items-center space-x-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={reportForm.statuses.includes(status.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setReportForm({
+                                  ...reportForm,
+                                  statuses: [
+                                    ...reportForm.statuses,
+                                    status.value,
+                                  ],
+                                });
+                              } else {
+                                setReportForm({
+                                  ...reportForm,
+                                  statuses: reportForm.statuses.filter(
+                                    (s) => s !== status.value
+                                  ),
+                                });
+                              }
+                            }}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {status.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <Button type="submit" disabled={generateReport.isPending}>
                     {generateReport.isPending ? "Generating..." : "Generate"}
@@ -215,7 +397,18 @@ const ReportsManager = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setShowGenerateModal(false)}
+                    onClick={() => {
+                      setShowGenerateModal(false);
+                      setReportForm({
+                        name: "",
+                        type: "",
+                        startDate: "",
+                        endDate: "",
+                        branchId: "",
+                        statuses: [],
+                        format: "PDF", // Reset format to default
+                      });
+                    }}
                   >
                     Cancel
                   </Button>

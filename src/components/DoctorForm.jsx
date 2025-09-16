@@ -6,6 +6,7 @@ import {
   useCreateDoctor,
   useUpdateDoctor,
   useGetDoctorById,
+  useGetUserAccessibleBranchIds,
 } from "../hooks/useDoctorQueries.js";
 import { useDeleteUser } from "../hooks/useUserQueries.js";
 import { Button } from "./ui/button.jsx";
@@ -17,7 +18,9 @@ import { CreateDoctorFormSchema } from "../schema/doctors/create.js";
 import { UpdateDoctorFormSchema } from "../schema/doctors/update.js";
 import useUserStore from "../store/useUserStore.js";
 import useBranchStore from "../store/useBranchStore.js";
+import useAddressStore from "../store/useAddressStore.js";
 import { authService } from "../services/authService.js";
+import { jwtDecode } from "jwt-decode";
 
 const DoctorForm = () => {
   const { doctorId } = useParams();
@@ -28,6 +31,18 @@ const DoctorForm = () => {
   const { userId } = useUserStore();
   const branches = useBranchStore((state) => state.branches);
   const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
+  const setBranches = useBranchStore((state) => state.setBranches);
+  const setSelectedBranchId = useBranchStore(
+    (state) => state.setSelectedBranchId
+  );
+
+  // Address store for getting branch details
+  const addresses = useAddressStore((state) => state.addresses);
+  const fetchAddresses = useAddressStore((state) => state.fetchAddresses);
+
+  // Get user's accessible branch IDs from API
+  const { data: userAccessibleBranchesData, error: userBranchesError } =
+    useGetUserAccessibleBranchIds(userId);
 
   const {
     register,
@@ -74,6 +89,61 @@ const DoctorForm = () => {
     "Schema being used:",
     isEdit ? "UpdateDoctorFormSchema" : "CreateDoctorFormSchema"
   );
+  // Extract branch IDs from API response
+  const userAccessibleBranchIds = userAccessibleBranchesData?.data || [];
+
+  // Debug logging
+  console.log("🔍 Debug - DoctorForm branches:", branches);
+  console.log("🔍 Debug - DoctorForm selectedBranchId:", selectedBranchId);
+  console.log("🔍 Debug - DoctorForm branches.length:", branches?.length);
+  console.log(
+    "🔍 Debug - DoctorForm userAccessibleBranchesData:",
+    userAccessibleBranchesData
+  );
+  console.log(
+    "🔍 Debug - DoctorForm userAccessibleBranchIds:",
+    userAccessibleBranchIds
+  );
+  console.log("🔍 Debug - DoctorForm userBranchesError:", userBranchesError);
+
+  // Load branches from API if not already loaded
+  useEffect(() => {
+    if (branches.length === 0 && userAccessibleBranchIds.length > 0) {
+      console.log("🔍 Debug - Loading branches from API data");
+
+      // Filter addresses to only show those the user has access to
+      const userAccessibleAddresses = addresses.filter((addr) =>
+        userAccessibleBranchIds.includes(addr.id)
+      );
+
+      console.log(
+        "🔍 Debug - userAccessibleAddresses:",
+        userAccessibleAddresses
+      );
+
+      if (userAccessibleAddresses.length > 0) {
+        setBranches(userAccessibleAddresses);
+        // Set default selected branch to first available branch
+        setSelectedBranchId(userAccessibleAddresses[0].id);
+      }
+    }
+  }, [
+    branches.length,
+    userAccessibleBranchIds,
+    addresses,
+    setBranches,
+    setSelectedBranchId,
+  ]);
+
+  // Fetch addresses if not already loaded
+  useEffect(() => {
+    if (userId && addresses.length === 0) {
+      console.log("🔍 Debug - Fetching addresses for userId:", userId);
+      fetchAddresses(userId).catch((error) => {
+        console.warn("Failed to fetch addresses:", error.message);
+      });
+    }
+  }, [userId, addresses.length, fetchAddresses]);
 
   // Fetch doctor data if editing
   const {
@@ -316,6 +386,15 @@ const DoctorForm = () => {
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   defaultValue={selectedBranchId || ""}
                 >
+                  <option value="">
+                    {branches.length === 0
+                      ? userBranchesError
+                        ? "Error loading branches - Check API connection"
+                        : userAccessibleBranchIds.length === 0
+                        ? "No accessible branches found"
+                        : "Loading branches..."
+                      : "Select a branch..."}
+                  </option>
                   {branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
                       {branch.name} {branch.isPrimary ? "(Primary)" : ""}

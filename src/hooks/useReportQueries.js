@@ -17,6 +17,14 @@ export const useGetAllReports = (params = {}, options = {}) => {
  });
 };
 
+export const useSearchReports = (params = {}, options = {}) => {
+ return useQuery({
+ queryKey: [...reportKeys.lists(), 'search', params],
+ queryFn: () => reportService.searchReports(params),
+ ...options,
+ });
+};
+
 export const useGetReportById = (id, options = {}) => {
  return useQuery({
  queryKey: reportKeys.detail(id),

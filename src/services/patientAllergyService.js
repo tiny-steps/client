@@ -1,211 +1,236 @@
 // API service for patient allergy-related operations
 
 class PatientAllergyService {
- async getAllPatientAllergies(params = {}) {
- const searchParams = new URLSearchParams();
+  async getAllPatientAllergies(params = {}) {
+    const searchParams = new URLSearchParams();
 
- if (params.page !== undefined) searchParams.append("page", params.page);
- if (params.size !== undefined) searchParams.append("size", params.size);
- if (params.sort) searchParams.append("sort", params.sort);
- if (params.allergen) searchParams.append("allergen", params.allergen);
- if (params.patientId) searchParams.append("patientId", params.patientId);
- if (params.severity) searchParams.append("severity", params.severity);
+    if (params.page !== undefined) searchParams.append("page", params.page);
+    if (params.size !== undefined) searchParams.append("size", params.size);
+    if (params.sort) searchParams.append("sort", params.sort);
+    if (params.allergen) searchParams.append("allergen", params.allergen);
+    if (params.patientId) searchParams.append("patientId", params.patientId);
+    if (params.severity) searchParams.append("severity", params.severity);
 
- const response = await fetch(`/api/v1/patient-allergies?${searchParams}`, {
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- });
+    const response = await fetch(`/api/v1/patient-allergies?${searchParams}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to fetch patient allergies");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch patient allergies");
+    }
 
- return response.json();
- }
+    return response.json();
+  }
 
- async getPatientAllergyById(id) {
- const response = await fetch(`/api/v1/patient-allergies/${id}`, {
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- });
+  async getPatientAllergyById(id) {
+    const response = await fetch(`/api/v1/patient-allergies/${id}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to fetch patient allergy");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch patient allergy");
+    }
 
- return response.json();
- }
+    return response.json();
+  }
 
- async getAllergiesByPatientId(patientId, params = {}) {
- const searchParams = new URLSearchParams();
+  async getAllergiesByPatientId(patientId, params = {}) {
+    const searchParams = new URLSearchParams();
 
- if (params.page !== undefined) searchParams.append("page", params.page);
- if (params.size !== undefined) searchParams.append("size", params.size);
- if (params.sort) searchParams.append("sort", params.sort);
+    if (params.page !== undefined) searchParams.append("page", params.page);
+    if (params.size !== undefined) searchParams.append("size", params.size);
+    if (params.sort) searchParams.append("sort", params.sort);
 
- const response = await fetch(
- `/api/v1/patient-allergies/patient/${patientId}?${searchParams}`,
- {
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- }
- );
+    const response = await fetch(
+      `/api/v1/patient-allergies/patient/${patientId}?${searchParams}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to fetch patient allergies");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch patient allergies");
+    }
 
- return response.json();
- }
+    return response.json();
+  }
 
- async createPatientAllergy(allergyData) {
- const response = await fetch(`/api/v1/patient-allergies`, {
- method: "POST",
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- body: JSON.stringify(allergyData),
- });
+  async createPatientAllergy(allergyData) {
+    const response = await fetch(`/api/v1/patient-allergies`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(allergyData),
+    });
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to create patient allergy");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to create patient allergy");
+    }
 
- return response.json();
- }
+    return response.json();
+  }
 
- async updatePatientAllergy(id, allergyData) {
- const response = await fetch(`/api/v1/patient-allergies/${id}`, {
- method: "PUT",
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- body: JSON.stringify(allergyData),
- });
+  async updatePatientAllergy(id, allergyData) {
+    const response = await fetch(`/api/v1/patient-allergies/${id}`, {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(allergyData),
+    });
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to update patient allergy");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to update patient allergy");
+    }
 
- return response.json();
- }
+    return response.json();
+  }
 
- async deletePatientAllergy(id) {
- const response = await fetch(`/api/v1/patient-allergies/${id}`, {
- method: "DELETE",
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- });
+  async deletePatientAllergy(id) {
+    // Use soft delete for patient allergies to preserve medical history
+    const response = await fetch(
+      `/api/v1/patient-allergies/${id}/soft-delete`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to delete patient allergy");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to delete patient allergy");
+    }
 
- return response.ok;
- }
+    return response.json();
+  }
 
- async searchAllergiesByAllergen(allergen, params = {}) {
- const searchParams = new URLSearchParams();
+  async reactivatePatientAllergy(id) {
+    const response = await fetch(`/api/v1/patient-allergies/${id}/reactivate`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
- if (params.page !== undefined) searchParams.append("page", params.page);
- if (params.size !== undefined) searchParams.append("size", params.size);
- if (params.sort) searchParams.append("sort", params.sort);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate patient allergy");
+    }
 
- const response = await fetch(
- `/api/v1/patient-allergies/search/allergen/${allergen}?${searchParams}`,
- {
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- }
- );
+    return response.json();
+  }
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to search allergies");
- }
+  async searchAllergiesByAllergen(allergen, params = {}) {
+    const searchParams = new URLSearchParams();
 
- return response.json();
- }
+    if (params.page !== undefined) searchParams.append("page", params.page);
+    if (params.size !== undefined) searchParams.append("size", params.size);
+    if (params.sort) searchParams.append("sort", params.sort);
 
- async checkPatientAllergy(patientId, allergen) {
- const response = await fetch(
- `/api/v1/patient-allergies/check/${patientId}/${allergen}`,
- {
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- }
- );
+    const response = await fetch(
+      `/api/v1/patient-allergies/search/allergen/${allergen}?${searchParams}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to check patient allergy");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to search allergies");
+    }
 
- return response.json();
- }
+    return response.json();
+  }
 
- async addAllergy(patientId, allergen, reaction) {
- const response = await fetch(`/api/v1/patient-allergies/add`, {
- method: "POST",
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- body: JSON.stringify({
- patientId,
- allergen,
- reaction,
- }),
- });
+  async checkPatientAllergy(patientId, allergen) {
+    const response = await fetch(
+      `/api/v1/patient-allergies/check/${patientId}/${allergen}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to add allergy");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to check patient allergy");
+    }
 
- return response.json();
- }
+    return response.json();
+  }
 
- async removeAllergy(patientId, allergen) {
- const response = await fetch(`/api/v1/patient-allergies/remove`, {
- method: "DELETE",
- credentials: "include",
- headers: {
- "Content-Type": "application/json",
- },
- body: JSON.stringify({
- patientId,
- allergen,
- }),
- });
+  async addAllergy(patientId, allergen, reaction) {
+    const response = await fetch(`/api/v1/patient-allergies/add`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        patientId,
+        allergen,
+        reaction,
+      }),
+    });
 
- if (!response.ok) {
- const error = await response.json();
- throw new Error(error.message || "Failed to remove allergy");
- }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to add allergy");
+    }
 
- return response.ok;
- }
+    return response.json();
+  }
+
+  async removeAllergy(patientId, allergen) {
+    // Use soft delete instead of hard delete to preserve medical history
+    const response = await fetch(
+      `/api/v1/patient-allergies/remove/soft-delete`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId,
+          allergen,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to remove allergy");
+    }
+
+    return response.json();
+  }
 }
 
 export const patientAllergyService = new PatientAllergyService();

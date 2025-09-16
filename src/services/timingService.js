@@ -214,10 +214,11 @@ class TimingService {
   }
 
   async deleteAvailability(doctorId, availabilityId) {
+    // Use soft delete for availability to preserve historical data
     const response = await fetch(
-      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}`,
+      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/soft-delete`,
       {
-        method: "DELETE",
+        method: "PATCH",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -229,7 +230,26 @@ class TimingService {
       const error = await response.json();
       throw new Error(error.message || "Failed to delete availability");
     }
-    return response.ok;
+    return response.json();
+  }
+
+  async reactivateAvailability(doctorId, availabilityId) {
+    const response = await fetch(
+      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/reactivate`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate availability");
+    }
+    return response.json();
   }
 
   async getDoctorTimeOffs(doctorId, params = {}) {
@@ -330,7 +350,7 @@ class TimingService {
     return response.ok;
   }
 
-  async getTimeSlots(doctorId, date, practiceId = null) {
+  async getTimeSlots(doctorId, date, practiceId = null, branchId = null) {
     const response = await fetch("/api/v1/timings", {
       method: "POST",
       credentials: "include",
@@ -341,6 +361,7 @@ class TimingService {
         doctorId,
         date,
         practiceId,
+        branchId,
       }),
     });
 

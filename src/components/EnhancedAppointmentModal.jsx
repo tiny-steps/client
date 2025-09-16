@@ -119,6 +119,14 @@ const EnhancedAppointmentModal = ({
     }
   }, [isOpen, selectedDoctor, selectedDate, form, selectedBranchId]);
 
+  // Set the first doctor as default when doctors data changes and no doctor is selected
+  useEffect(() => {
+    if (doctors.length > 0 && !form.watch("doctorId")) {
+      const firstDoctor = doctors[0];
+      form.setValue("doctorId", firstDoctor.id);
+    }
+  }, [doctors, form]);
+
   // Watch for form changes to validate in real-time
   const watchedDate = form.watch("appointmentDate");
   const watchedTime = form.watch("startTime");
@@ -173,6 +181,7 @@ const EnhancedAppointmentModal = ({
     form.watch("doctorId"),
     form.watch("appointmentDate"),
     null, // practiceId - not used currently
+    form.watch("branchId"), // branchId
     {
       enabled: !!(form.watch("doctorId") && form.watch("appointmentDate")),
     }
@@ -230,11 +239,15 @@ const EnhancedAppointmentModal = ({
       setConflictWarning("");
 
       // Comprehensive validation
+      const appointmentData = {
+        appointmentDate: data.appointmentDate,
+        startTime: data.startTime,
+        sessionDurationMinutes: currentDuration,
+      };
+
       const validation = validateAppointmentBooking(
-        data.appointmentDate,
-        data.startTime,
-        currentDuration,
-        appointments
+        appointmentData,
+        Array.isArray(appointments) ? appointments : []
       );
 
       if (!validation.isValid) {
@@ -371,18 +384,14 @@ const EnhancedAppointmentModal = ({
                         disabled={!form.watch("branchId")} // Disable until branch is selected
                       >
                         <option value="">Select a doctor...</option>
-                        {doctors
-                          .filter(
-                            (doctor) =>
-                              !form.watch("branchId") ||
-                              doctor.branchId === form.watch("branchId")
-                          )
-                          .map((doctor) => (
-                            <option key={doctor.id} value={doctor.id}>
-                              {doctor.firstName} {doctor.lastName} -{" "}
-                              {doctor.speciality || "General"}
-                            </option>
-                          ))}
+                        {doctors.map((doctor) => (
+                          <option key={doctor.id} value={doctor.id}>
+                            {doctor.firstName} {doctor.lastName}
+                            {doctor.speciality
+                              ? ` - ${doctor.speciality}`
+                              : " - General"}
+                          </option>
+                        ))}
                       </select>
                     </FormControl>
                     {!form.watch("branchId") && (

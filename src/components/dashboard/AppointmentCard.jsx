@@ -46,6 +46,7 @@ const AppointmentCard = ({
     firstDoctor?.id,
     todayDateString,
     null, // practiceId
+    null, // branchId - not available in this context
     { enabled: !!firstDoctor?.id && isToday }
   );
 

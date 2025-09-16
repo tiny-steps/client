@@ -1,17 +1,19 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   useGetAllSessionTypes,
   useDeleteSessionType,
   useActivateSessionType,
   useDeactivateSessionType,
 } from "../hooks/useSessionQueries.js";
+import { sessionService } from "../services/sessionService.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import SessionTypeForm from "./forms/SessionTypeForm.jsx";
-import useAddressStore from "../store/useAddressStore.js";
+import { useBranchFilter } from "../hooks/useBranchFilter.js";
 
 const SessionTypesList = () => {
   const navigate = useNavigate();
@@ -19,7 +21,7 @@ const SessionTypesList = () => {
   const [pageSize] = useState(10);
   const [searchInputs, setSearchInputs] = useState({
     name: "",
-    isActive: "",
+    isActive: "active", // Default to active session types
     isTelemedicineAvailable: "",
   });
   const [deleteModal, setDeleteModal] = useState({
@@ -29,14 +31,19 @@ const SessionTypesList = () => {
   const [showSessionTypeForm, setShowSessionTypeForm] = useState(false);
   const [editingSessionType, setEditingSessionType] = useState(null);
 
-  // Get the selected address ID to use as branchId
-  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
 
-  // Fetch session types
-  const { data, isLoading, error, refetch } = useGetAllSessionTypes({
-    page: currentPage,
-    size: 1000, // Fetch all for client-side filtering
-    branchId: selectedAddressId, // Use selected address ID as branchId
+  // Fetch session types - get all including inactive for client-side filtering
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["session-types", { branchId, includeInactive: true }],
+    queryFn: () =>
+      sessionService.getAllSessionTypesIncludingInactive({
+        page: currentPage,
+        size: 1000, // Fetch all for client-side filtering
+        ...(branchId && { branchId }), // Only include branchId if it's not null
+      }),
+    enabled: hasSelection, // Fetch when we have a selection (including "all")
   });
 
   // Mutations
@@ -66,10 +73,11 @@ const SessionTypesList = () => {
       }
 
       // Active status filter
-      if (searchInputs.isActive !== "") {
-        const activeMatch =
-          sessionType.isActive === (searchInputs.isActive === "true");
-        if (!activeMatch) return false;
+      if (searchInputs.isActive && searchInputs.isActive !== "all") {
+        if (searchInputs.isActive === "active" && !sessionType.isActive)
+          return false;
+        if (searchInputs.isActive === "inactive" && sessionType.isActive)
+          return false;
       }
 
       // Telemedicine filter
@@ -120,7 +128,7 @@ const SessionTypesList = () => {
   const clearSearch = () => {
     setSearchInputs({
       name: "",
-      isActive: "",
+      isActive: "active", // Reset to active
       isTelemedicineAvailable: "",
     });
   };
@@ -141,7 +149,7 @@ const SessionTypesList = () => {
   };
 
   const handleToggleActive = (sessionType) => {
-    if (sessionType.isActive) {
+    if (sessionType.active) {
       deactivateSessionType.mutate(sessionType.id);
     } else {
       activateSessionType.mutate(sessionType.id);
@@ -219,11 +227,14 @@ const SessionTypesList = () => {
                 <select
                   name="isActive"
                   className="w-full px-3 py-2 border rounded-md"
-                  defaultValue={searchInputs.isActive || ""}
+                  value={searchInputs.isActive}
+                  onChange={(e) =>
+                    handleInputChange("isActive", e.target.value)
+                  }
                 >
-                  <option value="">All Status</option>
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
+                  <option value="all">All Session Types</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
                 </select>
               </div>
               <div>
@@ -283,10 +294,10 @@ const SessionTypesList = () => {
                   <div className="flex gap-2 mt-2">
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${getStatusColor(
-                        sessionType.isActive
+                        sessionType.active
                       )}`}
                     >
-                      {sessionType.isActive ? "Active" : "Inactive"}
+                      {sessionType.active ? "Active" : "Inactive"}
                     </span>
                     {sessionType.isTelemedicineAvailable && (
                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
@@ -318,22 +329,39 @@ const SessionTypesList = () => {
                 >
                   Edit
                 </Button>
-                <Button
-                  size="sm"
-                  variant={sessionType.isActive ? "outline" : "default"}
-                  onClick={() => handleToggleActive(sessionType)}
-                  disabled={toggleActiveStatus.isPending}
-                >
-                  {sessionType.isActive ? "Deactivate" : "Activate"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDeleteClick(sessionType)}
-                  disabled={deleteSessionType.isPending}
-                >
-                  {deleteSessionType.isPending ? "Deleting..." : "Delete"}
-                </Button>
+                {sessionType.active ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleToggleActive(sessionType)}
+                      disabled={deactivateSessionType.isPending}
+                    >
+                      {deactivateSessionType.isPending
+                        ? "Deactivating..."
+                        : "Deactivate"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteClick(sessionType)}
+                      disabled={deleteSessionType.isPending}
+                    >
+                      {deleteSessionType.isPending ? "Deleting..." : "Delete"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleToggleActive(sessionType)}
+                    disabled={activateSessionType.isPending}
+                  >
+                    {activateSessionType.isPending
+                      ? "Activating..."
+                      : "Activate"}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

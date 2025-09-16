@@ -364,19 +364,8 @@ const SessionTypesPage = () => {
                     <div className="flex gap-1">
                       {role === "ADMIN" && (
                         <>
-                          <Button
-                            onClick={() => handleToggleStatus(sessionType)}
-                            variant={
-                              sessionType.isActive ? "outline" : "default"
-                            }
-                            size="sm"
-                          >
-                            {sessionType.isActive ? (
-                              <CheckCircle className="h-4 w-4" />
-                            ) : (
-                              <XCircle className="h-4 w-4" />
-                            )}
-                          </Button>
+                        
+                          
                           <Button
                             onClick={() => handleEditClick(sessionType)}
                             variant="outline"
@@ -384,6 +373,19 @@ const SessionTypesPage = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          {!sessionType.isActive ?(
+                          <Button
+                            onClick={() => handleToggleStatus(sessionType)}
+                            variant={
+                              sessionType.isActive ? "outline" : "default"
+                            }
+                            size="sm"
+                          >
+                            
+                              <CheckCircle className="h-4 w-4" />
+                            
+                          </Button>
+                        ):(
                           <Button
                             onClick={() => handleDeleteClick(sessionType)}
                             variant="destructive"
@@ -391,6 +393,7 @@ const SessionTypesPage = () => {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                        )}
                         </>
                       )}
                     </div>

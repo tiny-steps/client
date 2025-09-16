@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { timingService } from "../services/timingService.js";
-import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import {
+  useGetAllDoctors,
+  useGetDoctorBranches,
+} from "../hooks/useDoctorQueries.js";
+import { useBranchFilter } from "../hooks/useBranchFilter.js";
 import useAddressStore from "../store/useAddressStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
@@ -14,7 +18,7 @@ function getMinutes(timeStr) {
 }
 
 const TimingManager = () => {
-  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  const { branchId, hasSelection } = useBranchFilter();
 
   // Mutation for updating a duration
   const updateDurationMutation = useMutation({
@@ -115,6 +119,7 @@ const TimingManager = () => {
 
   const queryClient = useQueryClient();
   const [selectedDoctor, setSelectedDoctor] = useState("");
+  const [selectedPracticeId, setSelectedPracticeId] = useState("");
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [sessions, setSessions] = useState([
@@ -130,12 +135,59 @@ const TimingManager = () => {
   // Debug logs
 
   // Pass branchId to get doctors for the selected address
-  const { data: doctorsData } = useGetAllDoctors({
-    size: 100,
-    branchId: selectedAddressId,
-  });
+  const { data: doctorsData } = useGetAllDoctors(
+    {
+      size: 100,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
 
   const doctors = doctorsData?.data?.content || [];
+
+  // Set the first doctor as default when doctors data is loaded or branch changes
+  useEffect(() => {
+    if (doctors.length > 0) {
+      const firstDoctor = doctors[0];
+      setSelectedDoctor(firstDoctor.id);
+    } else {
+      // Clear selected doctor if no doctors available for the branch
+      setSelectedDoctor("");
+    }
+  }, [doctors, branchId]); // Reset when branchId changes
+
+  // Get doctor's branches when a doctor is selected
+  const { data: doctorBranchesData } = useGetDoctorBranches(selectedDoctor);
+  const doctorBranches = doctorBranchesData?.branchIds || [];
+
+  // Get addresses for branch names
+  const addresses = useAddressStore((state) => state.addresses);
+
+  // Set practice ID when doctor branches are loaded
+  useEffect(() => {
+    if (doctorBranches.length > 0 && addresses.length > 0) {
+      // Filter addresses to only show those the doctor is associated with
+      const doctorAddresses = addresses.filter((addr) =>
+        doctorBranches.includes(addr.id)
+      );
+
+      if (doctorAddresses.length === 1) {
+        // If doctor is in only one branch, prefill with that branch name
+        setSelectedPracticeId(
+          doctorAddresses[0].name ||
+            `${doctorAddresses[0].type} - ${doctorAddresses[0].city}`
+        );
+      } else if (doctorAddresses.length > 1) {
+        // If doctor is in multiple branches, set to first one as default
+        setSelectedPracticeId(
+          doctorAddresses[0].name ||
+            `${doctorAddresses[0].type} - ${doctorAddresses[0].city}`
+        );
+      }
+    }
+  }, [doctorBranches, addresses]);
 
   const { data: availabilityData, isLoading } = useQuery({
     queryKey: ["availability", selectedDoctor],
@@ -213,7 +265,7 @@ const TimingManager = () => {
   // Reset doctor selection when address changes
   useEffect(() => {
     setSelectedDoctor("");
-  }, [selectedAddressId]);
+  }, [branchId]);
 
   return (
     <div className="p-6 space-y-6">
@@ -310,18 +362,19 @@ const TimingManager = () => {
                 className="px-3 py-2 border rounded-md"
                 value={selectedDoctor}
                 onChange={(e) => setSelectedDoctor(e.target.value)}
-                disabled={!selectedAddressId} // Disable until address is selected
+                disabled={!hasSelection} // Disable until address is selected
               >
                 <option value="">Select a doctor...</option>
                 {doctors.map((doc) => (
                   <option key={doc.id} value={doc.id}>
-                    {doc.name} - {doc.speciality}
+                    {doc.name}
+                    {doc.speciality ? ` - ${doc.speciality}` : ""}
                   </option>
                 ))}
               </select>
             </div>
           )}
-          {!selectedAddressId && (
+          {!hasSelection && (
             <p className="text-sm text-blue-600 mt-2">
               Please select an address first to see available doctors.
             </p>
@@ -594,8 +647,12 @@ const TimingManager = () => {
 
                   const formData = new FormData(e.target);
                   const practiceId =
-                    formData.get("practiceId") ||
-                    "b2a1c3d4-5678-4321-9876-abcdef123456"; // Replace with actual logic
+                    selectedPracticeId || formData.get("practiceId") || "";
+
+                  if (!practiceId) {
+                    alert("Please select a branch/practice");
+                    return;
+                  }
                   const isActive = true;
 
                   // Calculate slot duration as the max duration among sessions
@@ -625,7 +682,64 @@ const TimingManager = () => {
                 }}
                 className="space-y-4"
               >
-                <Input name="practiceId" placeholder="Practice ID (optional)" />
+                {/* Practice ID / Branch Selection */}
+                {(() => {
+                  const doctorAddresses = addresses.filter((addr) =>
+                    doctorBranches.includes(addr.id)
+                  );
+
+                  if (doctorAddresses.length === 0) {
+                    return (
+                      <Input
+                        name="practiceId"
+                        placeholder="Practice ID (optional)"
+                        value={selectedPracticeId}
+                        onChange={(e) => setSelectedPracticeId(e.target.value)}
+                      />
+                    );
+                  } else if (doctorAddresses.length === 1) {
+                    return (
+                      <Input
+                        name="practiceId"
+                        placeholder="Practice ID"
+                        value={selectedPracticeId}
+                        onChange={(e) => setSelectedPracticeId(e.target.value)}
+                        readOnly
+                        className="bg-gray-50"
+                      />
+                    );
+                  } else {
+                    return (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Select Branch/Practice *
+                        </label>
+                        <select
+                          name="practiceId"
+                          value={selectedPracticeId}
+                          onChange={(e) =>
+                            setSelectedPracticeId(e.target.value)
+                          }
+                          className="w-full px-3 py-2 border rounded-md"
+                        >
+                          <option value="">Select a branch...</option>
+                          {doctorAddresses.map((address) => (
+                            <option
+                              key={address.id}
+                              value={
+                                address.name ||
+                                `${address.type} - ${address.city}`
+                              }
+                            >
+                              {address.name ||
+                                `${address.type} - ${address.city}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
+                })()}
                 {/* Multi-day selection */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">

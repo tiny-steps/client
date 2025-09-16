@@ -215,21 +215,23 @@ const DoctorDetail = () => {
                   "Activate"
                 )}
               </Button>
-              <Button
-                onClick={handleDeleteDoctor}
-                variant="outline"
-                className="text-red-600 hover:bg-red-50"
-                disabled={deleteDoctorMutation.isPending}
-              >
-                {deleteDoctorMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
-                    Deleting...
-                  </>
-                ) : (
-                  "Delete"
-                )}
-              </Button>
+              {doctor.status === "ACTIVE" && (
+                <Button
+                  onClick={handleDeleteDoctor}
+                  variant="outline"
+                  className="text-red-600 hover:bg-red-50"
+                  disabled={deleteDoctorMutation.isPending}
+                >
+                  {deleteDoctorMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>

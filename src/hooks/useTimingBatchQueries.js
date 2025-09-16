@@ -22,10 +22,16 @@ export const useGetTimeSlotsForDateRange = (
   startDate,
   endDate,
   practiceId = null,
+  branchId = null,
   options = {}
 ) => {
   return useQuery({
-    queryKey: timingBatchKeys.dateRange(doctorId, startDate, endDate, practiceId),
+    queryKey: timingBatchKeys.dateRange(
+      doctorId,
+      startDate,
+      endDate,
+      practiceId
+    ),
     queryFn: async () => {
       if (!doctorId || !startDate || !endDate) {
         return { data: {} };
@@ -34,13 +40,13 @@ export const useGetTimeSlotsForDateRange = (
       const timeSlotsMap = {};
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       // Generate array of dates between start and end
       const dates = [];
       const currentDate = new Date(start);
-      
+
       while (currentDate <= end) {
-        const dateStr = currentDate.toISOString().split('T')[0];
+        const dateStr = currentDate.toISOString().split("T")[0];
         dates.push(dateStr);
         currentDate.setDate(currentDate.getDate() + 1);
       }
@@ -48,7 +54,12 @@ export const useGetTimeSlotsForDateRange = (
       // Batch fetch timeslots for all dates
       const promises = dates.map(async (date) => {
         try {
-          const response = await timingService.getTimeSlots(doctorId, date, practiceId);
+          const response = await timingService.getTimeSlots(
+            doctorId,
+            date,
+            practiceId,
+            branchId
+          );
           return { date, slots: response.data?.slots || [] };
         } catch (error) {
           console.warn(`Failed to fetch timeslots for ${date}:`, error);
@@ -57,10 +68,10 @@ export const useGetTimeSlotsForDateRange = (
       });
 
       const results = await Promise.allSettled(promises);
-      
+
       // Process results and build timeslots map
       results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value) {
+        if (result.status === "fulfilled" && result.value) {
           const { date, slots } = result.value;
           timeSlotsMap[date] = slots;
         }
@@ -82,17 +93,19 @@ export const useGetTimeSlotsForWeek = (
   doctorId,
   weekStartDate,
   practiceId = null,
+  branchId = null,
   options = {}
 ) => {
   const startDate = weekStartDate;
   const endDate = new Date(weekStartDate);
   endDate.setDate(endDate.getDate() + 6); // Add 6 days to get the full week
-  
+
   return useGetTimeSlotsForDateRange(
     doctorId,
-    startDate.toISOString().split('T')[0],
-    endDate.toISOString().split('T')[0],
+    startDate.toISOString().split("T")[0],
+    endDate.toISOString().split("T")[0],
     practiceId,
+    branchId,
     options
   );
 };
@@ -104,16 +117,22 @@ export const useGetTimeSlotsForMonth = (
   doctorId,
   monthDate,
   practiceId = null,
+  branchId = null,
   options = {}
 ) => {
   const startDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const endDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
-  
+  const endDate = new Date(
+    monthDate.getFullYear(),
+    monthDate.getMonth() + 1,
+    0
+  );
+
   return useGetTimeSlotsForDateRange(
     doctorId,
-    startDate.toISOString().split('T')[0],
-    endDate.toISOString().split('T')[0],
+    startDate.toISOString().split("T")[0],
+    endDate.toISOString().split("T")[0],
     practiceId,
+    branchId,
     options
   );
 };

@@ -10,10 +10,10 @@
 export const isPastDate = (dateString) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Reset time to start of day
-  
+
   const selectedDate = new Date(dateString);
   selectedDate.setHours(0, 0, 0, 0);
-  
+
   return selectedDate < today;
 };
 
@@ -26,17 +26,17 @@ export const isPastDate = (dateString) => {
 export const isPastTimeSlot = (dateString, timeString) => {
   const today = new Date();
   const selectedDate = new Date(dateString);
-  
+
   // If it's not today, use date comparison
   if (selectedDate.toDateString() !== today.toDateString()) {
     return isPastDate(dateString);
   }
-  
+
   // If it's today, check the time
-  const [hours, minutes] = timeString.split(':').map(Number);
+  const [hours, minutes] = timeString.split(":").map(Number);
   const selectedDateTime = new Date(selectedDate);
   selectedDateTime.setHours(hours, minutes, 0, 0);
-  
+
   return selectedDateTime < today;
 };
 
@@ -46,7 +46,7 @@ export const isPastTimeSlot = (dateString, timeString) => {
  * @returns {number} - Minutes since midnight
  */
 export const timeToMinutes = (timeString) => {
-  const [hours, minutes] = timeString.split(':').map(Number);
+  const [hours, minutes] = timeString.split(":").map(Number);
   return hours * 60 + minutes;
 };
 
@@ -58,7 +58,9 @@ export const timeToMinutes = (timeString) => {
 export const minutesToTime = (minutes) => {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  return `${hours.toString().padStart(2, "0")}:${mins
+    .toString()
+    .padStart(2, "0")}`;
 };
 
 /**
@@ -72,10 +74,10 @@ export const minutesToTime = (minutes) => {
 export const doTimeSlotsOverlap = (start1, duration1, start2, duration2) => {
   const start1Minutes = timeToMinutes(start1);
   const end1Minutes = start1Minutes + duration1;
-  
+
   const start2Minutes = timeToMinutes(start2);
   const end2Minutes = start2Minutes + duration2;
-  
+
   // Check if there's any overlap
   return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
 };
@@ -88,23 +90,34 @@ export const doTimeSlotsOverlap = (start1, duration1, start2, duration2) => {
  * @param {string} appointmentDate - Date of the appointment (YYYY-MM-DD)
  * @returns {Object} - { hasConflict: boolean, conflictingAppointments: Array }
  */
-export const checkAppointmentConflicts = (newStartTime, newDuration, existingAppointments, appointmentDate) => {
-  const conflictingAppointments = existingAppointments.filter(appointment => {
+export const checkAppointmentConflicts = (
+  newStartTime,
+  newDuration,
+  existingAppointments,
+  appointmentDate
+) => {
+  // Ensure existingAppointments is an array
+  const appointments = Array.isArray(existingAppointments)
+    ? existingAppointments
+    : [];
+
+  const conflictingAppointments = appointments.filter((appointment) => {
     // Only check appointments on the same date
     if (appointment.appointmentDate !== appointmentDate) {
       return false;
     }
-    
+
     // Skip cancelled appointments
-    if (appointment.status?.toUpperCase() === 'CANCELLED') {
+    if (appointment.status?.toUpperCase() === "CANCELLED") {
       return false;
     }
-    
+
     // Get appointment duration (default to 30 minutes if not specified)
-    const appointmentDuration = appointment.sessionDurationMinutes || 
-                               appointment.session?.sessionType?.defaultDurationMinutes || 
-                               30;
-    
+    const appointmentDuration =
+      appointment.sessionDurationMinutes ||
+      appointment.session?.sessionType?.defaultDurationMinutes ||
+      30;
+
     return doTimeSlotsOverlap(
       newStartTime,
       newDuration,
@@ -112,10 +125,10 @@ export const checkAppointmentConflicts = (newStartTime, newDuration, existingApp
       appointmentDuration
     );
   });
-  
+
   return {
     hasConflict: conflictingAppointments.length > 0,
-    conflictingAppointments
+    conflictingAppointments,
   };
 };
 
@@ -125,7 +138,7 @@ export const checkAppointmentConflicts = (newStartTime, newDuration, existingApp
  */
 export const getMinSelectableDate = () => {
   const today = new Date();
-  return today.toISOString().split('T')[0];
+  return today.toISOString().split("T")[0];
 };
 
 /**
@@ -135,16 +148,19 @@ export const getMinSelectableDate = () => {
  */
 export const formatConflictMessage = (conflictingAppointments) => {
   if (conflictingAppointments.length === 0) {
-    return '';
+    return "";
   }
-  
-  const conflicts = conflictingAppointments.map(apt => {
-    const patientName = apt.patient?.firstName && apt.patient?.lastName 
-      ? `${apt.patient.firstName} ${apt.patient.lastName}`
-      : 'Unknown Patient';
-    return `${apt.startTime} - ${patientName}`;
-  }).join(', ');
-  
+
+  const conflicts = conflictingAppointments
+    .map((apt) => {
+      const patientName =
+        apt.patient?.firstName && apt.patient?.lastName
+          ? `${apt.patient.firstName} ${apt.patient.lastName}`
+          : "Unknown Patient";
+      return `${apt.startTime} - ${patientName}`;
+    })
+    .join(", ");
+
   return `This time slot conflicts with existing appointment(s): ${conflicts}`;
 };
 
@@ -154,19 +170,24 @@ export const formatConflictMessage = (conflictingAppointments) => {
  * @param {Array} existingAppointments - Array of existing appointments
  * @returns {Object} - { isValid: boolean, errors: Array }
  */
-export const validateAppointmentBooking = (appointmentData, existingAppointments) => {
+export const validateAppointmentBooking = (
+  appointmentData,
+  existingAppointments
+) => {
   const errors = [];
-  
+
   // Check if date is in the past
   if (isPastDate(appointmentData.appointmentDate)) {
-    errors.push('Cannot book appointments for past dates');
+    errors.push("Cannot book appointments for past dates");
   }
-  
+
   // Check if time slot is in the past (for today)
-  if (isPastTimeSlot(appointmentData.appointmentDate, appointmentData.startTime)) {
-    errors.push('Cannot book appointments for past time slots');
+  if (
+    isPastTimeSlot(appointmentData.appointmentDate, appointmentData.startTime)
+  ) {
+    errors.push("Cannot book appointments for past time slots");
   }
-  
+
   // Check for conflicts
   const conflictCheck = checkAppointmentConflicts(
     appointmentData.startTime,
@@ -174,14 +195,14 @@ export const validateAppointmentBooking = (appointmentData, existingAppointments
     existingAppointments,
     appointmentData.appointmentDate
   );
-  
+
   if (conflictCheck.hasConflict) {
     errors.push(formatConflictMessage(conflictCheck.conflictingAppointments));
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
-    conflictingAppointments: conflictCheck.conflictingAppointments || []
+    conflictingAppointments: conflictCheck.conflictingAppointments || [],
   };
 };
