@@ -26,6 +26,29 @@ class AddressService {
     }
   }
 
+  async getAddressById(addressId) {
+    try {
+      const response = await fetch(`${this.baseUrl}/${addressId}`, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to fetch address");
+      }
+
+      const result = await response.json();
+      return result.data || result;
+    } catch (error) {
+      console.error("Error fetching address:", error);
+      throw error;
+    }
+  }
+
   async createAddress(addressData) {
     try {
       const response = await fetch(this.baseUrl, {

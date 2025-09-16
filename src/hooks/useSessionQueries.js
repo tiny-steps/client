@@ -24,6 +24,8 @@ export const useCreateSession = () => {
     mutationFn: (sessionData) => sessionService.createSession(sessionData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -35,6 +37,8 @@ export const useUpdateSession = () => {
       sessionService.updateSession(id, sessionData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -45,6 +49,8 @@ export const useDeleteSession = () => {
     mutationFn: (id) => sessionService.deleteSession(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -55,6 +61,8 @@ export const useActivateSession = () => {
     mutationFn: (id) => sessionService.activateSession(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -65,6 +73,20 @@ export const useDeactivateSession = () => {
     mutationFn: (id) => sessionService.deactivateSession(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
+    },
+  });
+};
+
+export const useReactivateSession = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => sessionService.reactivateSession(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -92,6 +114,7 @@ export const useCreateSessionType = () => {
       sessionService.createSessionType(sessionTypeData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -103,6 +126,7 @@ export const useUpdateSessionType = () => {
       sessionService.updateSessionType(id, sessionTypeData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -113,6 +137,7 @@ export const useDeleteSessionType = () => {
     mutationFn: (id) => sessionService.deleteSessionType(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -123,6 +148,7 @@ export const useActivateSessionType = () => {
     mutationFn: (id) => sessionService.activateSessionType(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -133,6 +159,7 @@ export const useDeactivateSessionType = () => {
     mutationFn: (id) => sessionService.deactivateSessionType(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -143,6 +170,7 @@ export const useSoftDeleteSessionType = () => {
     mutationFn: (id) => sessionService.softDeleteSessionType(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -153,6 +181,7 @@ export const useReactivateSessionType = () => {
     mutationFn: (id) => sessionService.reactivateSessionType(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };

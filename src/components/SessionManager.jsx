@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
-  useGetAllSessions,
   useDeleteSession,
   useActivateSession,
 } from "../hooks/useSessionQueries.js";
-import { useGetAllEnrichedDoctors } from "../hooks/useEnrichedDoctorQueries.js";
+import { useGetAllEnrichedSessions } from "../hooks/useEnrichedSessionQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
@@ -38,13 +37,13 @@ const SessionManager = () => {
   // Status filter state
   const [statusFilter, setStatusFilter] = useState("all"); // "active", "inactive", "all"
 
-  // Fetch data for sessions
+  // Fetch enriched sessions data
   const {
     data: sessionsData,
     isLoading: sessionsLoading,
     error: sessionsError,
     refetch: refetchSessions,
-  } = useGetAllSessions({
+  } = useGetAllEnrichedSessions({
     size: 1000,
     branchId: selectedAddressId, // Use selected address ID as branchId
   });
@@ -53,32 +52,8 @@ const SessionManager = () => {
   const deleteSession = useDeleteSession();
   const activateSession = useActivateSession();
 
-  const { data: doctorsData } = useGetAllEnrichedDoctors({
-    size: 100,
-    branchId: selectedAddressId, // Use selected address ID as branchId
-  });
-
-  // Enrich sessions with doctor information
-  const enrichedSessions = useMemo(() => {
-    const allSessions = sessionsData?.content || [];
-    const allDoctors = doctorsData?.data?.content || [];
-
-    return allSessions.map((session) => {
-      const doctor = allDoctors.find((d) => d.id === session.doctorId);
-      return {
-        ...session,
-        doctor: doctor
-          ? {
-              id: doctor.id,
-              name: `${doctor.firstName} ${doctor.lastName}`,
-              speciality: doctor.speciality,
-              email: doctor.email,
-              phone: doctor.phone,
-            }
-          : null,
-      };
-    });
-  }, [sessionsData?.content, doctorsData?.data?.content]);
+  // Sessions are already enriched from the hook, no need for additional enrichment
+  const enrichedSessions = sessionsData?.content || [];
 
   // Filter sessions based on search
   const filteredSessions = useMemo(() => {
@@ -172,7 +147,8 @@ const SessionManager = () => {
 
   const isLoading = sessionsLoading;
   const error = sessionsError;
-  const hasActiveFilters = Object.values(sessionSearchInputs).some((v) => v) || statusFilter !== "all";
+  const hasActiveFilters =
+    Object.values(sessionSearchInputs).some((v) => v) || statusFilter !== "all";
 
   if (isLoading) {
     return (
@@ -239,7 +215,9 @@ const SessionManager = () => {
           <div className="space-y-4">
             {/* Status Filter Dropdown */}
             <div className="flex items-center gap-4 mb-4">
-              <label className="text-sm font-medium text-gray-700">Filter by Status:</label>
+              <label className="text-sm font-medium text-gray-700">
+                Filter by Status:
+              </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -250,7 +228,7 @@ const SessionManager = () => {
                 <option value="inactive">Inactive</option>
               </select>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Input
                 placeholder="Search by session type..."

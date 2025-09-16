@@ -4,13 +4,23 @@ import {
   useGetAllDoctors,
   useDeleteDoctor,
 } from "../hooks/useDoctorQueries.js";
+import {
+  useDeactivateDoctorFromBranches,
+  useActivateDoctorInBranch,
+  useGetDoctorsWithBranchStatus,
+} from "../hooks/useDoctorRobustSoftDelete.js";
+import {
+  useMultipleAddressDetails,
+  getAddressDisplayName,
+} from "../hooks/useAddressDetails.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import { useBranchFilter } from "../hooks/useBranchFilter.js";
 import BranchManagementModal from "./modals/BranchManagementModal.jsx";
-import { Building2, Plus, ArrowRightLeft } from "lucide-react";
+import RobustDeleteModal from "./modals/RobustDeleteModal.jsx";
+import { Building2, Plus, ArrowRightLeft, Power, Trash2 } from "lucide-react";
 
 const DoctorsList = () => {
   const navigate = useNavigate();
@@ -18,9 +28,21 @@ const DoctorsList = () => {
   const [pageSize] = useState(10);
   const [deleteModal, setDeleteModal] = useState({ open: false, doctor: null });
   const [branchModal, setBranchModal] = useState({ open: false, doctor: null });
+  const [robustDeleteModal, setRobustDeleteModal] = useState({
+    open: false,
+    doctor: null,
+  });
+  const [activateModal, setActivateModal] = useState({
+    open: false,
+    doctor: null,
+  });
 
   // Get the effective branch ID for filtering
   const { branchId, hasSelection } = useBranchFilter();
+
+  // Use robust soft delete hooks
+  const deactivateMutation = useDeactivateDoctorFromBranches();
+  const activateMutation = useActivateDoctorInBranch();
 
   // Client-side search state
   const [searchInputs, setSearchInputs] = useState({
@@ -29,17 +51,28 @@ const DoctorsList = () => {
     minExperience: "",
   });
 
-  // Fetch ALL doctors (no server-side filtering) - cache them locally
-  const { data, isLoading, error, refetch } = useGetAllDoctors(
-    {
-      page: 0,
-      size: 1000, // Fetch all doctors for client-side filtering
-      ...(branchId && { branchId }), // Only include branchId if it's not null
-    },
-    {
-      enabled: hasSelection, // Fetch when we have a selection (including "all")
-    }
-  );
+  // Fetch doctors with branch status (includes both active and inactive)
+  const { data, isLoading, error, refetch } = branchId
+    ? useGetDoctorsWithBranchStatus(
+        branchId,
+        {
+          page: 0,
+          size: 1000, // Fetch all doctors for client-side filtering
+        },
+        {
+          enabled: hasSelection, // Fetch when we have a selection (including "all")
+        }
+      )
+    : useGetAllDoctors(
+        {
+          page: 0,
+          size: 1000, // Fetch all doctors for client-side filtering
+          status: undefined, // Get both active and inactive
+        },
+        {
+          enabled: hasSelection, // Fetch when we have a selection (including "all")
+        }
+      );
 
   // Delete doctor mutation
   const deleteDoctorMutation = useDeleteDoctor();
@@ -83,6 +116,25 @@ const DoctorsList = () => {
     });
   }, [data?.data?.content, searchInputs]);
 
+  // Get all unique address IDs from doctors for batch fetching
+  const allAddressIds = useMemo(() => {
+    const addressIds = new Set();
+    filteredDoctors.forEach((doctor) => {
+      if (doctor.addressIds) {
+        doctor.addressIds.forEach((id) => addressIds.add(id));
+      }
+      if (doctor.doctorAddresses) {
+        doctor.doctorAddresses.forEach((addr) =>
+          addressIds.add(addr.addressId)
+        );
+      }
+    });
+    return Array.from(addressIds);
+  }, [filteredDoctors]);
+
+  // Fetch address details for all unique address IDs
+  const { data: addressData = {} } = useMultipleAddressDetails(allAddressIds);
+
   // Client-side pagination
   const paginatedDoctors = useMemo(() => {
     const startIndex = currentPage * pageSize;
@@ -116,7 +168,34 @@ const DoctorsList = () => {
   };
 
   const handleDeleteClick = (doctor) => {
-    setDeleteModal({ open: true, doctor });
+    setRobustDeleteModal({ open: true, doctor });
+  };
+
+  const handleActivateClick = (doctor) => {
+    setActivateModal({ open: true, doctor });
+  };
+
+  const handleRobustDeleteConfirm = async (params) => {
+    try {
+      await deactivateMutation.mutateAsync(params);
+      setRobustDeleteModal({ open: false, doctor: null });
+    } catch (error) {
+      console.error("Failed to deactivate doctor:", error);
+    }
+  };
+
+  const handleActivateConfirm = async () => {
+    if (activateModal.doctor && branchId) {
+      try {
+        await activateMutation.mutateAsync({
+          doctorId: activateModal.doctor.id,
+          branchId: branchId,
+        });
+        setActivateModal({ open: false, doctor: null });
+      } catch (error) {
+        console.error("Failed to activate doctor:", error);
+      }
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -128,6 +207,28 @@ const DoctorsList = () => {
         console.error("Failed to delete doctor:", error);
       }
     }
+  };
+
+  // Helper function to determine doctor status in current branch
+  const getDoctorBranchStatus = (doctor) => {
+    if (!branchId) {
+      // When "All" is selected, use global status
+      return doctor.status;
+    }
+
+    // Check if doctor is active in the selected branch
+    // Look for doctorAddresses with matching addressId
+    const branchAddress = doctor.doctorAddresses?.find(
+      (addr) => addr.addressId === branchId
+    );
+
+    return branchAddress?.status || "INACTIVE";
+  };
+
+  // Helper function to check if doctor is inactive in current context
+  const isDoctorInactive = (doctor) => {
+    const status = getDoctorBranchStatus(doctor);
+    return status === "INACTIVE";
   };
 
   const handlePageChange = (newPage) => {
@@ -254,141 +355,196 @@ const DoctorsList = () => {
 
       {/* Doctors Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {paginatedDoctors.map((doctor) => (
-          <Card key={doctor.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-lg">
-                    {/* Highlight search terms */}
-                    {searchInputs.name ? (
-                      <span
-                        dangerouslySetInnerHTML={{
-                          __html: doctor.name.replace(
-                            new RegExp(`(${searchInputs.name})`, "gi"),
-                            '<mark class="bg-yellow-200">$1</mark>'
-                          ),
-                        }}
-                      />
-                    ) : (
-                      doctor.name
-                    )}
-                  </CardTitle>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {searchInputs.speciality ? (
-                      <span
-                        dangerouslySetInnerHTML={{
-                          __html: doctor.speciality.replace(
-                            new RegExp(`(${searchInputs.speciality})`, "gi"),
-                            '<mark class="bg-yellow-200">$1</mark>'
-                          ),
-                        }}
-                      />
-                    ) : (
-                      doctor.speciality
-                    )}
-                  </p>
-                </div>
-                {doctor.imageUrl && (
-                  <img
-                    src={doctor.imageUrl}
-                    alt={doctor.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm">
-                  <strong>Email:</strong> {doctor.email}
-                </p>
-                <p className="text-sm">
-                  <strong>Phone:</strong> {doctor.phone}
-                </p>
-                <p className="text-sm">
-                  <strong>Experience:</strong>
-                  <span
-                    className={
-                      searchInputs.minExperience &&
-                      doctor.experienceYears >=
-                        parseInt(searchInputs.minExperience)
-                        ? "bg-green-100 px-1 rounded"
-                        : ""
-                    }
-                  >
-                    {doctor.experienceYears} years
-                  </span>
-                </p>
-                <p className="text-sm">
-                  <strong>Gender:</strong> {doctor.gender}
-                </p>
-                {doctor.summary && (
-                  <p className="text-sm text-gray-600 mt-2">{doctor.summary}</p>
-                )}
+        {paginatedDoctors.map((doctor) => {
+          const isInactive = isDoctorInactive(doctor);
+          const doctorStatus = getDoctorBranchStatus(doctor);
 
-                {/* Show current branches when "All" is selected */}
-                {!branchId &&
-                  doctor.doctorAddresses &&
-                  doctor.doctorAddresses.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-sm font-medium text-gray-700 mb-1">
-                        Current Branches:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {doctor.doctorAddresses.map((address, index) => (
+          return (
+            <Card
+              key={doctor.id}
+              className={`hover:shadow-lg transition-shadow ${
+                isInactive
+                  ? "border-red-200 bg-red-50"
+                  : "border-green-200 bg-green-50"
+              }`}
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">
+                        {/* Highlight search terms */}
+                        {searchInputs.name ? (
                           <span
-                            key={index}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                          >
-                            <Building2 className="h-3 w-3 mr-1" />
-                            {address.address?.name ||
-                              `${address.address?.type} - ${address.address?.city}`}
-                          </span>
-                        ))}
-                      </div>
+                            dangerouslySetInnerHTML={{
+                              __html: doctor.name.replace(
+                                new RegExp(`(${searchInputs.name})`, "gi"),
+                                '<mark class="bg-yellow-200">$1</mark>'
+                              ),
+                            }}
+                          />
+                        ) : (
+                          doctor.name
+                        )}
+                      </CardTitle>
+                      {/* Status Badge */}
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          isInactive
+                            ? "bg-red-100 text-red-800"
+                            : "bg-green-100 text-green-800"
+                        }`}
+                      >
+                        {isInactive ? "Inactive" : "Active"}
+                      </span>
                     </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {searchInputs.speciality ? (
+                        <span
+                          dangerouslySetInnerHTML={{
+                            __html: doctor.speciality.replace(
+                              new RegExp(`(${searchInputs.speciality})`, "gi"),
+                              '<mark class="bg-yellow-200">$1</mark>'
+                            ),
+                          }}
+                        />
+                      ) : (
+                        doctor.speciality
+                      )}
+                    </p>
+                  </div>
+                  {doctor.imageUrl && (
+                    <img
+                      src={doctor.imageUrl}
+                      alt={doctor.name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
                   )}
-              </div>
-              <div className="flex flex-wrap gap-2 mt-4">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigate(`/doctors/${doctor.id}`)}
-                >
-                  View
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigate(`/doctors/${doctor.id}/edit`)}
-                >
-                  Edit
-                </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    <strong>Email:</strong> {doctor.email}
+                  </p>
+                  <p className="text-sm">
+                    <strong>Phone:</strong> {doctor.phone}
+                  </p>
+                  <p className="text-sm">
+                    <strong>Experience:</strong>
+                    <span
+                      className={
+                        searchInputs.minExperience &&
+                        doctor.experienceYears >=
+                          parseInt(searchInputs.minExperience)
+                          ? "bg-green-100 px-1 rounded"
+                          : ""
+                      }
+                    >
+                      {doctor.experienceYears} years
+                    </span>
+                  </p>
+                  <p className="text-sm">
+                    <strong>Gender:</strong> {doctor.gender}
+                  </p>
+                  {doctor.summary && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      {doctor.summary}
+                    </p>
+                  )}
 
-                {/* Branch Management Buttons */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setBranchModal({ open: true, doctor })}
-                  className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Manage Branches
-                </Button>
+                  {/* Show current branches when "All" is selected */}
+                  {!branchId &&
+                    doctor.doctorAddresses &&
+                    doctor.doctorAddresses.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-sm font-medium text-gray-700 mb-1">
+                          Current Branches:
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {doctor.doctorAddresses.map((address, index) => {
+                            const addressInfo = addressData[address.addressId];
+                            const addressName =
+                              getAddressDisplayName(addressInfo);
 
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDeleteClick(doctor)}
-                  disabled={deleteDoctorMutation.isPending}
-                >
-                  {deleteDoctorMutation.isPending ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                            return (
+                              <span
+                                key={index}
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  address.status === "ACTIVE"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                <Building2 className="h-3 w-3 mr-1" />
+                                {addressName}
+                                {address.status === "INACTIVE" && " (Inactive)"}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                </div>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/doctors/${doctor.id}`)}
+                  >
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/doctors/${doctor.id}/edit`)}
+                  >
+                    Edit
+                  </Button>
+
+                  {/* Branch Management Buttons */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setBranchModal({ open: true, doctor })}
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Manage Branches
+                  </Button>
+
+                  {/* Conditional Action Button - Activate or Delete based on status */}
+                  {isInactive ? (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => handleActivateClick(doctor)}
+                      disabled={activateMutation.isPending || !branchId}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Power className="h-3 w-3 mr-1" />
+                      {activateMutation.isPending
+                        ? "Activating..."
+                        : "Activate"}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteClick(doctor)}
+                      disabled={deactivateMutation.isPending}
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      {deactivateMutation.isPending
+                        ? "Deactivating..."
+                        : "Deactivate"}
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {paginatedDoctors.length === 0 && (
@@ -431,7 +587,7 @@ const DoctorsList = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - Legacy */}
       <ConfirmModal
         open={deleteModal.open}
         onOpenChange={(open) => setDeleteModal({ open, doctor: null })}
@@ -441,6 +597,28 @@ const DoctorsList = () => {
         cancelText="Cancel"
         variant="destructive"
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Robust Delete Modal */}
+      <RobustDeleteModal
+        isOpen={robustDeleteModal.open}
+        onClose={() => setRobustDeleteModal({ open: false, doctor: null })}
+        doctor={robustDeleteModal.doctor}
+        currentBranchId={branchId}
+        onConfirm={handleRobustDeleteConfirm}
+        isLoading={deactivateMutation.isPending}
+      />
+
+      {/* Activate Confirmation Modal */}
+      <ConfirmModal
+        open={activateModal.open}
+        onOpenChange={(open) => setActivateModal({ open, doctor: null })}
+        title="Activate Doctor"
+        description={`Are you sure you want to activate ${activateModal.doctor?.name} in this branch?`}
+        confirmText="Activate"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleActivateConfirm}
       />
 
       {/* Branch Management Modal */}

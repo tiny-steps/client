@@ -3,11 +3,13 @@ import {
   useGetDoctorBranches,
   useAddDoctorToBranch,
   useTransferDoctorBetweenBranches,
+  useRemoveDoctorAddress,
+  useActivateDoctorAddress,
   useGetUserAccessibleBranchIds,
 } from "../../hooks/useDoctorQueries.js";
 import useAddressStore from "../../store/useAddressStore.js";
 import useUserStore from "../../store/useUserStore.js";
-import { X, Plus, ArrowRightLeft, AlertCircle } from "lucide-react";
+import { X, Plus, ArrowRightLeft, AlertCircle, Trash2, RotateCcw } from "lucide-react";
 
 const BranchManagementModal = ({ isOpen, onClose, doctor }) => {
   const [activeTab, setActiveTab] = useState("add"); // "add" or "transfer"
@@ -26,6 +28,8 @@ const BranchManagementModal = ({ isOpen, onClose, doctor }) => {
     useGetUserAccessibleBranchIds(userId);
   const addToBranchMutation = useAddDoctorToBranch();
   const transferMutation = useTransferDoctorBetweenBranches();
+  const removeDoctorAddressMutation = useRemoveDoctorAddress();
+  const activateDoctorAddressMutation = useActivateDoctorAddress();
 
   const doctorBranches = doctorBranchesData?.branchIds || [];
   const userAccessibleBranchIds = userAccessibleBranchesData?.data || [];
@@ -50,9 +54,18 @@ const BranchManagementModal = ({ isOpen, onClose, doctor }) => {
   const availableBranches = userAccessibleAddresses.filter(
     (addr) => !doctorBranches.includes(addr.id)
   );
-  const currentBranches = userAccessibleAddresses.filter((addr) =>
-    doctorBranches.includes(addr.id)
-  );
+  
+  // Get current branches with status from the API response
+  const currentBranches = doctorBranchesData?.currentAssignments?.map(assignment => {
+    const address = addresses.find(addr => addr.id === assignment.branchId);
+    return {
+      ...address,
+      status: assignment.status || 'ACTIVE', // Default to ACTIVE if no status
+      role: assignment.role,
+      isPrimary: assignment.isPrimary,
+      assignedAt: assignment.assignedAt
+    };
+  }).filter(Boolean) || [];
 
   useEffect(() => {
     if (isOpen) {
@@ -111,6 +124,48 @@ const BranchManagementModal = ({ isOpen, onClose, doctor }) => {
     }
   };
 
+  const handleRemoveAddress = async (addressId, practiceRole = "CONSULTANT") => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await removeDoctorAddressMutation.mutateAsync({
+        doctorId: doctor.id,
+        addressId,
+        practiceRole,
+      });
+      // Don't close modal - let user see the updated status
+    } catch (error) {
+      console.error("Error removing doctor from branch:", error);
+      setError(
+        error.message ||
+          "Failed to remove doctor from branch. Please check your access permissions."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleActivateAddress = async (addressId, practiceRole = "CONSULTANT") => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await activateDoctorAddressMutation.mutateAsync({
+        doctorId: doctor.id,
+        addressId,
+        practiceRole,
+      });
+      // Don't close modal - let user see the updated status
+    } catch (error) {
+      console.error("Error activating doctor address:", error);
+      setError(
+        error.message ||
+          "Failed to activate doctor address. Please check your access permissions."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const practiceRoles = [
     { value: "CONSULTANT", label: "Consultant" },
     { value: "VISITING_DOCTOR", label: "Visiting Doctor" },
@@ -141,17 +196,50 @@ const BranchManagementModal = ({ isOpen, onClose, doctor }) => {
         {/* Current Branches Display */}
         {currentBranches.length > 0 && (
           <div className="p-6 border-b bg-blue-50">
-            <h3 className="text-sm font-medium text-blue-900 mb-2">
+            <h3 className="text-sm font-medium text-blue-900 mb-3">
               Current Branches:
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
               {currentBranches.map((branch) => (
-                <span
+                <div
                   key={branch.id}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  className="flex items-center justify-between bg-white rounded-lg p-3 border border-blue-200"
                 >
-                  {branch.name || `${branch.type} - ${branch.city}`}
-                </span>
+                  <div className="flex items-center space-x-3">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {branch.name || `${branch.type} - ${branch.city}`}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Role: {branch.practiceRole || "CONSULTANT"}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      branch.status === "ACTIVE" 
+                        ? "bg-green-100 text-green-800" 
+                        : "bg-red-100 text-red-800"
+                    }`}>
+                      {branch.status || "ACTIVE"}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {branch.status === "INACTIVE" ? (
+                      <button
+                        onClick={() => handleActivateAddress(branch.id, branch.practiceRole)}
+                        className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+                        title="Activate doctor at this branch"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleRemoveAddress(branch.id, branch.practiceRole)}
+                        className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                        title="Remove doctor from this branch"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

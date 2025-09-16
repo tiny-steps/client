@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
-  useGetAllSessions,
   useGetAllSessionTypes,
   useDeleteSession,
   useDeleteSessionType,
@@ -12,7 +11,7 @@ import {
   useReactivateSession,
   useReactivateSessionType,
 } from "../hooks/useSessionQueries.js";
-import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import { useGetAllEnrichedSessions } from "../hooks/useEnrichedSessionQueries.js";
 import { useBranchFilter } from "../hooks/useBranchFilter.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
@@ -21,6 +20,7 @@ import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import useUserStore from "../store/useUserStore.js";
 import { BookOpen, Settings, Plus, Search, Filter } from "lucide-react";
 import SessionTypeForm from "./forms/SessionTypeForm.jsx";
+import { useState, useMemo } from "react";
 
 const UnifiedSessionManager = () => {
   const navigate = useNavigate();
@@ -54,13 +54,13 @@ const UnifiedSessionManager = () => {
     maxDuration: "",
   });
 
-  // Fetch data for both tabs
+  // Fetch enriched sessions data
   const {
     data: sessionsData,
     isLoading: sessionsLoading,
     error: sessionsError,
     refetch: refetchSessions,
-  } = useGetAllSessions(
+  } = useGetAllEnrichedSessions(
     {
       size: 1000,
       ...(branchId && { branchId }), // Only include branchId if it's not null
@@ -95,15 +95,7 @@ const UnifiedSessionManager = () => {
   const reactivateSession = useReactivateSession();
   const reactivateSessionType = useReactivateSessionType();
 
-  const { data: doctorsData } = useGetAllDoctors(
-    {
-      size: 100,
-      ...(branchId && { branchId }), // Only include branchId if it's not null
-    },
-    {
-      enabled: hasSelection, // Fetch when we have a selection (including "all")
-    }
-  );
+  // Sessions are already enriched, no need for additional doctor fetching
 
   // Filter sessions based on search
   const filteredSessions = useMemo(() => {
@@ -136,8 +128,13 @@ const UnifiedSessionManager = () => {
   // Filter session types based on search
   const filteredSessionTypes = useMemo(() => {
     const allSessionTypes = sessionTypesData?.content || [];
-    const { name, isActive, isTelemedicineAvailable, minDuration, maxDuration } =
-      sessionTypeSearchInputs;
+    const {
+      name,
+      isActive,
+      isTelemedicineAvailable,
+      minDuration,
+      maxDuration,
+    } = sessionTypeSearchInputs;
 
     if (
       !name &&
@@ -566,7 +563,9 @@ const UnifiedSessionManager = () => {
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {(activeTab === "sessions" ? item.isActive : item.active) ? "Active" : "Inactive"}
+                      {(activeTab === "sessions" ? item.isActive : item.active)
+                        ? "Active"
+                        : "Inactive"}
                     </span>
                     {activeTab === "session-types" &&
                       item.isTelemedicineAvailable && (

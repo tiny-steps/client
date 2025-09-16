@@ -1,20 +1,18 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { useQuery } from "@tanstack/react-query";
 import {
-  useGetAllSessions,
   useDeleteSession,
   useActivateSession,
   useDeactivateSession,
 } from "../hooks/useSessionQueries.js";
-import { sessionService } from "../services/sessionService.js";
-import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import { useGetAllEnrichedSessions } from "../hooks/useEnrichedSessionQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import useUserStore from "../store/useUserStore.js";
 import { useBranchFilter } from "../hooks/useBranchFilter.js";
+import { useState, useMemo } from "react";
 
 const SessionsList = () => {
   const navigate = useNavigate();
@@ -38,28 +36,16 @@ const SessionsList = () => {
     status: "active", // Default to active sessions
   });
 
-  // Fetch doctors for dropdown and filtering
-  const { data: doctorsData } = useGetAllDoctors(
+  // Fetch enriched sessions - already includes doctor and practice details
+  const { data, isLoading, error, refetch } = useGetAllEnrichedSessions(
     {
-      size: 100,
+      size: 1000, // Fetch all for client-side filtering
       ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {
       enabled: hasSelection, // Fetch when we have a selection (including "all")
     }
   );
-
-  // Fetch sessions - get all including inactive for client-side filtering
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["sessions", { branchId, includeInactive: true }],
-    queryFn: () =>
-      sessionService.getAllSessions({
-        page: currentPage,
-        size: 1000, // Fetch all for client-side filtering
-        ...(branchId && { branchId }), // Only include branchId if it's not null
-      }),
-    enabled: hasSelection, // Fetch when we have a selection (including "all")
-  });
 
   // Mutations
   const deleteSession = useDeleteSession();

@@ -201,15 +201,58 @@ export const useRemoveDoctorFromBranch = () => {
   return useMutation({
     mutationFn: ({ doctorId, branchId }) =>
       doctorService.removeDoctorFromBranch(doctorId, branchId),
-    onSuccess: (data, variables) => {
-      // Invalidate doctor branches and lists
+    onSuccess: (data, { doctorId }) => {
+      // Invalidate doctor branches to refresh the data
       queryClient.invalidateQueries({
-        queryKey: doctorKeys.doctorBranches(variables.doctorId),
+        queryKey: doctorKeys.doctorBranches(doctorId),
       });
+      // Invalidate all doctor lists to refresh the data
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
       console.error("Error removing doctor from branch:", error);
+    },
+  });
+};
+
+// Remove doctor address mutation (soft delete)
+export const useRemoveDoctorAddress = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ doctorId, addressId, practiceRole }) =>
+      doctorService.removeDoctorAddress(doctorId, addressId, practiceRole),
+    onSuccess: (data, { doctorId }) => {
+      // Invalidate doctor branches to refresh the data
+      queryClient.invalidateQueries({
+        queryKey: doctorKeys.doctorBranches(doctorId),
+      });
+      // Invalidate all doctor lists to refresh the data
+      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error removing doctor address:", error);
+    },
+  });
+};
+
+// Activate doctor address mutation
+export const useActivateDoctorAddress = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ doctorId, addressId, practiceRole }) =>
+      doctorService.activateDoctorAddress(doctorId, addressId, practiceRole),
+    onSuccess: (data, { doctorId }) => {
+      // Invalidate doctor branches to refresh the data
+      queryClient.invalidateQueries({
+        queryKey: doctorKeys.doctorBranches(doctorId),
+      });
+      // Invalidate all doctor lists to refresh the data
+      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error activating doctor address:", error);
     },
   });
 };
