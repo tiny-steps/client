@@ -6,7 +6,7 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
     cert-manager.io/cluster-issuer: "letsencrypt-production"
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "http://194.164.150.134:5173"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "http://82.25.110.36:5173"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization,Content-Type"
     nginx.ingress.kubernetes.io/cors-allow-credentials: "true"

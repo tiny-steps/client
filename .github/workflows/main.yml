@@ -7,7 +7,7 @@ on:
       - master
 
 env:
-  DOCKERHUB_USERNAME: subhankarm2312
+  DOCKERHUB_USERNAME: tinystepsd3v
   IMAGE_NAME: ts-react-client
 
 jobs:

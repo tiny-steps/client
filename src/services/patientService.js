@@ -138,6 +138,91 @@ class PatientService {
     return result;
   }
 
+  // Soft delete operations - simple global activate/deactivate
+  async activatePatient(id) {
+    const response = await fetch(`/api/v1/patients/${id}/activate`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to activate patient");
+    }
+    const result = await response.json();
+    return result;
+  }
+
+  async deactivatePatient(id) {
+    const response = await fetch(`/api/v1/patients/${id}/deactivate`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to deactivate patient");
+    }
+    const result = await response.json();
+    return result;
+  }
+
+  async softDeletePatient(id) {
+    const response = await fetch(`/api/v1/patients/${id}/soft-delete`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to soft delete patient");
+    }
+    const result = await response.json();
+    return result;
+  }
+
+  // Get patients by status
+  async getActivePatientsList() {
+    const response = await fetch(`/api/v1/patients/active`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch active patients");
+    }
+    const result = await response.json();
+    return result;
+  }
+
+  async getDeletedPatientsList() {
+    const response = await fetch(`/api/v1/patients/deleted`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch deleted patients");
+    }
+    const result = await response.json();
+    return result;
+  }
+
   // Convenience methods for different patient status filters
   async getActivePatients(params = {}) {
     return this.getAllPatients({ ...params, status: "ACTIVE" });

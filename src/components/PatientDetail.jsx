@@ -5,22 +5,29 @@ import {
   useGetPatientMedicalHistory,
   useGetPatientAllergies,
   useDeletePatient,
+  useActivatePatient,
+  useDeactivatePatient,
 } from "../hooks/usePatientQueries.js";
 import { useReactivatePatient } from "../hooks/useEnrichedPatientQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
+import { Power, PowerOff, Trash2 } from "lucide-react";
 
 const PatientDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [deleteModal, setDeleteModal] = useState({ open: false });
+  const [activateModal, setActivateModal] = useState({ open: false });
+  const [deactivateModal, setDeactivateModal] = useState({ open: false });
 
   const { data: patientData, isLoading, error } = useGetPatientById(id);
   const { data: medicalHistoryData } = useGetPatientMedicalHistory(id);
   const { data: allergiesData } = useGetPatientAllergies(id);
   const deletePatient = useDeletePatient();
   const reactivatePatient = useReactivatePatient();
+  const activatePatient = useActivatePatient();
+  const deactivatePatient = useDeactivatePatient();
 
   const handleDeleteConfirm = async () => {
     try {
@@ -33,12 +40,38 @@ const PatientDetail = () => {
     }
   };
 
-  const handleActivateClick = async () => {
+  const handleActivateClick = () => {
+    setActivateModal({ open: true });
+  };
+
+  const handleDeactivateClick = () => {
+    setDeactivateModal({ open: true });
+  };
+
+  const handleActivateConfirm = async () => {
+    try {
+      await activatePatient.mutateAsync(id);
+      setActivateModal({ open: false });
+    } catch (error) {
+      console.error("Error activating patient:", error);
+    }
+  };
+
+  const handleDeactivateConfirm = async () => {
+    try {
+      await deactivatePatient.mutateAsync(id);
+      setDeactivateModal({ open: false });
+    } catch (error) {
+      console.error("Error deactivating patient:", error);
+    }
+  };
+
+  const handleReactivateClick = async () => {
     try {
       await reactivatePatient.mutateAsync(id);
       // Optionally show success message or refresh data
     } catch (error) {
-      console.error("Error activating patient:", error);
+      console.error("Error reactivating patient:", error);
     }
   };
 
@@ -116,22 +149,90 @@ const PatientDetail = () => {
           >
             Edit Patient
           </Button>
+
+          {/* Status indicator */}
+          <span
+            className={`flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+              patient.status === "ACTIVE"
+                ? "bg-green-100 text-green-800"
+                : patient.status === "INACTIVE"
+                ? "bg-yellow-100 text-yellow-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {patient.status === "ACTIVE"
+              ? "Active"
+              : patient.status === "INACTIVE"
+              ? "Inactive"
+              : "Deleted"}
+          </span>
+
+          {/* Conditional action buttons based on patient status */}
           {patient.status === "ACTIVE" ? (
+            <>
+              <Button
+                variant="outline"
+                className="text-yellow-600 hover:bg-yellow-50"
+                onClick={handleDeactivateClick}
+                disabled={deactivatePatient.isPending}
+              >
+                {deactivatePatient.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
+                    Deactivating...
+                  </>
+                ) : (
+                  <>
+                    <PowerOff className="h-4 w-4 mr-2" />
+                    Deactivate
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setDeleteModal({ open: true })}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Patient
+              </Button>
+            </>
+          ) : patient.status === "INACTIVE" ? (
             <Button
-              variant="destructive"
-              onClick={() => setDeleteModal({ open: true })}
+              variant="outline"
+              className="text-green-600 hover:bg-green-50"
+              onClick={handleActivateClick}
+              disabled={activatePatient.isPending}
             >
-              Delete Patient
+              {activatePatient.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                  Activating...
+                </>
+              ) : (
+                <>
+                  <Power className="h-4 w-4 mr-2" />
+                  Activate Patient
+                </>
+              )}
             </Button>
           ) : (
             <Button
-              variant="default"
-              onClick={handleActivateClick}
+              variant="outline"
+              className="text-green-600 hover:bg-green-50"
+              onClick={handleReactivateClick}
               disabled={reactivatePatient.isPending}
             >
-              {reactivatePatient.isPending
-                ? "Activating..."
-                : "Activate Patient"}
+              {reactivatePatient.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                  Reactivating...
+                </>
+              ) : (
+                <>
+                  <Power className="h-4 w-4 mr-2" />
+                  Reactivate Patient
+                </>
+              )}
             </Button>
           )}
         </div>
@@ -345,6 +446,30 @@ const PatientDetail = () => {
         confirmText="Delete Patient"
         variant="destructive"
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Activate Confirmation Modal */}
+      <ConfirmModal
+        open={activateModal.open}
+        onOpenChange={(open) => setActivateModal({ open })}
+        title="Activate Patient"
+        description={`Are you sure you want to activate ${patient.firstName} ${patient.lastName}? This will make the patient available for appointments and services.`}
+        confirmText="Activate Patient"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleActivateConfirm}
+      />
+
+      {/* Deactivate Confirmation Modal */}
+      <ConfirmModal
+        open={deactivateModal.open}
+        onOpenChange={(open) => setDeactivateModal({ open })}
+        title="Deactivate Patient"
+        description={`Are you sure you want to deactivate ${patient.firstName} ${patient.lastName}? This will make the patient inactive but preserve their records.`}
+        confirmText="Deactivate Patient"
+        cancelText="Cancel"
+        variant="outline"
+        onConfirm={handleDeactivateConfirm}
       />
     </div>
   );

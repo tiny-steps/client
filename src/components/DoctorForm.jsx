@@ -158,7 +158,7 @@ const DoctorForm = () => {
 
   // Populate form when editing
   useEffect(() => {
-    if (isEdit && doctorData) {
+    if (isEdit && doctorData && doctorData.data) {
       const doctor = doctorData.data;
       setValue("name", doctor.name || "");
       setValue("gender", doctor.gender || "MALE");
@@ -239,6 +239,7 @@ const DoctorForm = () => {
           "Doctor updated successfully - user updates handled by doctor service"
         );
 
+        // Navigate back to doctors list and trigger refresh
         navigate("/doctors");
       } catch (error) {
         console.error("Failed to update doctor:", error);
@@ -396,8 +397,8 @@ const DoctorForm = () => {
                       : "Select a branch..."}
                   </option>
                   {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name} {branch.isPrimary ? "(Primary)" : ""}
+                    <option key={branch?.id} value={branch?.id}>
+                      {branch?.name} {branch?.isPrimary ? "(Primary)" : ""}
                     </option>
                   ))}
                 </select>

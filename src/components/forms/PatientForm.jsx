@@ -149,6 +149,8 @@ const PatientForm = ({ mode = "create" }) => {
       }
 
       navigate("/patients");
+      // Force a page reload to ensure fresh data
+      window.location.reload();
     } catch (error) {
       console.error("Error saving patient:", error);
     } finally {

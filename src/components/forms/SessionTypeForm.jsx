@@ -9,6 +9,8 @@ import {
   useGetSessionTypeById,
 } from "../../hooks/useSessionQueries.js";
 import useBranchStore from "../../store/useBranchStore.js";
+import useAddressStore from "../../store/useAddressStore.js";
+import useUserStore from "../../store/useUserStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card.jsx";
 import { Button } from "../ui/button.jsx";
 import { Input } from "../ui/input.jsx";
@@ -43,8 +45,27 @@ const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
   const isEditMode = mode === "edit" || !!id;
 
   // Get branch information
-  const branches = useBranchStore((state) => state.branches);
-  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
+  const addresses = useAddressStore((state) => state.addresses);
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  const fetchAddresses = useAddressStore((state) => state.fetchAddresses);
+  const userId = useUserStore((state) => state.userId);
+
+  // Use addresses as branches since they represent the same data
+  const branches = addresses;
+  const selectedBranchId = selectedAddressId;
+
+  // Fetch addresses if not already loaded
+  useEffect(() => {
+    if (userId && addresses.length === 0) {
+      console.log(
+        "🔍 SessionTypeForm - Fetching addresses for userId:",
+        userId
+      );
+      fetchAddresses(userId).catch((error) => {
+        console.warn("Failed to fetch addresses:", error.message);
+      });
+    }
+  }, [userId, addresses.length, fetchAddresses]);
 
   const form = useForm({
     resolver: zodResolver(sessionTypeSchema),

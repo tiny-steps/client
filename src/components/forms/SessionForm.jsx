@@ -11,6 +11,8 @@ import {
 import { useGetAllSessionTypes } from "../../hooks/useSessionQueries.js";
 import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
 import useBranchStore from "../../store/useBranchStore.js";
+import useAddressStore from "../../store/useAddressStore.js";
+import useUserStore from "../../store/useUserStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card.jsx";
 import { Button } from "../ui/button.jsx";
 import { Input } from "../ui/input.jsx";
@@ -38,8 +40,24 @@ const SessionForm = ({ mode = "create" }) => {
   const navigate = useNavigate();
 
   // Get branch information
-  const branches = useBranchStore((state) => state.branches);
-  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
+  const addresses = useAddressStore((state) => state.addresses);
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+  const fetchAddresses = useAddressStore((state) => state.fetchAddresses);
+  const userId = useUserStore((state) => state.userId);
+
+  // Use addresses as branches since they represent the same data
+  const branches = addresses;
+  const selectedBranchId = selectedAddressId;
+
+  // Fetch addresses if not already loaded
+  useEffect(() => {
+    if (userId && addresses.length === 0) {
+      console.log("🔍 SessionForm - Fetching addresses for userId:", userId);
+      fetchAddresses(userId).catch((error) => {
+        console.warn("Failed to fetch addresses:", error.message);
+      });
+    }
+  }, [userId, addresses.length, fetchAddresses]);
 
   const form = useForm({
     resolver: zodResolver(sessionSchema),
@@ -165,8 +183,10 @@ const SessionForm = ({ mode = "create" }) => {
                       >
                         <option value="">Select a branch...</option>
                         {branches.map((branch) => (
-                          <option key={branch.id} value={branch.id}>
-                            {branch.name} {branch.isPrimary ? "(Primary)" : ""}
+                          <option key={branch?.id} value={branch?.id}>
+                            {branch?.name ||
+                              `${branch?.type} - ${branch?.city}`}
+                            {branch?.isDefault ? " (Default)" : ""}
                           </option>
                         ))}
                       </select>
@@ -194,34 +214,34 @@ const SessionForm = ({ mode = "create" }) => {
                         ) : (
                           doctors.map((doctor) => (
                             <label
-                              key={doctor.id}
+                              key={doctor?.id}
                               className="flex items-center space-x-2"
                             >
                               <input
                                 type="checkbox"
                                 checked={
-                                  field.value?.includes(doctor.id) || false
+                                  field.value?.includes(doctor?.id) || false
                                 }
                                 onChange={(e) => {
                                   const currentValue = field.value || [];
                                   if (e.target.checked) {
                                     field.onChange([
                                       ...currentValue,
-                                      doctor.id,
+                                      doctor?.id,
                                     ]);
                                   } else {
                                     field.onChange(
                                       currentValue.filter(
-                                        (id) => id !== doctor.id
+                                        (id) => id !== doctor?.id
                                       )
                                     );
                                   }
                                 }}
                               />
                               <span className="text-sm">
-                                {doctor.name}
-                                {doctor.speciality
-                                  ? ` - ${doctor.speciality}`
+                                {doctor?.name}
+                                {doctor?.speciality
+                                  ? ` - ${doctor?.speciality}`
                                   : ""}
                               </span>
                             </label>
@@ -255,9 +275,9 @@ const SessionForm = ({ mode = "create" }) => {
                       >
                         <option value="">Select a session type...</option>
                         {sessionTypes.map((sessionType) => (
-                          <option key={sessionType.id} value={sessionType.id}>
-                            {sessionType.name} (
-                            {sessionType.defaultDurationMinutes} min)
+                          <option key={sessionType?.id} value={sessionType?.id}>
+                            {sessionType?.name} (
+                            {sessionType?.defaultDurationMinutes} min)
                           </option>
                         ))}
                       </select>
