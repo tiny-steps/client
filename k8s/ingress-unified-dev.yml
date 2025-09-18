@@ -1,0 +1,144 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ts-unified-ingress-dev
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
+    traefik.ingress.kubernetes.io/redirect-entry-point: https
+    traefik.ingress.kubernetes.io/cors-allow-origin-list: "https://dev.tinystepscdc.com"
+    traefik.ingress.kubernetes.io/cors-allow-methods: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+    traefik.ingress.kubernetes.io/cors-allow-headers: "Authorization,Content-Type,Accept,Origin,User-Agent,DNT,Cache-Control,X-Mx-ReqToken,Keep-Alive,X-Requested-With,If-Modified-Since"
+    traefik.ingress.kubernetes.io/cors-allow-credentials: "true"
+    traefik.ingress.kubernetes.io/cors-max-age: "86400"
+spec:
+  ingressClassName: traefik
+  tls:
+  - hosts:
+    - dev.tinystepscdc.com
+    secretName: dev-tinystepscdc-tls
+  rules:
+  - host: dev.tinystepscdc.com
+    http:
+      paths:
+      # API routes - highest priority
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-api-gateway
+            port:
+              number: 8080
+      
+      # Client application routes - specific paths first
+      - path: /login
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /dashboard
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /doctors
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /patients
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /sessions
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /schedules
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /reports
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /profile
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      
+      # Client app assets - using dedicated path prefix
+      - path: /client-assets
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      
+      # Frontend app assets - using dedicated path prefix
+      - path: /frontend-assets
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-frontend-service
+            port:
+              number: 80
+      - path: /logo.webp
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /logo_outlined.webp
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /favicon.ico
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      
+      # Frontend application routes - catch remaining paths
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-frontend-service
+            port:
+              number: 80

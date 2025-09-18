@@ -3,8 +3,7 @@ import {
   useGetDoctorBranches,
   useAddDoctorToBranch,
   useTransferDoctorBetweenBranches,
-  useRemoveDoctorAddress,
-  useActivateDoctorAddress,
+  useRemoveDoctorFromBranch,
   useGetUserAccessibleBranchIds,
 } from "../../hooks/useDoctorQueries.js";
 import useAddressStore from "../../store/useAddressStore.js";
@@ -28,8 +27,8 @@ const BranchManagementModal = ({ isOpen, onClose, doctor }) => {
     useGetUserAccessibleBranchIds(userId);
   const addToBranchMutation = useAddDoctorToBranch();
   const transferMutation = useTransferDoctorBetweenBranches();
-  const removeDoctorAddressMutation = useRemoveDoctorAddress();
-  const activateDoctorAddressMutation = useActivateDoctorAddress();
+  const removeDoctorAddressMutation = useRemoveDoctorFromBranch();
+  // Note: useActivateDoctorAddress is not available in useDoctorQueries - removing this line
 
   const doctorBranches = doctorBranchesData?.branchIds || [];
   const userAccessibleBranchIds = userAccessibleBranchesData?.data || [];
@@ -54,18 +53,9 @@ const BranchManagementModal = ({ isOpen, onClose, doctor }) => {
   const availableBranches = userAccessibleAddresses.filter(
     (addr) => !doctorBranches.includes(addr.id)
   );
-  
-  // Get current branches with status from the API response
-  const currentBranches = doctorBranchesData?.currentAssignments?.map(assignment => {
-    const address = addresses.find(addr => addr.id === assignment.branchId);
-    return {
-      ...address,
-      status: assignment.status || 'ACTIVE', // Default to ACTIVE if no status
-      role: assignment.role,
-      isPrimary: assignment.isPrimary,
-      assignedAt: assignment.assignedAt
-    };
-  }).filter(Boolean) || [];
+  const currentBranches = userAccessibleAddresses.filter((addr) =>
+    doctorBranches.includes(addr.id)
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -149,11 +139,9 @@ const BranchManagementModal = ({ isOpen, onClose, doctor }) => {
     setIsLoading(true);
     setError(null);
     try {
-      await activateDoctorAddressMutation.mutateAsync({
-        doctorId: doctor.id,
-        addressId,
-        practiceRole,
-      });
+      // TODO: Implement activation functionality when the hook becomes available
+      console.log("Activation requested for:", { doctorId: doctor.id, addressId, practiceRole });
+      setError("Activation functionality is currently not available");
       // Don't close modal - let user see the updated status
     } catch (error) {
       console.error("Error activating doctor address:", error);
