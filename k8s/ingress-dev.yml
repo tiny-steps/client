@@ -15,10 +15,10 @@ spec:
   ingressClassName: traefik
   tls:
   - hosts:
-    - dev.tinysteps.com
-    secretName: dev-tinysteps-tls
+    - dev.tinystepscdc.com
+    secretName: dev-tinystepscdc-tls
   rules:
-  - host: dev.tinysteps.com
+  - host: dev.tinystepscdc.com
     http:
       paths:
       - path: /api
