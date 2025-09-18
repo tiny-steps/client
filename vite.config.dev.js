@@ -1,22 +1,19 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import path from "path"
-import { fileURLToPath } from 'url';
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Development environment configuration
 export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   server: {
     proxy: {
       "/api": {
-        target: "https://dev.tinystepscdc.com", // Development API Gateway
+        target: "http://ts-api-gateway:8080", // Development API Gateway
         changeOrigin: true,
         secure: true,
       },
@@ -28,7 +25,9 @@ export default defineConfig({
     },
   },
   define: {
-    'process.env.VITE_API_BASE_URL': JSON.stringify('https://dev.tinystepscdc.com'),
-    'process.env.VITE_ENVIRONMENT': JSON.stringify('development'),
+    "process.env.VITE_API_BASE_URL": JSON.stringify(
+      "https://ts-api-gateway:8080"
+    ),
+    "process.env.VITE_ENVIRONMENT": JSON.stringify("development"),
   },
 });
