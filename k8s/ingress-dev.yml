@@ -28,7 +28,21 @@ spec:
             name: ts-api-gateway
             port:
               number: 8080
-      - path: /
+      - path: /login
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /dashboard
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80
+      - path: /admin
         pathType: Prefix
         backend:
           service:
