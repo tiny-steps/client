@@ -63,8 +63,7 @@ jobs:
           kubectl apply -f k8s/service.yml
           kubectl delete ingress ts-frontend-only-ingress-dev --ignore-not-found=true
           kubectl delete ingress ts-client-only-ingress-dev --ignore-not-found=true
-          kubectl apply -f k8s/ingress-frontend-only.yml
-          kubectl apply -f k8s/ingress-client-only.yml
+          kubectl apply -f k8s/ingress-unified-dev.yml
           kubectl set image deployment/ts-react-client ts-react-client=${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.IMAGE_TAG }}
           kubectl rollout status deployment/ts-react-client
 
