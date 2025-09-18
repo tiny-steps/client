@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://ts-api-gateway:8080", // Development API Gateway
+        target: "https://dev.tinystepscdc.com", // Development API Gateway
         changeOrigin: true,
         secure: true,
       },
@@ -26,7 +26,7 @@ export default defineConfig({
   },
   define: {
     "process.env.VITE_API_BASE_URL": JSON.stringify(
-      "https://ts-api-gateway:8080"
+      "https://dev.tinystepscdc.com"
     ),
     "process.env.VITE_ENVIRONMENT": JSON.stringify("development"),
   },
