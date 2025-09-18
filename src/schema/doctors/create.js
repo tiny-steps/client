@@ -90,6 +90,7 @@ export const CreateDoctorFormSchema = z.object({
     .min(0, "Experience years must be non-negative")
     .max(100, "Experience years must not exceed 100"),
   speciality: z.string().min(1, "Speciality is required"),
+  branchId: z.string().min(1, "Branch selection is required"),
 });
 
 // Schema for creating batch doctors

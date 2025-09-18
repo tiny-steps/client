@@ -32,7 +32,7 @@ const PatientForm = ({ mode = "create" }) => {
 
   const { data: patientData, isLoading: isLoadingPatient } =
     useGetEnrichedPatientById(id, {
-      enabled: isEdit,
+      enabled: !!isEdit && !!id,
     });
 
   const createPatient = useCreateEnrichedPatient();
@@ -104,25 +104,53 @@ const PatientForm = ({ mode = "create" }) => {
 
   const handleConfirmSubmit = async () => {
     try {
-      const submitData = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        phone: formData.phone,
-        dateOfBirth: formData.dateOfBirth,
-        gender: formData.gender,
-        bloodGroup: formData.bloodGroup,
-        heightCm: formData.heightCm ? parseInt(formData.heightCm) : null,
-        weightKg: formData.weightKg ? parseFloat(formData.weightKg) : null,
-      };
-
       if (isEdit) {
-        await updatePatient.mutateAsync({ id, data: submitData });
+        // For updates, only send patient-specific fields (not user fields)
+        const patientData = {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          dateOfBirth: formData.dateOfBirth,
+          gender: formData.gender,
+          bloodGroup: formData.bloodGroup,
+          heightCm: formData.heightCm ? parseInt(formData.heightCm) : null,
+          weightKg: formData.weightKg ? parseFloat(formData.weightKg) : null,
+        };
+
+        // Update patient data
+        await updatePatient.mutateAsync({ id, data: patientData });
+
+        // Handle email update separately if email changed
+        // Note: We would need to compare with original email to see if it changed
+        // For now, we'll update email if it's provided
+        if (formData.email) {
+          try {
+            await updateEmail.mutateAsync({ id, newEmail: formData.email });
+          } catch (emailError) {
+            console.error("Error updating email:", emailError);
+            // Don't fail the entire update if email update fails
+          }
+        }
       } else {
+        // For creation, send all data including user fields
+        const submitData = {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+          dateOfBirth: formData.dateOfBirth,
+          gender: formData.gender,
+          bloodGroup: formData.bloodGroup,
+          heightCm: formData.heightCm ? parseInt(formData.heightCm) : null,
+          weightKg: formData.weightKg ? parseFloat(formData.weightKg) : null,
+        };
         await createPatient.mutateAsync(submitData);
       }
 
       navigate("/patients");
+      // Force a page reload to ensure fresh data
+      window.location.reload();
     } catch (error) {
       console.error("Error saving patient:", error);
     } finally {

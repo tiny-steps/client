@@ -175,7 +175,7 @@ const PatientEmergencyContactsPage = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="container mx-auto mt-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Emergency Contacts</h1>

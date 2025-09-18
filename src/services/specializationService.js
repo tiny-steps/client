@@ -106,10 +106,11 @@ class SpecializationService {
   }
 
   async deleteSpecialization(specializationId) {
+    // Use soft delete for specializations to preserve professional history
     const response = await fetch(
-      `/api/v1/specializations/${specializationId}`,
+      `/api/v1/specializations/${specializationId}/soft-delete`,
       {
-        method: "DELETE",
+        method: "PATCH",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -121,6 +122,26 @@ class SpecializationService {
       const error = await response.json();
       throw new Error(error.message || "Failed to delete specialization");
     }
+    return response.json();
+  }
+
+  async reactivateSpecialization(specializationId) {
+    const response = await fetch(
+      `/api/v1/specializations/${specializationId}/reactivate`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate specialization");
+    }
+    return response.json();
   }
 
   async createSpecializationsBatch(doctorId, specializationsData) {

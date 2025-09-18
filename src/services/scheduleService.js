@@ -2,6 +2,40 @@
 
 class ScheduleService {
   async getAllAppointments(params = {}) {
+    // If branchId is provided, use the branch-specific endpoint
+    if (params.branchId) {
+      const searchParams = new URLSearchParams();
+      if (params.page !== undefined) searchParams.append("page", params.page);
+      if (params.size !== undefined) searchParams.append("size", params.size);
+      if (params.doctorId) searchParams.append("doctorId", params.doctorId);
+      if (params.patientId) searchParams.append("patientId", params.patientId);
+      if (params.date) searchParams.append("date", params.date);
+      if (params.startDate) searchParams.append("startDate", params.startDate);
+      if (params.endDate) searchParams.append("endDate", params.endDate);
+
+      const response = await fetch(
+        `/api/v1/appointments/branch/${params.branchId}?${searchParams}`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response
+          .json()
+          .catch(() => ({ message: "Failed to fetch appointments by branch" }));
+        throw new Error(
+          error.message ||
+            `Failed to fetch appointments by branch: ${response.status}`
+        );
+      }
+      return response.json();
+    }
+
+    // Otherwise, use the general endpoint for all appointments
     const searchParams = new URLSearchParams();
     if (params.page !== undefined) searchParams.append("page", params.page);
     if (params.size !== undefined) searchParams.append("size", params.size);
@@ -76,8 +110,9 @@ class ScheduleService {
   }
 
   async deleteAppointment(id) {
-    const response = await fetch(`/api/v1/appointments/${id}`, {
-      method: "DELETE",
+    // Use soft delete for appointments to preserve historical data
+    const response = await fetch(`/api/v1/appointments/${id}/soft-delete`, {
+      method: "PATCH",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -88,17 +123,33 @@ class ScheduleService {
       const error = await response.json();
       throw new Error(error.message || "Failed to delete appointment");
     }
-    return response.ok;
+    return response.json();
   }
 
-  async cancelAppointment(id, reason) {
+  async reactivateAppointment(id) {
+    const response = await fetch(`/api/v1/appointments/${id}/reactivate`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate appointment");
+    }
+    return response.json();
+  }
+
+  async cancelAppointment(id, cancellationData) {
     const response = await fetch(`/api/v1/appointments/${id}/cancel`, {
       method: "PUT",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify(cancellationData),
     });
 
     if (!response.ok) {
@@ -137,6 +188,63 @@ class ScheduleService {
     );
 
     if (!response.ok) throw new Error("Failed to fetch appointment history");
+    return response.json();
+  }
+
+  async completeAppointment(id, completionData = {}) {
+    const response = await fetch(`/api/v1/appointments/${id}/complete`, {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(completionData),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to complete appointment");
+    }
+    return response.json();
+  }
+
+  // New unified status change method
+  async changeAppointmentStatus(id, statusData) {
+    const {
+      status,
+      changedById,
+      reason,
+      cancellationType,
+      rescheduledToAppointmentId,
+    } = statusData;
+
+    const searchParams = new URLSearchParams();
+    searchParams.append("status", status);
+    searchParams.append("changedById", changedById);
+    if (reason) searchParams.append("reason", reason);
+    if (cancellationType)
+      searchParams.append("cancellationType", cancellationType);
+    if (rescheduledToAppointmentId)
+      searchParams.append(
+        "rescheduledToAppointmentId",
+        rescheduledToAppointmentId
+      );
+
+    const response = await fetch(
+      `/api/v1/appointments/${id}/status?${searchParams}`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to change appointment status");
+    }
     return response.json();
   }
 }

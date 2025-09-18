@@ -1,20 +1,37 @@
-import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
-import {
-  useGetAllAppointments,
-  useCreateAppointment,
-  useCancelAppointment,
-  useDeleteAppointment,
-} from "../hooks/useScheduleQueries.js";
-import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
-import { useGetAllPatients } from "../hooks/usePatientQueries.js";
-import { useGetDoctorAvailability } from "../hooks/useTimingQueries.js";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
+import { ErrorModal } from "./ui/error-modal.jsx";
+import { useNavigate } from "react-router";
+import {
+  useGetAllAppointments,
+  useCreateAppointment,
+  useChangeAppointmentStatus,
+  useDeleteAppointment,
+} from "../hooks/useScheduleQueries.js";
+import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import { useGetAllPatients } from "../hooks/usePatientQueries.js";
+import {
+  useGetDoctorAvailability,
+  useGetTimeSlots,
+} from "../hooks/useTimingQueries.js";
+import useUserStore from "../store/useUserStore.js";
+import useAddressStore from "../store/useAddressStore.js";
+import { useBranchFilter } from "../hooks/useBranchFilter.js";
+import { Eye, CheckCircle, X, Clock } from "lucide-react";
 
 const ScheduleCalendar = () => {
+  // Get the logged-in user's ID
+  const userId = useUserStore((state) => state.userId);
+
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
+
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -31,6 +48,11 @@ const ScheduleCalendar = () => {
     appointment: null,
   });
   const [createModal, setCreateModal] = useState({ open: false });
+  const [errorModal, setErrorModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+  });
 
   const {
     data: appointmentsData,
@@ -39,118 +61,78 @@ const ScheduleCalendar = () => {
   } = useGetAllAppointments({
     date: selectedDate,
     doctorId: selectedDoctor || undefined,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
-  const { data: doctorsData } = useGetAllDoctors({ size: 100 });
-  const { data: patientsData } = useGetAllPatients({ size: 100 });
+  const { data: doctorsData } = useGetAllDoctors({
+    size: 100,
+    branchId: selectedAddressId, // Use selected address ID as branchId
+  });
+  const { data: patientsData } = useGetAllPatients({
+    size: 100,
+    branchId: selectedAddressId, // Use selected address ID as branchId
+  });
 
-  // Fetch doctor availability for the selected date
-  const selectedDateObj = new Date(selectedDate);
-  const dayOfWeek = selectedDateObj.getDay(); // 0 = Sunday, 1 = Monday, etc.
-
-  const { data: availabilityData, isLoading: availabilityLoading } =
-    useGetDoctorAvailability(
-      selectedDoctor,
-      { date: selectedDate },
-      { enabled: !!selectedDoctor }
-    );
+  // Fetch time slots for the selected date and doctor
+  const { data: timeSlotsData, isLoading: timeSlotsLoading } = useGetTimeSlots(
+    selectedDoctor,
+    selectedDate,
+    null, // practiceId
+    branchId, // branchId
+    { enabled: !!selectedDoctor && hasSelection }
+  );
 
   const createAppointment = useCreateAppointment();
-  const cancelAppointment = useCancelAppointment();
+  const changeStatus = useChangeAppointmentStatus();
   const deleteAppointment = useDeleteAppointment();
 
-  const appointments = appointmentsData?.data?.content || [];
+  const allAppointments = appointmentsData?.data?.content || [];
+  // Filter out cancelled appointments so their time slots become available
+  const appointments = allAppointments.filter(
+    (appointment) => appointment.status?.toUpperCase() !== "CANCELLED"
+  );
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
-  const allAvailabilities = availabilityData || [];
 
-  // Filter availabilities by day of week
-  const availabilities = allAvailabilities.filter((availability) => {
-    // Backend uses 1 = Monday, 7 = Sunday, frontend uses 0 = Sunday, 1 = Monday
-    const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-    return availability.dayOfWeek === backendDayOfWeek && availability.active;
-  });
+  // Set the first doctor as default when doctors data is loaded or branch changes
+  useEffect(() => {
+    if (doctors.length > 0) {
+      const firstDoctor = doctors[0];
+      setSelectedDoctor(firstDoctor.id);
+    } else {
+      // Clear selected doctor if no doctors available for the branch
+      setSelectedDoctor("");
+    }
+  }, [doctors, branchId]); // Reset when branchId changes
 
-  // Debug: Log availability data
+  // Extract time slots from the new API response
+  const timeSlots = timeSlotsData?.data?.slots || [];
+
+  // Debug: Log time slots data
   console.log("Schedule Calendar Debug:", {
     selectedDoctor,
     selectedDate,
-    dayOfWeek,
-    allAvailabilities,
-    filteredAvailabilities: availabilities,
+    timeSlots,
+    timeSlotsData,
   });
 
-  // Generate time slots based on doctor availability
-  const timeSlots = useMemo(() => {
-    if (!selectedDoctor || !availabilities.length) {
-      // Return empty array if no doctor selected or no availability
-      return [];
-    }
+  // Get available and booked time slots from API
+  const availableTimeSlots = timeSlots.filter(
+    (slot) => slot.status === "available"
+  );
+  const bookedTimeSlots = timeSlots.filter((slot) => slot.status === "booked");
 
-    // Get available time slots from doctor's availability durations
-    const availableSlots = new Set();
-    availabilities.forEach((availability) => {
-      console.log("Processing availability:", availability);
-      if (availability.durations) {
-        availability.durations.forEach((duration) => {
-          console.log("Processing duration:", duration);
-          if (duration.startTime && duration.endTime) {
-            // Generate slots between start and end time
-            const start = new Date(`2000-01-01T${duration.startTime}`);
-            let end = new Date(`2000-01-01T${duration.endTime}`);
+  // Convert slots to simple time format for display
+  const displayTimeSlots = timeSlots
+    .map((slot) => slot.startTime.substring(0, 5))
+    .sort();
 
-            console.log("Time range:", {
-              startTime: duration.startTime,
-              endTime: duration.endTime,
-              start: start.toTimeString(),
-              end: end.toTimeString(),
-            });
-
-            // Handle case where end time is earlier than start time (crosses midnight)
-            if (end < start) {
-              // Check if this might be a PM time that was stored as AM
-              const endHour = parseInt(duration.endTime.split(":")[0]);
-              if (
-                endHour < 12 &&
-                endHour < parseInt(duration.startTime.split(":")[0])
-              ) {
-                // This looks like it should be PM, not AM
-                const correctedEndTime = duration.endTime.replace(
-                  /^(\d{1,2}):/,
-                  (match, hour) => {
-                    const correctedHour = parseInt(hour) + 12;
-                    return `${correctedHour.toString().padStart(2, "0")}:`;
-                  }
-                );
-                end = new Date(`2000-01-01T${correctedEndTime}`);
-                console.log("Corrected end time (AM to PM):", correctedEndTime);
-              } else {
-                end.setDate(end.getDate() + 1);
-                console.log(
-                  "Adjusted end time (crossed midnight):",
-                  end.toTimeString()
-                );
-              }
-            }
-
-            // Generate slots every 30 minutes within the duration range
-            const slotInterval = 30; // 30-minute intervals
-            while (start < end) {
-              const timeSlot = start.toTimeString().slice(0, 5);
-              availableSlots.add(timeSlot);
-              console.log("Added time slot:", timeSlot);
-              start.setMinutes(start.getMinutes() + slotInterval);
-            }
-          }
-        });
-      }
-    });
-
-    return Array.from(availableSlots).sort();
-  }, [selectedDoctor, availabilities]);
-
-  // Debug: Log time slots after generation
-  console.log("Generated time slots:", timeSlots.slice(0, 10));
+  // Debug: Log time slots after processing
+  console.log("Processed time slots:", {
+    availableTimeSlots,
+    bookedTimeSlots,
+    displayTimeSlots,
+  });
 
   const getAppointmentForSlot = (time) => {
     return appointments.find((apt) => {
@@ -162,43 +144,92 @@ const ScheduleCalendar = () => {
   };
 
   const isTimeSlotAvailable = (time) => {
-    // Check if the time slot is within doctor's availability
-    if (!selectedDoctor || !availabilities.length) {
-      return false; // Show as unavailable if no doctor selected or no availability data
-    }
-
-    // Check if there's an appointment at this time
-    const appointment = getAppointmentForSlot(time);
-    if (appointment) {
-      return false; // Slot is booked
-    }
-
-    // Check if the time is within any availability duration
-    return availabilities.some((availability) =>
-      availability.durations?.some((duration) => {
-        if (!duration.startTime || !duration.endTime) return false;
-
-        const slotTime = new Date(`2000-01-01T${time}`);
-        const startTime = new Date(`2000-01-01T${duration.startTime}`);
-        const endTime = new Date(`2000-01-01T${duration.endTime}`);
-
-        // Handle case where end time is earlier than start time (crosses midnight)
-        if (endTime < startTime) {
-          endTime.setDate(endTime.getDate() + 1);
-        }
-
-        return slotTime >= startTime && slotTime < endTime;
-      })
+    // Check if the time slot exists in available slots from API
+    return availableTimeSlots.some(
+      (slot) => slot.startTime.substring(0, 5) === time
     );
   };
 
   const handleCancelAppointment = async () => {
     if (cancelModal.appointment) {
-      await cancelAppointment.mutateAsync({
+      await changeStatus.mutateAsync({
         id: cancelModal.appointment.id,
-        reason: "Cancelled by staff",
+        statusData: {
+          status: "CANCELLED",
+          changedById: userId, // Use actual logged-in user ID
+          reason: "Cancelled by staff",
+          cancellationType: "CANCELLED_BY_DOCTOR",
+        },
       });
       setCancelModal({ open: false, appointment: null });
+    }
+  };
+
+  const [completeModal, setCompleteModal] = useState({
+    open: false,
+    appointment: null,
+  });
+
+  const [checkInModal, setCheckInModal] = useState({
+    open: false,
+    appointment: null,
+  });
+
+  const handleCompleteAppointment = async (appointment) => {
+    setCompleteModal({ open: true, appointment });
+  };
+
+  const handleCompleteConfirm = async () => {
+    if (!completeModal.appointment) return;
+
+    try {
+      await changeStatus.mutateAsync({
+        id: completeModal.appointment.id,
+        statusData: {
+          status: "COMPLETED",
+          changedById: userId,
+          reason: "Appointment completed successfully",
+        },
+      });
+      setCompleteModal({ open: false, appointment: null });
+    } catch (error) {
+      console.error("Error completing appointment:", error);
+      setErrorModal({
+        open: true,
+        title: "Failed to Complete Appointment",
+        message:
+          error.message ||
+          "An error occurred while completing the appointment. Please try again.",
+      });
+    }
+  };
+
+  const handleCheckInAppointment = async (appointment) => {
+    setCheckInModal({ open: true, appointment });
+  };
+
+  const handleCheckInConfirm = async () => {
+    if (!checkInModal.appointment) return;
+
+    try {
+      await changeStatus.mutateAsync({
+        id: checkInModal.appointment.id,
+        statusData: {
+          status: "CHECKED_IN",
+          changedById: userId,
+          reason: "Patient checked in",
+        },
+      });
+      setCheckInModal({ open: false, appointment: null });
+    } catch (error) {
+      console.error("Error checking in appointment:", error);
+      setErrorModal({
+        open: true,
+        title: "Failed to Check In Appointment",
+        message:
+          error.message ||
+          "An error occurred while checking in the appointment. Please try again.",
+      });
     }
   };
 
@@ -212,15 +243,23 @@ const ScheduleCalendar = () => {
   const getStatusColor = (status) => {
     const colors = {
       SCHEDULED: "bg-blue-100 text-blue-800 border-blue-200",
-      CONFIRMED: "bg-green-100 text-green-800 border-green-200",
+      CHECKED_IN: "bg-green-100 text-green-800 border-green-200",
       CANCELLED: "bg-red-100 text-red-800 border-red-200",
       COMPLETED: "bg-gray-100 text-gray-800 border-gray-200",
-      NO_SHOW: "bg-yellow-100 text-yellow-800 border-yellow-200",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
-  if (appointmentsLoading || (selectedDoctor && availabilityLoading))
+  const formatCheckInTime = (checkedInAt) => {
+    if (!checkedInAt) return "Not checked in";
+    const date = new Date(checkedInAt);
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (appointmentsLoading || (selectedDoctor && timeSlotsLoading))
     return (
       <div className="flex justify-center items-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -312,18 +351,18 @@ const ScheduleCalendar = () => {
             )}
           </CardHeader>
           <CardContent>
-            {timeSlots.length === 0 ? (
+            {displayTimeSlots.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-gray-500 text-lg mb-2">
                   No slots available for today.
                 </div>
                 <div className="text-gray-400 text-sm">
-                  Please add doctor's availability in timing section.
+                  Please select a doctor and date to view available slots.
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-2">
-                {timeSlots.map((time) => {
+                {displayTimeSlots.map((time) => {
                   const appointment = getAppointmentForSlot(time);
                   return (
                     <div
@@ -348,17 +387,56 @@ const ScheduleCalendar = () => {
                               <p className="text-xs mt-1">
                                 {appointment.sessionType}
                               </p>
+                              <p className="text-xs text-gray-500">
+                                Check-in:{" "}
+                                {formatCheckInTime(appointment.checkedInAt)}
+                              </p>
                             </div>
                             <div className="flex gap-2">
+                              {/* View Appointment */}
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
                                   navigate(`/appointments/${appointment.id}`)
                                 }
+                                title="View Appointment"
                               >
-                                View
+                                <Eye className="w-4 h-4" />
                               </Button>
+
+                              {/* Check In */}
+                              {appointment.status === "SCHEDULED" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleCheckInAppointment(appointment)
+                                  }
+                                  title="Check In Patient"
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <Clock className="w-4 h-4" />
+                                </Button>
+                              )}
+
+                              {/* Complete */}
+                              {(appointment.status === "SCHEDULED" ||
+                                appointment.status === "CHECKED_IN") && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleCompleteAppointment(appointment)
+                                  }
+                                  title="Mark as Complete"
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </Button>
+                              )}
+
+                              {/* Cancel */}
                               {appointment.status === "SCHEDULED" && (
                                 <Button
                                   size="sm"
@@ -366,8 +444,9 @@ const ScheduleCalendar = () => {
                                   onClick={() =>
                                     setCancelModal({ open: true, appointment })
                                   }
+                                  title="Cancel Appointment"
                                 >
-                                  Cancel
+                                  <X className="w-4 h-4" />
                                 </Button>
                               )}
                             </div>
@@ -416,7 +495,7 @@ const ScheduleCalendar = () => {
                   </div>
                 );
               })}
-              {timeSlots
+              {displayTimeSlots
                 .filter((_, i) => i % 2 === 0)
                 .map((time) => (
                   <React.Fragment key={time}>
@@ -470,6 +549,32 @@ const ScheduleCalendar = () => {
         confirmText="Cancel Appointment"
         variant="destructive"
         onConfirm={handleCancelAppointment}
+      />
+
+      <ConfirmModal
+        open={completeModal.open}
+        onOpenChange={(open) => setCompleteModal({ open, appointment: null })}
+        title="Complete Appointment"
+        description={`Mark appointment with ${completeModal.appointment?.patientName} as completed?`}
+        confirmText="Complete Appointment"
+        onConfirm={handleCompleteConfirm}
+      />
+
+      <ConfirmModal
+        open={checkInModal.open}
+        onOpenChange={(open) => setCheckInModal({ open, appointment: null })}
+        title="Check In Patient"
+        description={`Check in patient ${checkInModal.appointment?.patientName}?`}
+        confirmText="Check In"
+        onConfirm={handleCheckInConfirm}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        open={errorModal.open}
+        onOpenChange={(open) => setErrorModal({ open, title: "", message: "" })}
+        title={errorModal.title}
+        description={errorModal.message}
       />
     </div>
   );

@@ -1,15 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { timingService } from "../services/timingService.js";
-import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import {
+  useGetAllDoctors,
+  useGetDoctorBranches,
+} from "../hooks/useDoctorQueries.js";
+import { useBranchFilter } from "../hooks/useBranchFilter.js";
+import useAddressStore from "../store/useAddressStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
+import { ErrorModal } from "./ui/error-modal.jsx";
+
 function getMinutes(timeStr) {
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
 }
+
 const TimingManager = () => {
+  const { branchId, hasSelection } = useBranchFilter();
+
   // Mutation for updating a duration
   const updateDurationMutation = useMutation({
     mutationFn: ({ doctorId, availabilityId, durationId, data }) =>
@@ -19,7 +29,13 @@ const TimingManager = () => {
       setEditModal({ open: false, slot: null, duration: null });
     },
     onError: (error) => {
-      alert(`Failed to update duration: ${error.message}`);
+      setErrorModal({
+        open: true,
+        title: "Failed to Update Duration",
+        message:
+          error.message ||
+          "An error occurred while updating the duration. Please try again.",
+      });
     },
   });
 
@@ -35,7 +51,13 @@ const TimingManager = () => {
       }
     },
     onError: (error) => {
-      alert(`Failed to delete duration: ${error.message}`);
+      setErrorModal({
+        open: true,
+        title: "Failed to Delete Duration",
+        message:
+          error.message ||
+          "An error occurred while deleting the duration. Please try again.",
+      });
     },
   });
 
@@ -45,7 +67,7 @@ const TimingManager = () => {
       timingService.deleteAvailability(availabilityId),
     onSuccess: () => queryClient.invalidateQueries(["availability"]),
   });
-  // ...existing code...
+
   // Add missing editModal state for editing durations
   const [editModal, setEditModal] = useState({
     open: false,
@@ -56,6 +78,12 @@ const TimingManager = () => {
     open: false,
     conflicts: [],
     timeOff: null,
+  });
+
+  const [errorModal, setErrorModal] = useState({
+    open: false,
+    title: "",
+    message: "",
   });
 
   // Helper to check overlap between timeoff and duration
@@ -88,11 +116,11 @@ const TimingManager = () => {
       createTimeOff.mutate(timeOffData);
     }
   }
+
   const queryClient = useQueryClient();
   const [selectedDoctor, setSelectedDoctor] = useState("");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedPracticeId, setSelectedPracticeId] = useState("");
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [sessions, setSessions] = useState([
     {
@@ -102,18 +130,68 @@ const TimingManager = () => {
       isEmergency: false,
     },
   ]);
+  const [selectedDays, setSelectedDays] = useState([]);
 
   // Debug logs
 
-  const { data: doctorsData } = useGetAllDoctors({ size: 100 });
+  // Pass branchId to get doctors for the selected address
+  const { data: doctorsData } = useGetAllDoctors(
+    {
+      size: 100,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
+
   const doctors = doctorsData?.data?.content || [];
 
+  // Set the first doctor as default when doctors data is loaded or branch changes
+  useEffect(() => {
+    if (doctors.length > 0) {
+      const firstDoctor = doctors[0];
+      setSelectedDoctor(firstDoctor.id);
+    } else {
+      // Clear selected doctor if no doctors available for the branch
+      setSelectedDoctor("");
+    }
+  }, [doctors, branchId]); // Reset when branchId changes
+
+  // Get doctor's branches when a doctor is selected
+  const { data: doctorBranchesData } = useGetDoctorBranches(selectedDoctor);
+  const doctorBranches = doctorBranchesData?.branchIds || [];
+
+  // Get addresses for branch names
+  const addresses = useAddressStore((state) => state.addresses);
+
+  // Set practice ID when doctor branches are loaded
+  useEffect(() => {
+    if (doctorBranches.length > 0 && addresses.length > 0) {
+      // Filter addresses to only show those the doctor is associated with
+      const doctorAddresses = addresses.filter((addr) =>
+        doctorBranches.includes(addr.id)
+      );
+
+      if (doctorAddresses.length === 1) {
+        // If doctor is in only one branch, prefill with that branch name
+        setSelectedPracticeId(
+          doctorAddresses[0].name ||
+            `${doctorAddresses[0].type} - ${doctorAddresses[0].city}`
+        );
+      } else if (doctorAddresses.length > 1) {
+        // If doctor is in multiple branches, set to first one as default
+        setSelectedPracticeId(
+          doctorAddresses[0].name ||
+            `${doctorAddresses[0].type} - ${doctorAddresses[0].city}`
+        );
+      }
+    }
+  }, [doctorBranches, addresses]);
+
   const { data: availabilityData, isLoading } = useQuery({
-    queryKey: ["availability", selectedDoctor, selectedDate],
-    queryFn: () =>
-      timingService.getDoctorAvailability(selectedDoctor, {
-        date: selectedDate,
-      }),
+    queryKey: ["availability", selectedDoctor],
+    queryFn: () => timingService.getDoctorAvailability(selectedDoctor),
     enabled: !!selectedDoctor,
   });
 
@@ -129,6 +207,15 @@ const TimingManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(["availability"]);
       setShowAddModal(false);
+      setSelectedDays([]);
+      setSessions([
+        {
+          startTime: "",
+          endTime: "",
+          description: "",
+          isEmergency: false,
+        },
+      ]);
     },
   });
 
@@ -175,6 +262,11 @@ const TimingManager = () => {
     },
   ];
 
+  // Reset doctor selection when address changes
+  useEffect(() => {
+    setSelectedDoctor("");
+  }, [branchId]);
+
   return (
     <div className="p-6 space-y-6">
       {/* Edit Duration Modal */}
@@ -193,7 +285,7 @@ const TimingManager = () => {
                     startTime: formData.get("startTime"),
                     endTime: formData.get("endTime"),
                     description: formData.get("description"),
-                    emergency: formData.get("emergency") === "on",
+                    isEmergencySlot: formData.get("emergency") === "on",
                   };
                   updateDurationMutation.mutate({
                     doctorId: selectedDoctor,
@@ -249,30 +341,44 @@ const TimingManager = () => {
       )}
       <h1 className="text-2xl font-bold">Timing Management</h1>
 
+      {/* Branch Selection */}
+
       <Card>
         <CardHeader>
           <CardTitle>Select Doctor</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <select
-              className="px-3 py-2 border rounded-md"
-              value={selectedDoctor}
-              onChange={(e) => setSelectedDoctor(e.target.value)}
-            >
-              <option value="">Select a doctor...</option>
-              {doctors.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.name} - {doc.speciality}
-                </option>
-              ))}
-            </select>
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-          </div>
+          {doctors.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600 text-lg mb-4">Please add doctors</p>
+              <p className="text-gray-500 text-sm">
+                No doctors are available. Please add doctors first to manage
+                their timing.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+              <select
+                className="px-3 py-2 border rounded-md"
+                value={selectedDoctor}
+                onChange={(e) => setSelectedDoctor(e.target.value)}
+                disabled={!hasSelection} // Disable until address is selected
+              >
+                <option value="">Select a doctor...</option>
+                {doctors.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.name}
+                    {doc.speciality ? ` - ${doc.speciality}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {!hasSelection && (
+            <p className="text-sm text-blue-600 mt-2">
+              Please select an address first to see available doctors.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -353,7 +459,7 @@ const TimingManager = () => {
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             if (
-                                              confirm(
+                                              window.confirm(
                                                 `Are you sure you want to delete this time slot (${duration.startTime} - ${duration.endTime})?`
                                               )
                                             ) {
@@ -533,12 +639,22 @@ const TimingManager = () => {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+
+                  if (selectedDays.length === 0) {
+                    alert("Please select at least one day");
+                    return;
+                  }
+
                   const formData = new FormData(e.target);
-                  const dayOfWeek = Number(formData.get("dayOfWeek"));
                   const practiceId =
-                    formData.get("practiceId") ||
-                    "b2a1c3d4-5678-4321-9876-abcdef123456"; // Replace with actual logic
+                    selectedPracticeId || formData.get("practiceId") || "";
+
+                  if (!practiceId) {
+                    alert("Please select a branch/practice");
+                    return;
+                  }
                   const isActive = true;
+
                   // Calculate slot duration as the max duration among sessions
                   const durations = sessions.map((s, idx) => ({
                     sessionIndex: idx + 1,
@@ -552,29 +668,112 @@ const TimingManager = () => {
                       (s) => getMinutes(s.endTime) - getMinutes(s.startTime)
                     )
                   );
-                  createAvailability.mutate({
-                    practiceId,
-                    dayOfWeek,
-                    slotDurationMinutes,
-                    isActive,
-                    durations,
+
+                  // Create availability for each selected day
+                  selectedDays.forEach((dayOfWeek) => {
+                    createAvailability.mutate({
+                      practiceId,
+                      dayOfWeek,
+                      slotDurationMinutes,
+                      isActive,
+                      durations: durations.map((d) => ({ ...d })), // Clone durations for each day
+                    });
                   });
                 }}
                 className="space-y-4"
               >
-                <Input name="practiceId" placeholder="Practice ID (optional)" />
-                <select
-                  name="dayOfWeek"
-                  className="w-full px-3 py-2 border rounded-md"
-                  required
-                >
-                  <option value="">Select day...</option>
-                  {weekDays.map((day) => (
-                    <option key={day.value} value={day.value}>
-                      {day.name}
-                    </option>
-                  ))}
-                </select>
+                {/* Practice ID / Branch Selection */}
+                {(() => {
+                  const doctorAddresses = addresses.filter((addr) =>
+                    doctorBranches.includes(addr.id)
+                  );
+
+                  if (doctorAddresses.length === 0) {
+                    return (
+                      <Input
+                        name="practiceId"
+                        placeholder="Practice ID (optional)"
+                        value={selectedPracticeId}
+                        onChange={(e) => setSelectedPracticeId(e.target.value)}
+                      />
+                    );
+                  } else if (doctorAddresses.length === 1) {
+                    return (
+                      <Input
+                        name="practiceId"
+                        placeholder="Practice ID"
+                        value={selectedPracticeId}
+                        onChange={(e) => setSelectedPracticeId(e.target.value)}
+                        readOnly
+                        className="bg-gray-50"
+                      />
+                    );
+                  } else {
+                    return (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Select Branch/Practice *
+                        </label>
+                        <select
+                          name="practiceId"
+                          value={selectedPracticeId}
+                          onChange={(e) =>
+                            setSelectedPracticeId(e.target.value)
+                          }
+                          className="w-full px-3 py-2 border rounded-md"
+                        >
+                          <option value="">Select a branch...</option>
+                          {doctorAddresses.map((address) => (
+                            <option
+                              key={address.id}
+                              value={
+                                address.name ||
+                                `${address.type} - ${address.city}`
+                              }
+                            >
+                              {address.name ||
+                                `${address.type} - ${address.city}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
+                })()}
+                {/* Multi-day selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Select Days (check multiple to apply to all selected days)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {weekDays.map((day) => (
+                      <label
+                        key={day.value}
+                        className="flex items-center space-x-2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDays.includes(day.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDays([...selectedDays, day.value]);
+                            } else {
+                              setSelectedDays(
+                                selectedDays.filter((d) => d !== day.value)
+                              );
+                            }
+                          }}
+                        />
+                        <span className="text-sm">{day.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedDays.length === 0 && (
+                    <p className="text-red-500 text-sm">
+                      Please select at least one day
+                    </p>
+                  )}
+                </div>
                 {/* Sessions UI */}
                 {sessions.map((session, idx) => (
                   <div key={idx} className="border p-3 rounded mb-2">
@@ -678,6 +877,7 @@ const TimingManager = () => {
                           isEmergency: false,
                         },
                       ]);
+                      setSelectedDays([]);
                     }}
                   >
                     Cancel
@@ -688,6 +888,14 @@ const TimingManager = () => {
           </Card>
         </div>
       )}
+
+      {/* Error Modal */}
+      <ErrorModal
+        open={errorModal.open}
+        onOpenChange={(open) => setErrorModal({ open, title: "", message: "" })}
+        title={errorModal.title}
+        description={errorModal.message}
+      />
     </div>
   );
 };

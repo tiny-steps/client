@@ -1,16 +1,24 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useWindowSize } from "../hooks/useWindowSize";
+import AppointmentActions from "./AppointmentActions.jsx";
+import {
+  useGetTimeSlotsForWeek,
+  useGetTimeSlotsForMonth,
+} from "../hooks/useTimingBatchQueries.js";
 
 const CalendarView = ({
   appointments,
   availabilities,
   filteredAvailabilities,
+  timeSlots = [],
+  availableTimeSlots = [],
   selectedDoctor,
   selectedDate,
   onDateChange,
   onDoctorChange,
   doctors = [],
+  patients = [],
   onTimeSlotClick,
   onDateClick,
   showAppointmentModal = false,
@@ -19,7 +27,7 @@ const CalendarView = ({
   setSelectedTimeSlot = () => {},
   onAppointmentClick = () => {},
   onDayDetailClick = () => {},
-  onCancelAppointment = () => {},
+  branchId = null,
 }) => {
   const [view, setView] = useState("today");
   const [internalCurrentDate, setInternalCurrentDate] = useState(
@@ -46,6 +54,58 @@ const CalendarView = ({
   const currentDate = selectedDate
     ? new Date(selectedDate)
     : internalCurrentDate;
+
+  // Calculate week start for batch timeslots fetching
+  const getWeekStart = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    return new Date(d.setDate(diff));
+  };
+
+  // Batch fetch timeslots for weekly view
+  const weekStartDate = getWeekStart(currentDate);
+  const { data: weekTimeSlotsData } = useGetTimeSlotsForWeek(
+    selectedDoctor,
+    weekStartDate,
+    null, // practiceId
+    branchId, // branchId
+    { enabled: !!selectedDoctor && view === "weekly" }
+  );
+
+  // Batch fetch timeslots for monthly view
+  const { data: monthTimeSlotsData } = useGetTimeSlotsForMonth(
+    selectedDoctor,
+    currentDate,
+    null, // practiceId
+    branchId, // branchId
+    { enabled: !!selectedDoctor && view === "monthly" }
+  );
+
+  // Get timeslots map based on current view
+  const getTimeSlotsForDate = (date) => {
+    const dateStr =
+      typeof date === "string" ? date : date.toISOString().split("T")[0];
+
+    if (view === "weekly" && weekTimeSlotsData?.data) {
+      return weekTimeSlotsData.data[dateStr] || [];
+    }
+
+    if (view === "monthly" && monthTimeSlotsData?.data) {
+      return monthTimeSlotsData.data[dateStr] || [];
+    }
+
+    // Fallback to single date timeslots for today view
+    if (
+      view === "today" &&
+      timeSlots &&
+      dateStr === (selectedDate || currentDate.toISOString().split("T")[0])
+    ) {
+      return timeSlots;
+    }
+
+    return [];
+  };
 
   useEffect(() => {
     if (isMobile) {
@@ -181,7 +241,7 @@ const CalendarView = ({
             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
               view === viewType
                 ? "bg-blue-500 text-white"
-                : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                : "text-gray-600 hover:bg-gray-200 :bg-gray-600"
             }`}
           >
             {viewType.charAt(0).toUpperCase() + viewType.slice(1)}
@@ -199,7 +259,7 @@ const CalendarView = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {onDateChange && (
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium mb-1 text-gray-700 ">
                 Date
               </label>
               <input
@@ -212,7 +272,7 @@ const CalendarView = ({
           )}
           {onDoctorChange && (
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium mb-1 text-gray-700 ">
                 Doctor
               </label>
               <select
@@ -248,9 +308,11 @@ const CalendarView = ({
     const hours = Array.from({ length: 12 }, (_, i) => i + 8); // 8 AM to 7 PM
     const displayDate = selectedDate ? new Date(selectedDate) : today;
 
-    // Generate time slots based on availability if provided
-    const timeSlots =
-      filteredAvailabilities && filteredAvailabilities.length > 0
+    // Use new time slots API if available, otherwise generate from availability
+    const displayTimeSlots =
+      timeSlots.length > 0
+        ? timeSlots.map((slot) => slot.startTime.substring(0, 5)).sort()
+        : filteredAvailabilities && filteredAvailabilities.length > 0
         ? generateTimeSlotsFromAvailability(filteredAvailabilities)
         : [];
 
@@ -271,12 +333,12 @@ const CalendarView = ({
     };
 
     return (
-      <div className="bg-white/20 backdrop-blur-md border border-white/30 dark:bg-gray-800/20 dark:border-gray-700/30 p-4 rounded-lg shadow-lg">
+      <div className="bg-white/20 backdrop-blur-md border border-white/30 p-4 rounded-lg shadow-lg">
         <div className="flex justify-between items-center mb-4">
           {onDateChange && (
             <button
               onClick={handlePrevDay}
-              className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="p-1 rounded-full hover:bg-gray-200 :bg-gray-600"
             >
               <ChevronLeft />
             </button>
@@ -287,27 +349,25 @@ const CalendarView = ({
           {onDateChange && (
             <button
               onClick={handleNextDay}
-              className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="p-1 rounded-full hover:bg-gray-200 :bg-gray-600"
             >
               <ChevronRight />
             </button>
           )}
         </div>
-        {((filteredAvailabilities && filteredAvailabilities.length === 0) ||
-          timeSlots.length === 0) &&
-          selectedDoctor && (
-            <div className="text-center py-8 mb-4">
-              <div className="text-gray-500 text-lg mb-2">
-                No slots available for today.
-              </div>
-              <div className="text-gray-400 text-sm">
-                Please add doctor's availability in timing section.
-              </div>
+        {displayTimeSlots.length === 0 && selectedDoctor && (
+          <div className="text-center py-8 mb-4">
+            <div className="text-gray-500 text-lg mb-2">
+              No slots available for today.
             </div>
-          )}
-        {timeSlots.length > 0 && (
+            <div className="text-gray-400 text-sm">
+              Please add doctor's availability in timing section.
+            </div>
+          </div>
+        )}
+        {displayTimeSlots.length > 0 && (
           <div className="space-y-4">
-            {timeSlots.map((time) => {
+            {displayTimeSlots.map((time) => {
               const hour = parseInt(time.split(":")[0]);
               // Find appointment for this time slot and date
               const appointment = appointments?.find((a) => {
@@ -318,37 +378,51 @@ const CalendarView = ({
                   a.appointmentDate === formatLocalDate(displayDate)
                 );
               });
-              const isAvailable = filteredAvailabilities
-                ? isTimeSlotAvailable(time, filteredAvailabilities) &&
-                  !appointment
-                : !appointment;
+              const isAvailable =
+                timeSlots.length > 0
+                  ? timeSlots.some(
+                      (slot) =>
+                        slot.startTime.substring(0, 5) === time &&
+                        slot.status === "available"
+                    )
+                  : filteredAvailabilities
+                  ? isTimeSlotAvailable(time, filteredAvailabilities) &&
+                    !appointment
+                  : !appointment;
 
               return (
-                <div
-                  key={time}
-                  className="flex border-t border-gray-200 dark:border-gray-700 pt-2"
-                >
+                <div key={time} className="flex border-t border-gray-200 pt-2">
                   <div className="w-16 text-right pr-4 text-sm text-gray-500">
                     {`${hour % 12 === 0 ? 12 : hour % 12}:${
                       time.split(":")[1]
                     } ${hour < 12 ? "AM" : "PM"}`}
                   </div>
-                  <div className="flex-1 pl-4 border-l border-gray-200 dark:border-gray-700">
+                  <div className="flex-1 pl-4 border-l border-gray-200 ">
                     {appointment ? (
-                      <div className="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-1 rounded mb-1 max-w-full">
+                      <div className="text-xs bg-red-100 text-red-800 p-1 rounded mb-1 max-w-full">
                         <div className="font-medium truncate text-xs">
                           {appointment.patientName}
                         </div>
                         <div className="text-xs opacity-75 truncate">
                           {appointment.doctorName} - {appointment.sessionName}
                         </div>
+                        <div className="mt-2">
+                          <AppointmentActions
+                            appointment={appointment}
+                            onView={onAppointmentClick}
+                            size="sm"
+                            className="justify-start"
+                            patients={patients}
+                            doctors={doctors}
+                          />
+                        </div>
                       </div>
                     ) : (
                       <div
                         className={`text-xs p-1 rounded mb-1 cursor-pointer hover:opacity-80 ${
                           isAvailable
-                            ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                            : "bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400"
+                            ? "bg-green-100 text-green-800 "
+                            : "bg-gray-100 text-gray-500 "
                         }`}
                         onClick={() => {
                           if (isAvailable && onTimeSlotClick) {
@@ -380,11 +454,11 @@ const CalendarView = ({
     });
 
     return (
-      <div className="bg-white/20 backdrop-blur-md border border-white/30 dark:bg-gray-800/20 dark:border-gray-700/30 p-4 rounded-lg shadow-lg">
+      <div className="bg-white/20 backdrop-blur-md border border-white/30 p-4 rounded-lg shadow-lg">
         <div className="flex justify-between items-center mb-4">
           <button
             onClick={handlePrev}
-            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
+            className="p-1 rounded-full hover:bg-gray-200 :bg-gray-600"
           >
             <ChevronLeft />
           </button>
@@ -394,39 +468,52 @@ const CalendarView = ({
           </h3>
           <button
             onClick={handleNext}
-            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
+            className="p-1 rounded-full hover:bg-gray-200 :bg-gray-600"
           >
             <ChevronRight />
           </button>
         </div>
-        <div className="grid grid-cols-7 text-center font-semibold text-sm text-gray-600 dark:text-gray-300">
+        <div className="grid grid-cols-7 text-center font-semibold text-sm text-gray-600 ">
           {weekDays.map((day) => (
             <div key={day} className="py-2">
               {day}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 border-t border-l border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-7 border-t border-l border-gray-200 sm:text-sm text-xs">
           {days.map((day) => {
             const dayOfWeek = day.getDay();
             const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-            const dayAvailabilities = availabilities
-              ? availabilities.filter(
-                  (availability) =>
-                    availability.dayOfWeek === backendDayOfWeek &&
-                    availability.active &&
-                    availability.durations &&
-                    availability.durations.length > 0
-                )
-              : [];
-            const hasAvailability = dayAvailabilities.length > 0;
+
+            // Get timeslots for this specific date using the efficient API
+            const dayTimeSlotsFromAPI = getTimeSlotsForDate(day);
+            const dayTimeSlots =
+              dayTimeSlotsFromAPI.length > 0
+                ? dayTimeSlotsFromAPI
+                    .filter((slot) => slot.status === "available")
+                    .map((slot) => slot.startTime.substring(0, 5))
+                : [];
+
+            // Fallback to availability logic if no time slots from API
+            const dayAvailabilities =
+              dayTimeSlots.length === 0 && availabilities
+                ? availabilities.filter(
+                    (availability) =>
+                      availability.dayOfWeek === backendDayOfWeek &&
+                      availability.active &&
+                      availability.durations &&
+                      availability.durations.length > 0
+                  )
+                : [];
+            const hasAvailability =
+              dayTimeSlots.length > 0 || dayAvailabilities.length > 0;
 
             return (
               <div
                 key={day.toISOString()}
-                className={`p-2 h-24 border-r border-b border-gray-200 dark:border-gray-700 relative ${
+                className={`p-1 sm:p-2 h-16 sm:h-24 border-r border-b border-gray-200 relative ${
                   day.toDateString() === today.toDateString()
-                    ? "bg-blue-50 dark:bg-blue-900/50"
+                    ? "bg-blue-50 "
                     : ""
                 }`}
               >
@@ -448,18 +535,20 @@ const CalendarView = ({
 
                   if (dayAppointments.length > 0) {
                     // Show red dots for booked appointments
-                    const dayTimeSlots =
-                      generateTimeSlotsFromAvailability(dayAvailabilities);
-                    const totalSlots = dayTimeSlots.length;
+                    const allDayTimeSlots =
+                      dayTimeSlots.length > 0
+                        ? dayTimeSlots
+                        : generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = allDayTimeSlots.length;
                     const availableCount = Math.max(
                       0,
-                      dayTimeSlots.length - dayAppointments.length
+                      allDayTimeSlots.length - dayAppointments.length
                     );
 
                     return (
                       <div className="mt-2">
                         {/* Slot count in top right */}
-                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-xs font-medium text-gray-600 ">
                           {availableCount}/{totalSlots}
                         </div>
 
@@ -477,16 +566,16 @@ const CalendarView = ({
                             />
                           ))}
                         </div>
-                        <div className="flex space-x-2 mt-2">
+                        <div className="flex space-x-1 sm:space-x-2 mt-1 sm:mt-2">
                           <button
-                            className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-blue-600 cursor-pointer hover:underline"
                             onClick={() => handleDayClick(formatLocalDate(day))}
                           >
                             View Details
                           </button>
                           {availableCount > 0 && (
                             <button
-                              className="text-xs text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                              className="text-xs sm:text-sm text-green-600 cursor-pointer hover:underline"
                               onClick={() =>
                                 onDateClick && onDateClick(formatLocalDate(day))
                               }
@@ -499,15 +588,17 @@ const CalendarView = ({
                     );
                   } else if (selectedDoctor && hasAvailability) {
                     // Show green dots for available time slots
-                    const dayTimeSlots =
-                      generateTimeSlotsFromAvailability(dayAvailabilities);
-                    const totalSlots = dayTimeSlots.length;
-                    const availableCount = dayTimeSlots.length;
+                    const allDayTimeSlots =
+                      dayTimeSlots.length > 0
+                        ? dayTimeSlots
+                        : generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = allDayTimeSlots.length;
+                    const availableCount = allDayTimeSlots.length;
 
                     return (
                       <div className="mt-2">
                         {/* Slot count in top right */}
-                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-xs font-medium text-gray-600 ">
                           {availableCount}/{totalSlots}
                         </div>
 
@@ -529,15 +620,15 @@ const CalendarView = ({
                             />
                           )}
                         </div>
-                        <div className="flex space-x-2 mt-2">
+                        <div className="flex space-x-1 sm:space-x-2 mt-1 sm:mt-2">
                           <button
-                            className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-blue-600 cursor-pointer hover:underline"
                             onClick={() => handleDayClick(formatLocalDate(day))}
                           >
                             View Details
                           </button>
                           <button
-                            className="text-xs text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-green-600 cursor-pointer hover:underline"
                             onClick={() =>
                               onDateClick && onDateClick(formatLocalDate(day))
                             }
@@ -656,11 +747,11 @@ const CalendarView = ({
     }
 
     return (
-      <div className="bg-white/20 backdrop-blur-md border border-white/30 dark:bg-gray-800/20 dark:border-gray-700/30 p-4 rounded-lg shadow-lg">
+      <div className="bg-white/20 backdrop-blur-md border border-white/30 p-4 rounded-lg shadow-lg">
         <div className="flex justify-between items-center mb-4">
           <button
             onClick={handlePrev}
-            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
+            className="p-1 rounded-full hover:bg-gray-200 :bg-gray-600"
           >
             <ChevronLeft />
           </button>
@@ -669,25 +760,25 @@ const CalendarView = ({
           </h3>
           <button
             onClick={handleNext}
-            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
+            className="p-1 rounded-full hover:bg-gray-200 :bg-gray-600"
           >
             <ChevronRight />
           </button>
         </div>
-        <div className="grid grid-cols-7 text-center font-semibold text-sm text-gray-600 dark:text-gray-300">
+        <div className="grid grid-cols-7 text-center font-semibold text-sm text-gray-600 ">
           {weekDays.map((day) => (
             <div key={day} className="py-2">
               {day}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 border-t border-l border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-7 border-t border-l border-gray-200 sm:text-sm text-xs">
           {calendarDays.map((d) => {
             if (!d.day) {
               return (
                 <div
                   key={d.key}
-                  className="p-2 h-24 border-r border-b border-gray-200 dark:border-gray-700"
+                  className="p-2 h-24 border-r border-b border-gray-200 "
                 >
                   <span className="text-xs font-medium text-gray-400">
                     {d.day}
@@ -705,23 +796,36 @@ const CalendarView = ({
 
             const dayOfWeek = dayDate.getDay();
             const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-            const dayAvailabilities = availabilities
-              ? availabilities.filter(
-                  (availability) =>
-                    availability.dayOfWeek === backendDayOfWeek &&
-                    availability.active &&
-                    availability.durations &&
-                    availability.durations.length > 0
-                )
-              : [];
-            const hasAvailability = dayAvailabilities.length > 0;
+
+            // Get timeslots for this specific date using the efficient API
+            const dayTimeSlotsFromAPI = getTimeSlotsForDate(dayDate);
+            const dayTimeSlots =
+              dayTimeSlotsFromAPI.length > 0
+                ? dayTimeSlotsFromAPI
+                    .filter((slot) => slot.status === "available")
+                    .map((slot) => slot.startTime.substring(0, 5))
+                : [];
+
+            // Fallback to availability logic if no time slots from API
+            const dayAvailabilities =
+              dayTimeSlots.length === 0 && availabilities
+                ? availabilities.filter(
+                    (availability) =>
+                      availability.dayOfWeek === backendDayOfWeek &&
+                      availability.active &&
+                      availability.durations &&
+                      availability.durations.length > 0
+                  )
+                : [];
+            const hasAvailability =
+              dayTimeSlots.length > 0 || dayAvailabilities.length > 0;
 
             return (
               <div
                 key={d.key}
-                className={`p-2 h-24 border-r border-b border-gray-200 dark:border-gray-700 relative ${
+                className={`p-1 sm:p-2 h-16 sm:h-24 border-r border-b border-gray-200 relative ${
                   d.day === today.getDate() && d.isCurrentMonth
-                    ? "bg-blue-50 dark:bg-blue-900/50"
+                    ? "bg-blue-50 "
                     : ""
                 }`}
               >
@@ -741,18 +845,20 @@ const CalendarView = ({
 
                   if (dayAppointments.length > 0) {
                     // Show red dots for booked appointments
-                    const dayTimeSlots =
-                      generateTimeSlotsFromAvailability(dayAvailabilities);
-                    const totalSlots = dayTimeSlots.length;
+                    const allDayTimeSlots =
+                      dayTimeSlots.length > 0
+                        ? dayTimeSlots
+                        : generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = allDayTimeSlots.length;
                     const availableCount = Math.max(
                       0,
-                      dayTimeSlots.length - dayAppointments.length
+                      allDayTimeSlots.length - dayAppointments.length
                     );
 
                     return (
-                      <div className="mt-2">
+                      <div className="mt-1 sm:mt-2">
                         {/* Slot count in top right */}
-                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-xs font-medium text-gray-600 ">
                           {availableCount}/{totalSlots}
                         </div>
 
@@ -780,9 +886,9 @@ const CalendarView = ({
                             />
                           )}
                         </div>
-                        <div className="flex space-x-2 mt-2">
+                        <div className="flex space-x-1 sm:space-x-2 mt-1 sm:mt-2">
                           <button
-                            className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-blue-600 cursor-pointer hover:underline"
                             onClick={() =>
                               handleDayClick(formatLocalDate(dayDate))
                             }
@@ -791,7 +897,7 @@ const CalendarView = ({
                           </button>
                           {availableCount > 0 && (
                             <button
-                              className="text-xs text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                              className="text-xs sm:text-sm text-green-600 cursor-pointer hover:underline"
                               onClick={() => {
                                 const dateString = formatLocalDate(dayDate);
                                 onDateClick && onDateClick(dateString);
@@ -805,20 +911,22 @@ const CalendarView = ({
                     );
                   } else if (selectedDoctor && hasAvailability) {
                     // Show green dots for available time slots
-                    const dayTimeSlots =
-                      generateTimeSlotsFromAvailability(dayAvailabilities);
-                    const totalSlots = dayTimeSlots.length;
-                    const availableCount = dayTimeSlots.length;
+                    const allDayTimeSlots =
+                      dayTimeSlots.length > 0
+                        ? dayTimeSlots
+                        : generateTimeSlotsFromAvailability(dayAvailabilities);
+                    const totalSlots = allDayTimeSlots.length;
+                    const availableCount = allDayTimeSlots.length;
 
                     return (
-                      <div className="mt-2">
+                      <div className="mt-1 sm:mt-2">
                         {/* Slot count in top right */}
-                        <div className="absolute top-1 right-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-xs font-medium text-gray-600 ">
                           {availableCount}/{totalSlots}
                         </div>
 
                         <div className="flex flex-wrap gap-1">
-                          {dayTimeSlots.slice(0, 6).map((time, index) => (
+                          {allDayTimeSlots.slice(0, 6).map((time, index) => (
                             <div
                               key={index}
                               className="w-1.5 h-1.5 bg-green-500 rounded-full cursor-pointer hover:scale-125 transition-transform"
@@ -829,16 +937,18 @@ const CalendarView = ({
                               }}
                             />
                           ))}
-                          {dayTimeSlots.length > 6 && (
+                          {allDayTimeSlots.length > 6 && (
                             <div
                               className="w-1.5 h-1.5 bg-green-400 rounded-full"
-                              title={`+${dayTimeSlots.length - 6} more slots`}
+                              title={`+${
+                                allDayTimeSlots.length - 6
+                              } more slots`}
                             />
                           )}
                         </div>
-                        <div className="flex space-x-2 mt-2">
+                        <div className="flex space-x-1 sm:space-x-2 mt-1 sm:mt-2">
                           <button
-                            className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-blue-600 cursor-pointer hover:underline"
                             onClick={() =>
                               handleDayClick(formatLocalDate(dayDate))
                             }
@@ -846,7 +956,7 @@ const CalendarView = ({
                             View Details
                           </button>
                           <button
-                            className="text-xs text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                            className="text-xs sm:text-sm text-green-600 cursor-pointer hover:underline"
                             onClick={() => {
                               const dateString = formatLocalDate(dayDate);
                               onDateClick && onDateClick(dateString);
@@ -879,10 +989,10 @@ const CalendarView = ({
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="text-6xl mb-4">👨‍⚕️</div>
-            <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
               Please Select a Doctor
             </h3>
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-gray-500 ">
               Choose a doctor from the dropdown above to view their schedule
             </p>
           </div>

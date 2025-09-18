@@ -25,131 +25,131 @@ import { Routes, Route, Navigate } from "react-router";
 import { Users, Building, FileText, Camera, MapPin, Star } from "lucide-react";
 
 function App() {
-  return (
-    <ErrorBoundary>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<LoginPage />} />
+ return (
+ <ErrorBoundary>
+ <Routes>
+ {/* Public routes */}
+ <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected routes with dashboard layout */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+ {/* Protected routes with dashboard layout */}
+ <Route element={<ProtectedRoute />}>
+ <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          {/* Dashboard route */}
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardPage />} />
-          </Route>
+ {/* Dashboard route */}
+ <Route path="/dashboard" element={<DashboardLayout />}>
+ <Route index element={<DashboardPage />} />
+ </Route>
 
-          {/* Top-level protected routes with dashboard layout */}
-          <Route path="/doctors" element={<DashboardLayout />}>
-            <Route index element={<DoctorsPage />} />
-            <Route path="add" element={<DoctorForm />} />
-            <Route path=":doctorId" element={<DoctorDetail />} />
-            <Route path=":doctorId/edit" element={<DoctorForm />} />
+ {/* Top-level protected routes with dashboard layout */}
+ <Route path="/doctors" element={<DashboardLayout />}>
+ <Route index element={<DoctorsPage />} />
+ <Route path="add" element={<DoctorForm />} />
+ <Route path=":doctorId" element={<DoctorDetail />} />
+ <Route path=":doctorId/edit" element={<DoctorForm />} />
 
-            {/* Doctor Management Submenus */}
-            <Route path="awards" element={<AwardsPage />} />
-            <Route path="qualifications" element={<QualificationsPage />} />
-            <Route path="specializations" element={<SpecializationsPage />} />
-            <Route
-              path="memberships"
-              element={
-                <PlaceholderPage
-                  title="Memberships Management"
-                  description="Manage doctor professional memberships"
-                  icon={Users}
-                />
-              }
-            />
-            <Route
-              path="organizations"
-              element={
-                <PlaceholderPage
-                  title="Organizations Management"
-                  description="Manage doctor work history and organizations"
-                  icon={Building}
-                />
-              }
-            />
-            <Route
-              path="registrations"
-              element={
-                <PlaceholderPage
-                  title="Registrations Management"
-                  description="Manage doctor licenses and registrations"
-                  icon={FileText}
-                />
-              }
-            />
-            <Route
-              path="photos"
-              element={
-                <PlaceholderPage
-                  title="Photos Management"
-                  description="Manage doctor photo gallery"
-                  icon={Camera}
-                />
-              }
-            />
-            <Route
-              path="practices"
-              element={
-                <PlaceholderPage
-                  title="Practices Management"
-                  description="Manage doctor practice locations"
-                  icon={MapPin}
-                />
-              }
-            />
-            <Route
-              path="recommendations"
-              element={
-                <PlaceholderPage
-                  title="Recommendations Management"
-                  description="Manage doctor reviews and recommendations"
-                  icon={Star}
-                />
-              }
-            />
-          </Route>
+ {/* Doctor Management Submenus */}
+ <Route path="awards" element={<AwardsPage />} />
+ <Route path="qualifications" element={<QualificationsPage />} />
+ <Route path="specializations" element={<SpecializationsPage />} />
+ <Route
+ path="memberships"
+ element={
+ <PlaceholderPage
+ title="Memberships Management"
+ description="Manage doctor professional memberships"
+ icon={Users}
+ />
+ }
+ />
+ <Route
+ path="organizations"
+ element={
+ <PlaceholderPage
+ title="Organizations Management"
+ description="Manage doctor work history and organizations"
+ icon={Building}
+ />
+ }
+ />
+ <Route
+ path="registrations"
+ element={
+ <PlaceholderPage
+ title="Registrations Management"
+ description="Manage doctor licenses and registrations"
+ icon={FileText}
+ />
+ }
+ />
+ <Route
+ path="photos"
+ element={
+ <PlaceholderPage
+ title="Photos Management"
+ description="Manage doctor photo gallery"
+ icon={Camera}
+ />
+ }
+ />
+ <Route
+ path="practices"
+ element={
+ <PlaceholderPage
+ title="Practices Management"
+ description="Manage doctor practice locations"
+ icon={MapPin}
+ />
+ }
+ />
+ <Route
+ path="recommendations"
+ element={
+ <PlaceholderPage
+ title="Recommendations Management"
+ description="Manage doctor reviews and recommendations"
+ icon={Star}
+ />
+ }
+ />
+ </Route>
 
-          <Route path="/patients" element={<DashboardLayout />}>
-            <Route index element={<PatientsPage />} />
-            <Route path="add" element={<PatientForm />} />
-            <Route path=":id" element={<PatientDetail />} />
-            <Route path=":id/edit" element={<PatientForm mode="edit" />} />
-          </Route>
+ <Route path="/patients" element={<DashboardLayout />}>
+ <Route index element={<PatientsPage />} />
+ <Route path="add" element={<PatientForm />} />
+ <Route path=":id" element={<PatientDetail />} />
+ <Route path=":id/edit" element={<PatientForm mode="edit" />} />
+ </Route>
 
-          <Route path="/timing" element={<DashboardLayout />}>
-            <Route index element={<TimingPage />} />
-          </Route>
+ <Route path="/timing" element={<DashboardLayout />}>
+ <Route index element={<TimingPage />} />
+ </Route>
 
-          <Route path="/sessions" element={<DashboardLayout />}>
-            <Route index element={<SessionPage />} />
-            <Route path="add" element={<SessionForm />} />
-            <Route path=":id" element={<SessionForm />} />
-            <Route path=":id/edit" element={<SessionForm />} />
-            <Route path="types" element={<SessionTypesPage />} />
-          </Route>
+ <Route path="/sessions" element={<DashboardLayout />}>
+ <Route index element={<SessionPage />} />
+ <Route path="add" element={<SessionForm />} />
+ <Route path=":id" element={<SessionForm />} />
+ <Route path=":id/edit" element={<SessionForm />} />
+ <Route path="types" element={<SessionTypesPage />} />
+ </Route>
 
-          <Route path="/schedule" element={<DashboardLayout />}>
-            <Route index element={<SchedulePage />} />
-          </Route>
+ <Route path="/schedule" element={<DashboardLayout />}>
+ <Route index element={<SchedulePage />} />
+ </Route>
 
-          <Route path="/reports" element={<DashboardLayout />}>
-            <Route index element={<ReportPage />} />
-          </Route>
+ <Route path="/reports" element={<DashboardLayout />}>
+ <Route index element={<ReportPage />} />
+ </Route>
 
-          <Route path="/profile" element={<DashboardLayout />}>
-            <Route index element={<ProfilePage />} />
-          </Route>
-        </Route>
+ <Route path="/profile" element={<DashboardLayout />}>
+ <Route index element={<ProfilePage />} />
+ </Route>
+ </Route>
 
-        {/* Catch all route - redirect to dashboard */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </ErrorBoundary>
-  );
+ {/* Catch all route - redirect to dashboard */}
+ <Route path="*" element={<Navigate to="/dashboard" replace />} />
+ </Routes>
+ </ErrorBoundary>
+ );
 }
 
 export default App;

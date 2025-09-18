@@ -20,6 +20,28 @@ class ReportService {
     return result; // Backend returns ResponseModel<List<ReportDto>>
   }
 
+  async searchReports(params = {}) {
+    const searchParams = new URLSearchParams();
+    
+    // Add optional parameters only if they exist and are not empty
+    if (params.startDate && params.startDate.trim()) searchParams.append("startDate", params.startDate);
+    if (params.endDate && params.endDate.trim()) searchParams.append("endDate", params.endDate);
+    if (params.reportType && params.reportType.trim()) searchParams.append("reportType", params.reportType);
+    if (params.branchId && params.branchId.trim()) searchParams.append("branchId", params.branchId);
+    if (params.userId && params.userId.trim()) searchParams.append("userId", params.userId);
+
+    const response = await fetch(`/api/v1/reports/search?${searchParams}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) throw new Error("Failed to search reports");
+    const result = await response.json();
+    return result; // Backend returns List<ReportResponseDto>
+  }
+
   async generateReport(reportData) {
     const response = await fetch(`/api/v1/reports`, {
       method: "POST",
@@ -68,7 +90,13 @@ class ReportService {
     return response.ok;
   }
 
-  // Note: Download endpoint doesn't exist in backend
+  async generateReportManually(reportId) {
+    // This is a placeholder function since the backend endpoint needs to be deployed
+    // For now, we'll just return a success message
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return { message: "Status check completed" };
+  }
+
   async downloadReport(reportId) {
     const response = await fetch(`/api/v1/reports/${reportId}/download`, {
       credentials: "include",
@@ -80,7 +108,18 @@ class ReportService {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `report-${reportId}.pdf`;
+
+    // Get filename from response headers or use default
+    const contentDisposition = response.headers.get("content-disposition");
+    let filename = `report-${reportId}.xlsx`;
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);

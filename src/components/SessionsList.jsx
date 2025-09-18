@@ -1,17 +1,18 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
-  useGetAllSessions,
   useDeleteSession,
   useActivateSession,
   useDeactivateSession,
 } from "../hooks/useSessionQueries.js";
-import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import { useGetAllEnrichedSessions } from "../hooks/useEnrichedSessionQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import useUserStore from "../store/useUserStore.js";
+import { useBranchFilter } from "../hooks/useBranchFilter.js";
+import { useState, useMemo } from "react";
 
 const SessionsList = () => {
   const navigate = useNavigate();
@@ -23,22 +24,28 @@ const SessionsList = () => {
   });
   const { role } = useUserStore();
 
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
+
   // Client-side search state
   const [searchInputs, setSearchInputs] = useState({
     sessionType: "",
     doctor: "",
     minPrice: "",
     maxPrice: "",
+    status: "active", // Default to active sessions
   });
 
-  // Fetch doctors for dropdown and filtering
-  const { data: doctorsData } = useGetAllDoctors({ size: 100 });
-
-  // Fetch sessions
-  const { data, isLoading, error, refetch } = useGetAllSessions({
-    page: currentPage,
-    size: 1000, // Fetch all for client-side filtering
-  });
+  // Fetch enriched sessions - already includes doctor and practice details
+  const { data, isLoading, error, refetch } = useGetAllEnrichedSessions(
+    {
+      size: 1000, // Fetch all for client-side filtering
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
 
   // Mutations
   const deleteSession = useDeleteSession();
@@ -53,7 +60,8 @@ const SessionsList = () => {
       !searchInputs.sessionType &&
       !searchInputs.doctor &&
       !searchInputs.minPrice &&
-      !searchInputs.maxPrice
+      !searchInputs.maxPrice &&
+      !searchInputs.status
     ) {
       return allSessions;
     }
@@ -86,6 +94,13 @@ const SessionsList = () => {
         if (session.price > maxPrice) return false;
       }
 
+      // Status filter
+      if (searchInputs.status) {
+        if (searchInputs.status === "active" && !session.isActive) return false;
+        if (searchInputs.status === "inactive" && session.isActive)
+          return false;
+      }
+
       return true;
     });
   }, [data?.content, searchInputs]);
@@ -114,6 +129,7 @@ const SessionsList = () => {
       doctor: "",
       minPrice: "",
       maxPrice: "",
+      status: "active", // Reset to active
     });
     setCurrentPage(0);
   };
@@ -213,7 +229,7 @@ const SessionsList = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Session Type
@@ -235,6 +251,19 @@ const SessionsList = () => {
                   value={searchInputs.doctor}
                   onChange={(e) => handleInputChange("doctor", e.target.value)}
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  name="status"
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={searchInputs.status}
+                  onChange={(e) => handleInputChange("status", e.target.value)}
+                >
+                  <option value="all">All Sessions</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">
@@ -371,13 +400,24 @@ const SessionsList = () => {
                 >
                   Edit
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDeleteClick(session)}
-                >
-                  Delete
-                </Button>
+                {session.isActive ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDeleteClick(session)}
+                  >
+                    Delete
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleToggleActive(session)}
+                    disabled={activateSession.isPending}
+                  >
+                    {activateSession.isPending ? "Activating..." : "Activate"}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

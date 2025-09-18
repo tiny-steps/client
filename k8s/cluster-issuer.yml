@@ -9,6 +9,33 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-production-key
     solvers:
+      - selector:
+          dnsNames:
+          - "dev.tinystepscdc.com"
+        http01:
+          ingress:
+            class: traefik
+      - http01:
+          ingress:
+            class: nginx
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    email: subhankarm2312@gmail.com   # change to your email
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-key
+    solvers:
+      - selector:
+          dnsNames:
+          - "dev.tinystepscdc.com"
+        http01:
+          ingress:
+            class: traefik
       - http01:
           ingress:
             class: nginx

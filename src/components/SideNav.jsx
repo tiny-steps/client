@@ -77,7 +77,7 @@ export default function SideNav({
   return (
     <div
       ref={navRef}
-      className={`fixed top-[4rem] left-0 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 z-40 flex flex-col ${containerClassName}`}
+      className={`fixed top-[4rem] left-0 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 flex flex-col z-50 ${containerClassName}`}
       style={{
         width: isOpen ? 256 : 60,
         boxShadow: "0 2px 8px rgba(0,0,0,0.1)",

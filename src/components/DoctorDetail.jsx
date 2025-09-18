@@ -1,10 +1,15 @@
-import React, { useRef } from 'react';
-import { Link, useParams, useNavigate } from 'react-router';
-import { useGSAP } from '@gsap/react';
-import gsap from 'gsap';
-import { useGetDoctorById, useDeleteDoctor, useActivateDoctor, useDeactivateDoctor } from '../hooks/useDoctorQueries.js';
-import { Button } from './ui/button.jsx';
-import { Card } from './ui/card.jsx';
+import React, { useRef } from "react";
+import { Link, useParams, useNavigate } from "react-router";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import {
+  useGetDoctorById,
+  useDeleteDoctor,
+  useActivateDoctor,
+  useDeactivateDoctor,
+} from "../hooks/useDoctorQueries.js";
+import { Button } from "./ui/button.jsx";
+import { Card } from "./ui/card.jsx";
 
 const DoctorDetail = () => {
   const pageRef = useRef(null);
@@ -35,7 +40,7 @@ const DoctorDetail = () => {
         y: 0,
         opacity: 1,
         duration: 0.6,
-        ease: 'power3.out',
+        ease: "power3.out",
       }
     );
   }, []);
@@ -44,50 +49,50 @@ const DoctorDetail = () => {
     if (window.confirm(`Are you sure you want to delete ${doctor.name}?`)) {
       try {
         await deleteDoctorMutation.mutateAsync(doctor.id);
-        navigate('/doctors');
+        navigate("/doctors");
       } catch (error) {
-        console.error('Error deleting doctor:', error);
+        console.error("Error deleting doctor:", error);
       }
     }
   };
 
   const handleToggleStatus = async () => {
     try {
-      if (doctor.status === 'ACTIVE') {
+      if (doctor.status === "ACTIVE") {
         await deactivateDoctorMutation.mutateAsync(doctor.id);
       } else {
         await activateDoctorMutation.mutateAsync(doctor.id);
       }
     } catch (error) {
-      console.error('Error toggling doctor status:', error);
+      console.error("Error toggling doctor status:", error);
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800';
-      case 'INACTIVE':
-        return 'bg-gray-100 text-gray-800';
-      case 'SUSPENDED':
-        return 'bg-red-100 text-red-800';
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
+      case "ACTIVE":
+        return "bg-green-100 text-green-800";
+      case "INACTIVE":
+        return "bg-gray-100 text-gray-800";
+      case "SUSPENDED":
+        return "bg-red-100 text-red-800";
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'ACTIVE':
-        return 'Available';
-      case 'INACTIVE':
-        return 'Inactive';
-      case 'SUSPENDED':
-        return 'Suspended';
-      case 'PENDING':
-        return 'Pending';
+      case "ACTIVE":
+        return "Available";
+      case "INACTIVE":
+        return "Inactive";
+      case "SUSPENDED":
+        return "Suspended";
+      case "PENDING":
+        return "Pending";
       default:
         return status;
     }
@@ -108,9 +113,7 @@ const DoctorDetail = () => {
     return (
       <div className="p-6">
         <Card className="p-6 bg-red-50 border-red-200">
-          <p className="text-red-600">
-            Error loading doctor: {error.message}
-          </p>
+          <p className="text-red-600">Error loading doctor: {error.message}</p>
           <div className="flex space-x-2 mt-4">
             <Button onClick={() => refetch()} size="sm">
               Try Again
@@ -163,7 +166,11 @@ const DoctorDetail = () => {
                 {doctor.name}
               </h1>
               <div className="flex items-center space-x-4">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(doctor.status)}`}>
+                <span
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                    doctor.status
+                  )}`}
+                >
                   {getStatusText(doctor.status)}
                 </span>
                 {doctor.isVerified && (
@@ -185,36 +192,46 @@ const DoctorDetail = () => {
                 onClick={handleToggleStatus}
                 variant="outline"
                 className={
-                  doctor.status === 'ACTIVE'
-                    ? 'text-orange-600 hover:bg-orange-50'
-                    : 'text-green-600 hover:bg-green-50'
+                  doctor.status === "ACTIVE"
+                    ? "text-orange-600 hover:bg-orange-50"
+                    : "text-green-600 hover:bg-green-50"
                 }
-                disabled={activateDoctorMutation.isPending || deactivateDoctorMutation.isPending}
+                disabled={
+                  activateDoctorMutation.isPending ||
+                  deactivateDoctorMutation.isPending
+                }
               >
-                {activateDoctorMutation.isPending || deactivateDoctorMutation.isPending ? (
+                {activateDoctorMutation.isPending ||
+                deactivateDoctorMutation.isPending ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                    {doctor.status === 'ACTIVE' ? 'Deactivating...' : 'Activating...'}
+                    {doctor.status === "ACTIVE"
+                      ? "Deactivating..."
+                      : "Activating..."}
                   </>
+                ) : doctor.status === "ACTIVE" ? (
+                  "Deactivate"
                 ) : (
-                  doctor.status === 'ACTIVE' ? 'Deactivate' : 'Activate'
+                  "Activate"
                 )}
               </Button>
-              <Button
-                onClick={handleDeleteDoctor}
-                variant="outline"
-                className="text-red-600 hover:bg-red-50"
-                disabled={deleteDoctorMutation.isPending}
-              >
-                {deleteDoctorMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete'
-                )}
-              </Button>
+              {doctor.status === "ACTIVE" && (
+                <Button
+                  onClick={handleDeleteDoctor}
+                  variant="outline"
+                  className="text-red-600 hover:bg-red-50"
+                  disabled={deleteDoctorMutation.isPending}
+                >
+                  {deleteDoctorMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -234,19 +251,24 @@ const DoctorDetail = () => {
                 ) : (
                   <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
                     <span className="text-gray-600 text-4xl font-medium">
-                      {doctor.name.charAt(0)}
+                      {doctor.name}
                     </span>
                   </div>
                 )}
                 <h2 className="text-xl font-semibold">{doctor.name}</h2>
-                {doctor.specializations && doctor.specializations.length > 0 && (
-                  <p className="text-gray-600">{doctor.specializations[0].name}</p>
-                )}
+                {doctor.specializations &&
+                  doctor.specializations.length > 0 && (
+                    <p className="text-gray-600">
+                      {doctor.specializations[0].name}
+                    </p>
+                  )}
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Contact Information</h3>
+                  <h3 className="font-medium text-gray-900 mb-2">
+                    Contact Information
+                  </h3>
                   <div className="space-y-2 text-sm">
                     {doctor.email && (
                       <div>
@@ -270,11 +292,15 @@ const DoctorDetail = () => {
                 </div>
 
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Professional Details</h3>
+                  <h3 className="font-medium text-gray-900 mb-2">
+                    Professional Details
+                  </h3>
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="text-gray-500">Experience:</span>
-                      <span className="ml-2">{doctor.experienceYears} years</span>
+                      <span className="ml-2">
+                        {doctor.experienceYears} years
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-500">Gender:</span>
@@ -283,7 +309,8 @@ const DoctorDetail = () => {
                     <div>
                       <span className="text-gray-500">Rating:</span>
                       <span className="ml-2">
-                        {doctor.ratingAverage.toFixed(1)} ⭐ ({doctor.reviewCount} reviews)
+                        {doctor.ratingAverage?.toFixed(1)} ⭐ (
+                        {doctor.reviewCount} reviews)
                       </span>
                     </div>
                   </div>
@@ -298,7 +325,9 @@ const DoctorDetail = () => {
             {doctor.summary && (
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">About</h3>
-                <p className="text-gray-700 leading-relaxed">{doctor.summary}</p>
+                <p className="text-gray-700 leading-relaxed">
+                  {doctor.summary}
+                </p>
               </Card>
             )}
 
@@ -324,15 +353,21 @@ const DoctorDetail = () => {
               <h3 className="text-lg font-semibold mb-4">Statistics</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{doctor.experienceYears}</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {doctor.experienceYears}
+                  </div>
                   <div className="text-sm text-gray-500">Years Experience</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{doctor.ratingAverage.toFixed(1)}</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {doctor.ratingAverage?.toFixed(1)}
+                  </div>
                   <div className="text-sm text-gray-500">Average Rating</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{doctor.reviewCount}</div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {doctor.reviewCount}
+                  </div>
                   <div className="text-sm text-gray-500">Total Reviews</div>
                 </div>
               </div>

@@ -1,17 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { scheduleService } from '../services/scheduleService.js';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { scheduleService } from "../services/scheduleService.js";
 
 // Appointment Queries
 export const useGetAllAppointments = (params = {}) => {
   return useQuery({
-    queryKey: ['appointments', params],
+    queryKey: ["appointments", params],
     queryFn: () => scheduleService.getAllAppointments(params),
   });
 };
 
 export const useGetAppointmentById = (id) => {
   return useQuery({
-    queryKey: ['appointments', id],
+    queryKey: ["appointments", id],
     queryFn: () => scheduleService.getAppointmentById(id),
     enabled: !!id,
   });
@@ -20,9 +20,10 @@ export const useGetAppointmentById = (id) => {
 export const useCreateAppointment = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (appointmentData) => scheduleService.createAppointment(appointmentData),
+    mutationFn: (appointmentData) =>
+      scheduleService.createAppointment(appointmentData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
   });
 };
@@ -30,9 +31,10 @@ export const useCreateAppointment = () => {
 export const useUpdateAppointment = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, appointmentData }) => scheduleService.updateAppointment(id, appointmentData),
+    mutationFn: ({ id, appointmentData }) =>
+      scheduleService.updateAppointment(id, appointmentData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
   });
 };
@@ -42,17 +44,31 @@ export const useDeleteAppointment = () => {
   return useMutation({
     mutationFn: (id) => scheduleService.deleteAppointment(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
   });
 };
 
+// New unified status change hook
+export const useChangeAppointmentStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, statusData }) =>
+      scheduleService.changeAppointmentStatus(id, statusData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    },
+  });
+};
+
+// Legacy hooks for backward compatibility (deprecated)
 export const useCancelAppointment = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, reason }) => scheduleService.cancelAppointment(id, reason),
+    mutationFn: ({ id, cancellationData }) =>
+      scheduleService.cancelAppointment(id, cancellationData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
   });
 };
@@ -60,17 +76,29 @@ export const useCancelAppointment = () => {
 export const useRescheduleAppointment = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, newDateTime }) => scheduleService.rescheduleAppointment(id, newDateTime),
+    mutationFn: ({ id, newDateTime }) =>
+      scheduleService.rescheduleAppointment(id, newDateTime),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
   });
 };
 
 export const useGetAppointmentHistory = (appointmentId) => {
   return useQuery({
-    queryKey: ['appointments', appointmentId, 'history'],
+    queryKey: ["appointments", appointmentId, "history"],
     queryFn: () => scheduleService.getAppointmentHistory(appointmentId),
     enabled: !!appointmentId,
+  });
+};
+
+export const useCompleteAppointment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, completionData }) =>
+      scheduleService.completeAppointment(id, completionData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    },
   });
 };

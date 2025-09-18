@@ -137,3 +137,30 @@ export const useDeleteEnrichedPatient = () => {
     },
   });
 };
+
+export const useUpdatePatientEmail = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, newEmail }) =>
+      patientService.updatePatientEmail(id, newEmail),
+    onSuccess: (data, { id }) => {
+      queryClient.invalidateQueries({
+        queryKey: enrichedPatientKeys.detail(id),
+      });
+      queryClient.invalidateQueries({ queryKey: enrichedPatientKeys.lists() });
+    },
+  });
+};
+
+export const useReactivatePatient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: patientService.reactivatePatient,
+    onSuccess: (data, patientId) => {
+      queryClient.invalidateQueries({
+        queryKey: enrichedPatientKeys.detail(patientId),
+      });
+      queryClient.invalidateQueries({ queryKey: enrichedPatientKeys.lists() });
+    },
+  });
+};

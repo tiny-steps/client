@@ -98,8 +98,9 @@ class AwardService {
   }
 
   async deleteAward(awardId) {
-    const response = await fetch(`/api/v1/awards/${awardId}`, {
-      method: "DELETE",
+    // Use soft delete for awards to preserve professional history
+    const response = await fetch(`/api/v1/awards/${awardId}/soft-delete`, {
+      method: "PATCH",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -110,6 +111,23 @@ class AwardService {
       const error = await response.json();
       throw new Error(error.message || "Failed to delete award");
     }
+    return response.json();
+  }
+
+  async reactivateAward(awardId) {
+    const response = await fetch(`/api/v1/awards/${awardId}/reactivate`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate award");
+    }
+    return response.json();
   }
 
   async createAwardsBatch(doctorId, awardsData) {

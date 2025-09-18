@@ -1,10 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { sessionService } from '../services/sessionService.js';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { sessionService } from "../services/sessionService.js";
 
 // Session Queries
 export const useGetAllSessions = (params = {}, options = {}) => {
   return useQuery({
-    queryKey: ['sessions', params],
+    queryKey: ["sessions", params],
     queryFn: () => sessionService.getAllSessions(params),
     ...options,
   });
@@ -12,7 +12,7 @@ export const useGetAllSessions = (params = {}, options = {}) => {
 
 export const useGetSessionById = (id) => {
   return useQuery({
-    queryKey: ['sessions', id],
+    queryKey: ["sessions", id],
     queryFn: () => sessionService.getSessionById(id),
     enabled: !!id,
   });
@@ -23,7 +23,9 @@ export const useCreateSession = () => {
   return useMutation({
     mutationFn: (sessionData) => sessionService.createSession(sessionData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -31,9 +33,12 @@ export const useCreateSession = () => {
 export const useUpdateSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, sessionData }) => sessionService.updateSession(id, sessionData),
+    mutationFn: ({ id, sessionData }) =>
+      sessionService.updateSession(id, sessionData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -43,7 +48,9 @@ export const useDeleteSession = () => {
   return useMutation({
     mutationFn: (id) => sessionService.deleteSession(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -53,7 +60,9 @@ export const useActivateSession = () => {
   return useMutation({
     mutationFn: (id) => sessionService.activateSession(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -63,7 +72,21 @@ export const useDeactivateSession = () => {
   return useMutation({
     mutationFn: (id) => sessionService.deactivateSession(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
+    },
+  });
+};
+
+export const useReactivateSession = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => sessionService.reactivateSession(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSession"] });
     },
   });
 };
@@ -71,14 +94,14 @@ export const useDeactivateSession = () => {
 // Session Type Queries
 export const useGetAllSessionTypes = (params = {}) => {
   return useQuery({
-    queryKey: ['session-types', params],
+    queryKey: ["session-types", params],
     queryFn: () => sessionService.getAllSessionTypes(params),
   });
 };
 
 export const useGetSessionTypeById = (id) => {
   return useQuery({
-    queryKey: ['session-types', id],
+    queryKey: ["session-types", id],
     queryFn: () => sessionService.getSessionTypeById(id),
     enabled: !!id,
   });
@@ -87,9 +110,11 @@ export const useGetSessionTypeById = (id) => {
 export const useCreateSessionType = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (sessionTypeData) => sessionService.createSessionType(sessionTypeData),
+    mutationFn: (sessionTypeData) =>
+      sessionService.createSessionType(sessionTypeData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
+      queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -97,9 +122,11 @@ export const useCreateSessionType = () => {
 export const useUpdateSessionType = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, sessionTypeData }) => sessionService.updateSessionType(id, sessionTypeData),
+    mutationFn: ({ id, sessionTypeData }) =>
+      sessionService.updateSessionType(id, sessionTypeData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
+      queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -109,7 +136,8 @@ export const useDeleteSessionType = () => {
   return useMutation({
     mutationFn: (id) => sessionService.deleteSessionType(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
+      queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -119,7 +147,8 @@ export const useActivateSessionType = () => {
   return useMutation({
     mutationFn: (id) => sessionService.activateSessionType(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
+      queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };
@@ -129,7 +158,30 @@ export const useDeactivateSessionType = () => {
   return useMutation({
     mutationFn: (id) => sessionService.deactivateSessionType(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
+      queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+    },
+  });
+};
+
+export const useSoftDeleteSessionType = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => sessionService.softDeleteSessionType(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
+    },
+  });
+};
+
+export const useReactivateSessionType = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => sessionService.reactivateSessionType(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["session-types"] });
+      queryClient.invalidateQueries({ queryKey: ["enrichedSessions"] });
     },
   });
 };

@@ -3,78 +3,150 @@
 class TimingService {
   async getAllAvailabilities(params = {}) {
     try {
-      // First, get all doctors
-      const doctorsResponse = await fetch("/api/v1/doctors?size=100", {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      console.log(
+        "🔍 TimingService Debug - Using branch-specific availability endpoint"
+      );
 
-      if (!doctorsResponse.ok) {
-        console.warn("Failed to fetch doctors for availability aggregation");
-        return { data: { content: [] } };
-      }
+      let availabilities = [];
 
-      const doctorsData = await doctorsResponse.json();
-      const doctors = doctorsData.data?.content || [];
+      // If branchId is provided, use the branch-specific endpoint
+      if (params.branchId) {
+        const searchParams = new URLSearchParams();
+        if (params.page !== undefined) searchParams.append("page", params.page);
+        if (params.size !== undefined) searchParams.append("size", params.size);
+        if (params.doctorId) searchParams.append("doctorId", params.doctorId);
+        if (params.isActive !== undefined)
+          searchParams.append("isActive", params.isActive);
 
-      console.log("🔍 TimingService Debug - Doctors:", doctors);
-
-      // Then, fetch availability for each doctor
-      const allAvailabilities = [];
-      const searchParams = new URLSearchParams();
-      if (params.date) searchParams.append("date", params.date);
-      if (params.startDate) searchParams.append("startDate", params.startDate);
-      if (params.endDate) searchParams.append("endDate", params.endDate);
-
-      for (const doctor of doctors) {
-        try {
-          const availabilityResponse = await fetch(
-            `/api/v1/timings/doctors/${doctor.id}/availabilities?${searchParams}`,
-            {
-              credentials: "include",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (availabilityResponse.ok) {
-            const availabilityData = await availabilityResponse.json();
-            const availabilities = availabilityData.data?.content || [];
-
-            console.log(
-              `🔍 TimingService Debug - Doctor ${doctor.id} availabilities:`,
-              availabilities
-            );
-
-            // Add doctor information to each availability
-            const enrichedAvailabilities = availabilities.map(
-              (availability) => ({
-                ...availability,
-                doctorId: doctor.id,
-                doctorName:
-                  doctor.name ||
-                  `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim(),
-              })
-            );
-
-            allAvailabilities.push(...enrichedAvailabilities);
+        // Use a placeholder doctorId in the path (required by API design) and actual filtering via request params
+        // The API design requires a doctorId path variable but uses request parameters for actual filtering
+        const placeholderDoctorId = "00000000-0000-0000-0000-000000000000";
+        const response = await fetch(
+          `/api/v1/timings/doctors/${placeholderDoctorId}/availabilities/branch/${params.branchId}?${searchParams}`,
+          {
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
           }
-        } catch (error) {
-          console.warn(
-            `Failed to fetch availability for doctor ${doctor.id}:`,
-            error
-          );
+        );
+
+        if (!response.ok) {
+          console.warn("Failed to fetch availabilities from branch endpoint");
+          return { data: { content: [] } };
         }
+
+        const responseData = await response.json();
+        availabilities = responseData.content || [];
+      } else {
+        // Fallback to the general endpoint for admin users
+        const response = await fetch(`/api/v1/timings`, {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          console.warn("Failed to fetch availabilities from general endpoint");
+          return { data: { content: [] } };
+        }
+
+        const responseData = await response.json();
+        availabilities = responseData.data || [];
       }
 
       console.log(
-        "🔍 TimingService Debug - Final aggregated availabilities:",
-        allAvailabilities
+        "🔍 TimingService Debug - Availabilities from new API:",
+        availabilities
       );
-      return { data: { content: allAvailabilities } };
+
+      // Get doctor names to enrich the data
+      let doctorsResponse;
+      if (params.branchId) {
+        // Use branch-specific endpoint for doctors
+        const doctorsSearchParams = new URLSearchParams();
+        doctorsSearchParams.append("size", "100");
+
+        doctorsResponse = await fetch(
+          `/api/v1/doctors/branch/${params.branchId}?${doctorsSearchParams}`,
+          {
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      } else {
+        // Use general endpoint for doctors
+        const doctorsSearchParams = new URLSearchParams();
+        doctorsSearchParams.append("size", "100");
+
+        doctorsResponse = await fetch(
+          `/api/v1/doctors?${doctorsSearchParams}`,
+          {
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      let doctorsMap = new Map();
+      if (doctorsResponse.ok) {
+        const doctorsData = await doctorsResponse.json();
+        const doctors = doctorsData.data?.content || [];
+        console.log("🔍 TimingService Debug - Doctors data:", doctors);
+
+        doctorsMap = new Map(
+          doctors.map((doctor) => [
+            doctor.id,
+            doctor.name ||
+              `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim(),
+          ])
+        );
+        console.log(
+          "🔍 TimingService Debug - Doctors map:",
+          Array.from(doctorsMap.entries())
+        );
+      } else {
+        console.warn("⚠️ Failed to fetch doctors data");
+      }
+
+      // Filter out availabilities with empty durations FIRST, then enrich with doctor names
+      const validAvailabilities = availabilities.filter(
+        (availability) =>
+          availability.active &&
+          availability.durations &&
+          availability.durations.length > 0 &&
+          availability.durations.some(
+            (duration) =>
+              duration.startTime &&
+              duration.endTime &&
+              duration.startTime !== duration.endTime
+          )
+      );
+
+      const enrichedAvailabilities = validAvailabilities.map((availability) => {
+        const doctorName = doctorsMap.get(availability.doctorId);
+        if (!doctorName) {
+          console.warn(
+            `⚠️ Doctor name not found for ID: ${availability.doctorId}`
+          );
+        }
+        return {
+          ...availability,
+          doctorName: doctorName || "Unknown Doctor",
+        };
+      });
+
+      console.log(
+        "🔍 TimingService Debug - Final enriched availabilities:",
+        enrichedAvailabilities
+      );
+
+      return { data: { content: enrichedAvailabilities } };
     } catch (error) {
       console.error("Error fetching all availabilities:", error);
       return { data: { content: [] } };
@@ -142,10 +214,11 @@ class TimingService {
   }
 
   async deleteAvailability(doctorId, availabilityId) {
+    // Use soft delete for availability to preserve historical data
     const response = await fetch(
-      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}`,
+      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/soft-delete`,
       {
-        method: "DELETE",
+        method: "PATCH",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -157,7 +230,26 @@ class TimingService {
       const error = await response.json();
       throw new Error(error.message || "Failed to delete availability");
     }
-    return response.ok;
+    return response.json();
+  }
+
+  async reactivateAvailability(doctorId, availabilityId) {
+    const response = await fetch(
+      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/reactivate`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate availability");
+    }
+    return response.json();
   }
 
   async getDoctorTimeOffs(doctorId, params = {}) {
@@ -200,6 +292,7 @@ class TimingService {
   }
 
   async updateDuration(doctorId, availabilityId, durationId, data) {
+    data.availability = availabilityId;
     const response = await fetch(
       `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/durations/${durationId}`,
       {
@@ -255,6 +348,27 @@ class TimingService {
       throw new Error(error.message || "Failed to delete time off");
     }
     return response.ok;
+  }
+
+  async getTimeSlots(doctorId, date, practiceId = null, branchId = null) {
+    const response = await fetch("/api/v1/timings", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        doctorId,
+        date,
+        practiceId,
+        branchId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch time slots");
+    }
+    return response.json();
   }
 }
 

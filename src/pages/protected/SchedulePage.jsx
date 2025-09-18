@@ -1,50 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useOutletContext } from "react-router";
 import { useUserProfile } from "@/hooks/useUserQuery.js";
 import DashboardHeader from "@/components/dashboard/DashboardHeader.jsx";
 import CalendarView from "@/components/CalendarView.jsx";
 import DayDetailView from "./DayDetailView.jsx";
+import EnhancedAppointmentModal from "@/components/EnhancedAppointmentModal.jsx";
 import { useGetAllEnrichedDoctors } from "@/hooks/useEnrichedDoctorQueries.js";
 import { useGetAllEnrichedPatients } from "@/hooks/useEnrichedPatientQueries.js";
 import {
   useGetAllAppointments,
   useCreateAppointment,
 } from "@/hooks/useScheduleQueries.js";
-import { useGetDoctorAvailability } from "@/hooks/useTimingQueries.js";
+import {
+  useGetDoctorAvailability,
+  useGetTimeSlots,
+} from "@/hooks/useTimingQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card.jsx";
-import { Button } from "@/components/ui/button.jsx";
-import { Input } from "@/components/ui/input.jsx";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form.jsx";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-
-const appointmentSchema = z.object({
-  patientId: z.string().min(1, "Patient is required"),
-  doctorId: z.string().min(1, "Doctor is required"),
-  appointmentDate: z.string().min(1, "Date is required"),
-  startTime: z.string().min(1, "Time is required"),
-  sessionId: z.string().min(1, "Session is required"),
-  consultationType: z.string().default("IN_PERSON"),
-  notes: z.string().optional(),
-});
+import { useBranchFilter } from "@/hooks/useBranchFilter.js";
 
 const SchedulePage = () => {
   const { activeItem } = useOutletContext();
   const { data: user } = useUserProfile();
+
+  // Get the effective branch ID for filtering
+  const { branchId, hasSelection } = useBranchFilter();
 
   // Helper function to format date as YYYY-MM-DD using local timezone
   const formatLocalDate = (date) => {
@@ -60,47 +39,81 @@ const SchedulePage = () => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [showDayDetail, setShowDayDetail] = useState(false);
 
-  const form = useForm({
-    resolver: zodResolver(appointmentSchema),
-    defaultValues: {
-      patientId: "",
-      doctorId: selectedDoctor,
-      appointmentDate: selectedDate,
-      startTime: "",
-      sessionId: "",
-      consultationType: "IN_PERSON",
-      notes: "",
+  const { data: doctorsData } = useGetAllEnrichedDoctors(
+    {
+      size: 100,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
     },
-  });
-
-  const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
-  const { data: patientsData } = useGetAllEnrichedPatients({ size: 100 });
-  const { data: appointmentsData } = useGetAllAppointments({ size: 100 });
-  const { data: availabilityData } = useGetDoctorAvailability(
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
+  const { data: patientsData } = useGetAllEnrichedPatients(
+    {
+      size: 100,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
+  const { data: appointmentsData } = useGetAllAppointments(
+    {
+      size: 100,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
+  const { data: timeSlotsData } = useGetTimeSlots(
     selectedDoctor,
-    { date: selectedDate },
-    { enabled: !!selectedDoctor }
+    selectedDate,
+    null, // practiceId
+    branchId, // branchId
+    { enabled: !!selectedDoctor && hasSelection }
   );
   const createAppointmentMutation = useCreateAppointment();
   const {
     data: sessionsData,
     isLoading: sessionsLoading,
     error: sessionsError,
-  } = useGetAllSessions({
-    isActive: true,
-    size: 100,
-  });
+  } = useGetAllSessions(
+    {
+      isActive: true,
+      size: 100,
+      ...(branchId && { branchId }), // Only include branchId if it's not null
+    },
+    {
+      enabled: hasSelection, // Fetch when we have a selection (including "all")
+    }
+  );
 
   const doctors = doctorsData?.data?.content || [];
   const patients = patientsData?.data?.content || [];
   const appointments = appointmentsData?.data?.content || [];
-  const availabilities = availabilityData || [];
+  const timeSlots = timeSlotsData?.data?.slots || [];
+
+  // Set the first doctor as default when doctors data is loaded or branch changes
+  useEffect(() => {
+    if (doctors.length > 0) {
+      const firstDoctor = doctors[0];
+      setSelectedDoctor(firstDoctor.id);
+    } else {
+      // Clear selected doctor if no doctors available for the branch
+      setSelectedDoctor("");
+    }
+  }, [doctors, branchId]); // Reset when branchId changes
 
   // Filter sessions by selected doctor on the frontend
   const allSessions = sessionsData?.content || [];
 
-  // Enrich appointments with patient, doctor, and session information
-  const enrichedAppointments = appointments.map((appointment) => {
+  // Filter out cancelled appointments and enrich with patient, doctor, and session information
+  const activeAppointments = appointments.filter(
+    (appointment) => appointment.status?.toUpperCase() !== "CANCELLED"
+  );
+
+  const enrichedAppointments = activeAppointments.map((appointment) => {
     const patient = patients.find((p) => p.id === appointment.patientId);
     const doctor = doctors.find((d) => d.id === appointment.doctorId);
     const session = allSessions.find(
@@ -150,79 +163,19 @@ const SchedulePage = () => {
   );
   console.log("Sessions for selected doctor:", doctorSessions);
 
-  // Filter availabilities by the selected date's day of week
-  const selectedDateObj = new Date(selectedDate);
-  const dayOfWeek = selectedDateObj.getDay();
-  const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-  const filteredAvailabilities = availabilities.filter((availability) => {
-    return availability.dayOfWeek === backendDayOfWeek && availability.active;
-  });
-
-  // Helper function to generate available time slots for the selected date
-  const generateAvailableTimeSlots = () => {
-    if (!selectedDoctor || !availabilities.length) return [];
-
-    // Recalculate filtered availabilities based on current selectedDate
-    const selectedDateObj = new Date(selectedDate);
-    const dayOfWeek = selectedDateObj.getDay();
-    const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
-    const dayAvailabilities = availabilities.filter((availability) => {
-      return availability.dayOfWeek === backendDayOfWeek && availability.active;
-    });
-
-    const availableSlots = new Set();
-    dayAvailabilities.forEach((availability) => {
-      if (availability.durations) {
-        availability.durations.forEach((duration) => {
-          if (duration.startTime && duration.endTime) {
-            const start = new Date(`2000-01-01T${duration.startTime}`);
-            let end = new Date(`2000-01-01T${duration.endTime}`);
-
-            // Handle case where end time is earlier than start time (crosses midnight)
-            if (end < start) {
-              const endHour = parseInt(duration.endTime.split(":")[0]);
-              if (
-                endHour < 12 &&
-                endHour < parseInt(duration.startTime.split(":")[0])
-              ) {
-                // This looks like it should be PM, not AM
-                const correctedEndTime = duration.endTime.replace(
-                  /^(\d{1,2}):/,
-                  (match, hour) => {
-                    const correctedHour = parseInt(hour) + 12;
-                    return `${correctedHour.toString().padStart(2, "0")}:`;
-                  }
-                );
-                end = new Date(`2000-01-01T${correctedEndTime}`);
-              } else {
-                end.setDate(end.getDate() + 1);
-              }
-            }
-
-            while (start < end) {
-              availableSlots.add(start.toTimeString().slice(0, 5));
-              start.setMinutes(start.getMinutes() + 30);
-            }
-          }
-        });
-      }
-    });
-    const timeSlots = Array.from(availableSlots).sort();
-    return timeSlots;
-  };
+  // Get available time slots from the API
+  const availableTimeSlots = timeSlots
+    .filter((slot) => slot.status === "available")
+    .map((slot) => slot.startTime.substring(0, 5))
+    .sort();
 
   const handleTimeSlotClick = (time) => {
     setSelectedTimeSlot(time);
-    form.setValue("startTime", time);
-    form.setValue("doctorId", selectedDoctor);
-    form.setValue("appointmentDate", selectedDate);
     setShowAppointmentModal(true);
   };
 
   const handleDateClick = (date) => {
     setSelectedDate(date);
-    form.setValue("appointmentDate", date);
-    form.setValue("doctorId", selectedDoctor);
     setShowAppointmentModal(true);
   };
 
@@ -258,15 +211,6 @@ const SchedulePage = () => {
       console.log("Appointment created successfully!");
       setShowAppointmentModal(false);
       setSelectedTimeSlot(null);
-      form.reset({
-        patientId: "",
-        doctorId: selectedDoctor,
-        appointmentDate: selectedDate,
-        startTime: "",
-        sessionId: "",
-        consultationType: "IN_PERSON",
-        notes: "",
-      });
     } catch (error) {
       console.error("Failed to create appointment:", error);
       // You might want to show an error message to the user here
@@ -280,7 +224,7 @@ const SchedulePage = () => {
         activeItemDescription={activeItem.description}
       />
 
-      <div className="mx-20 pl-10">
+      <div className="px-4 sm:px-6">
         {showDayDetail ? (
           <DayDetailView
             selectedDate={selectedDate}
@@ -291,19 +235,21 @@ const SchedulePage = () => {
         ) : (
           <CalendarView
             appointments={enrichedAppointments}
-            availabilities={availabilities}
-            filteredAvailabilities={filteredAvailabilities}
+            timeSlots={timeSlots}
+            availableTimeSlots={availableTimeSlots}
             selectedDoctor={selectedDoctor}
             selectedDate={selectedDate}
             onDateChange={setSelectedDate}
             onDoctorChange={setSelectedDoctor}
             doctors={doctors}
+            patients={patients}
             onTimeSlotClick={handleTimeSlotClick}
             onDateClick={handleDateClick}
             showAppointmentModal={showAppointmentModal}
             setShowAppointmentModal={setShowAppointmentModal}
             selectedTimeSlot={selectedTimeSlot}
             setSelectedTimeSlot={setSelectedTimeSlot}
+            branchId={branchId}
             onAppointmentClick={(appointment) => {
               console.log("Appointment clicked:", appointment);
               // TODO: Open appointment details modal
@@ -315,16 +261,6 @@ const SchedulePage = () => {
               );
               setSelectedDate(date);
               setShowDayDetail(true);
-            }}
-            onCancelAppointment={(appointment) => {
-              if (
-                window.confirm(
-                  `Cancel appointment for ${appointment.patientName}?`
-                )
-              ) {
-                console.log("Cancelling appointment:", appointment);
-                // TODO: Call cancel appointment API
-              }
             }}
           />
         )}
@@ -376,215 +312,23 @@ const SchedulePage = () => {
         )}
       </div>
 
-      {/* Appointment Creation Modal */}
-      {showAppointmentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle>Create New Appointment</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(handleAppointmentSubmit)}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={form.control}
-                    name="patientId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Patient *</FormLabel>
-                        <FormControl>
-                          <select
-                            {...field}
-                            className="w-full px-3 py-2 border rounded-md"
-                          >
-                            <option value="">Select a patient...</option>
-                            {patients.map((patient) => (
-                              <option key={patient.id} value={patient.id}>
-                                {patient.firstName} {patient.lastName} -{" "}
-                                {patient.email}
-                              </option>
-                            ))}
-                          </select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="doctorId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Doctor *</FormLabel>
-                        <FormControl>
-                          <select
-                            {...field}
-                            className="w-full px-3 py-2 border rounded-md"
-                          >
-                            <option value="">Select a doctor...</option>
-                            {doctors.map((doctor) => (
-                              <option key={doctor.id} value={doctor.id}>
-                                {doctor.firstName} {doctor.lastName} -{" "}
-                                {doctor.speciality || "General"}
-                              </option>
-                            ))}
-                          </select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="appointmentDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date *</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} className="w-full" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="startTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Time *</FormLabel>
-                        <FormControl>
-                          <select
-                            {...field}
-                            className="w-full px-3 py-2 border rounded-md"
-                          >
-                            <option value="">Select a time...</option>
-                            {generateAvailableTimeSlots().map((time) => (
-                              <option key={time} value={time}>
-                                {time}
-                              </option>
-                            ))}
-                          </select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sessionId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Session *</FormLabel>
-                        <FormControl>
-                          <select
-                            {...field}
-                            className="w-full px-3 py-2 border rounded-md"
-                            disabled={sessions.length === 0}
-                          >
-                            <option value="">Select a session...</option>
-                            {sessions.length === 0 ? (
-                              <option value="" disabled>
-                                No sessions available for this doctor
-                              </option>
-                            ) : (
-                              sessions.map((session) => (
-                                <option key={session.id} value={session.id}>
-                                  {session.sessionType?.name ||
-                                    "Unknown Session"}{" "}
-                                  - ${session.price}
-                                </option>
-                              ))
-                            )}
-                          </select>
-                        </FormControl>
-                        {sessions.length === 0 && (
-                          <div className="mt-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-3">
-                            <div className="flex items-start">
-                              <svg
-                                className="h-4 w-4 text-amber-400 mt-0.5 mr-2 flex-shrink-0"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              <div>
-                                <p className="font-medium">
-                                  No sessions available for this doctor
-                                </p>
-                                <p className="text-xs mt-1">
-                                  Please create sessions for this doctor in the
-                                  Sessions page, or select a different doctor
-                                  who has sessions.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes</FormLabel>
-                        <FormControl>
-                          <textarea
-                            {...field}
-                            className="w-full px-3 py-2 border rounded-md"
-                            rows={3}
-                            placeholder="Optional notes..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex gap-4 pt-4">
-                    <Button
-                      type="submit"
-                      className="flex-1"
-                      disabled={createAppointmentMutation.isPending}
-                    >
-                      {createAppointmentMutation.isPending
-                        ? "Creating..."
-                        : "Create Appointment"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowAppointmentModal(false);
-                        setSelectedTimeSlot(null);
-                        form.reset();
-                      }}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Enhanced Appointment Creation Modal */}
+      <EnhancedAppointmentModal
+        isOpen={showAppointmentModal}
+        onClose={() => {
+          setShowAppointmentModal(false);
+          setSelectedTimeSlot(null);
+        }}
+        onSubmit={handleAppointmentSubmit}
+        selectedDoctor={selectedDoctor}
+        selectedDate={selectedDate}
+        selectedTimeSlot={selectedTimeSlot}
+        patients={patients}
+        doctors={doctors}
+        sessions={sessions}
+        appointments={appointments}
+        isLoading={createAppointmentMutation.isPending}
+      />
     </>
   );
 };

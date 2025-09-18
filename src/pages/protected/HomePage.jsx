@@ -55,6 +55,7 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header isNavOpen={isNavOpen} setIsNavOpen={setIsNavOpen} />
+
       <SideNav
         isOpen={isNavOpen}
         setIsOpen={setIsNavOpen}
@@ -64,8 +65,8 @@ function HomePage() {
         bottomContent={bottomItems}
       />
 
-      {/* Main content area with dynamic left margin */}
-      <main className="transition-all duration-400 ease-in-out pt-16 h-screen w-screen">
+      {/* Main content area - fixed position, no margin shifts */}
+      <main className="transition-all duration-400 ease-in-out pt-16 h-screen w-screen px-4 sm:px-6 lg:px-8 ml-16">
         <DashboardHeader
           userName={user?.data.name}
           activeItemDescription={activeItem.description}
@@ -80,8 +81,12 @@ function HomePage() {
           onSlotSelection={handleSlotSelection}
         />
 
-        <div className="mx-20 pl-10">
-          <CalendarView appointments={appointments} doctors={doctors} />
+        <div>
+          <CalendarView
+            appointments={appointments}
+            doctors={doctors}
+            branchId={null}
+          />
         </div>
       </main>
     </div>

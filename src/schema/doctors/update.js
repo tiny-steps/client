@@ -8,16 +8,6 @@ export const UpdateDoctorSchema = z.object({
     .min(1, "Doctor name is required")
     .max(200, "Doctor name must not exceed 200 characters")
     .optional(),
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Email should be valid")
-    .optional(),
-  phone: z
-    .string()
-    .min(1, "Phone is required")
-    .max(20, "Phone must not exceed 20 characters")
-    .optional(),
   slug: z
     .string()
     .max(200, "Slug must not exceed 200 characters")
@@ -72,16 +62,6 @@ export const PartialUpdateDoctorSchema = z
       .string()
       .min(1, "Doctor name is required")
       .max(200, "Doctor name must not exceed 200 characters")
-      .optional(),
-    email: z
-      .string()
-      .min(1, "Email is required")
-      .email("Email should be valid")
-      .optional(),
-    phone: z
-      .string()
-      .min(1, "Phone is required")
-      .max(20, "Phone must not exceed 20 characters")
       .optional(),
     slug: z
       .string()
@@ -138,29 +118,32 @@ export const UpdateDoctorFormSchema = z.object({
   name: z
     .string()
     .min(1, "Doctor name is required")
-    .max(200, "Doctor name must not exceed 200 characters")
-    .optional(),
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Email should be valid")
-    .optional(),
-  phone: z
-    .string()
-    .min(1, "Phone is required")
-    .max(20, "Phone must not exceed 20 characters")
-    .optional(),
-  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
+    .max(200, "Doctor name must not exceed 200 characters"),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"], {
+    required_error: "Gender is required",
+  }),
   summary: z.string().optional(),
   about: z.string().optional(),
   imageUrl: z.string().optional(),
   experienceYears: z
-    .number()
+    .number({ required_error: "Experience years is required" })
     .int()
     .min(0, "Experience years must be non-negative")
-    .max(100, "Experience years must not exceed 100")
+    .max(100, "Experience years must not exceed 100"),
+  speciality: z.string().min(1, "Speciality is required"),
+  branchId: z.string().min(1, "Branch selection is required"),
+  // Password is optional for updates - only validate if not empty
+  password: z
+    .string()
+    .refine(
+      (val) => !val || val.length >= 8,
+      "Password must be at least 8 characters"
+    )
+    .refine(
+      (val) => !val || val.length <= 100,
+      "Password must not exceed 100 characters"
+    )
     .optional(),
-  speciality: z.string().min(1, "Speciality is required").optional(),
 });
 
 // Schema for activating/deactivating doctor

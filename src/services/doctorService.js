@@ -2,14 +2,55 @@
 
 class DoctorService {
   async getAllDoctors(params = {}) {
-    const searchParams = new URLSearchParams();
+    // Set default to fetch only active doctors unless explicitly specified otherwise
+    // Remove status from params if undefined to avoid sending empty values
+    const cleanParams = { ...params };
+    if (cleanParams.status === undefined) {
+      cleanParams.status = "ACTIVE"; // Default to active doctors only
+    }
 
-    if (params.page !== undefined) searchParams.append("page", params.page);
-    if (params.size !== undefined) searchParams.append("size", params.size);
-    if (params.name) searchParams.append("name", params.name);
-    if (params.speciality) searchParams.append("speciality", params.speciality);
-    if (params.minExperience)
-      searchParams.append("minExperience", params.minExperience);
+    // If branchId is provided, use the branch-specific endpoint
+    if (cleanParams.branchId) {
+      const searchParams = new URLSearchParams();
+      if (cleanParams.page !== undefined)
+        searchParams.append("page", cleanParams.page);
+      if (cleanParams.size !== undefined)
+        searchParams.append("size", cleanParams.size);
+      // Only append status if it has a defined value
+      if (cleanParams.status !== undefined)
+        searchParams.append("status", cleanParams.status);
+
+      const response = await fetch(
+        `/api/v1/doctors/branch/${cleanParams.branchId}?${searchParams}`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch doctors by branch");
+      }
+
+      return response.json();
+    }
+
+    // Otherwise, use the general endpoint for all doctors
+    const searchParams = new URLSearchParams();
+    if (cleanParams.page !== undefined)
+      searchParams.append("page", cleanParams.page);
+    if (cleanParams.size !== undefined)
+      searchParams.append("size", cleanParams.size);
+    if (cleanParams.name) searchParams.append("name", cleanParams.name);
+    if (cleanParams.speciality)
+      searchParams.append("speciality", cleanParams.speciality);
+    if (cleanParams.minExperience)
+      searchParams.append("minExperience", cleanParams.minExperience);
+    // Only append status if it has a defined value
+    if (cleanParams.status !== undefined)
+      searchParams.append("status", cleanParams.status);
 
     const response = await fetch(`/api/v1/doctors?${searchParams}`, {
       credentials: "include",
@@ -37,7 +78,8 @@ class DoctorService {
       throw new Error("Failed to fetch doctor");
     }
 
-    return response.json();
+    const result = await response.json();
+    return result.data || result;
   }
 
   async createDoctor(doctorData) {
@@ -77,8 +119,10 @@ class DoctorService {
   }
 
   async deleteDoctor(id) {
-    const response = await fetch(`/api/v1/doctors/${id}`, {
-      method: "DELETE",
+    // For doctors, we'll use deactivate instead of hard delete to preserve data
+    // This maintains referential integrity with appointments and other records
+    const response = await fetch(`/api/v1/doctors/${id}/deactivate`, {
+      method: "POST",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -87,15 +131,16 @@ class DoctorService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || "Failed to delete doctor");
+      throw new Error(error.message || "Failed to deactivate doctor");
     }
 
-    return response.ok;
+    return response.json();
   }
 
   async activateDoctor(id) {
+    // Primary method for activating doctors - uses POST method as per backend API
     const response = await fetch(`/api/v1/doctors/${id}/activate`, {
-      method: "PUT",
+      method: "POST",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -110,9 +155,15 @@ class DoctorService {
     return response.json();
   }
 
+  // Alias for activateDoctor for consistency with other services
+  async reactivateDoctor(id) {
+    return this.activateDoctor(id);
+  }
+
   async deactivateDoctor(id) {
+    // Primary method for deactivating doctors - uses POST method as per backend API
     const response = await fetch(`/api/v1/doctors/${id}/deactivate`, {
-      method: "PUT",
+      method: "POST",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -133,6 +184,372 @@ class DoctorService {
 
   async getVerifiedDoctors(params = {}) {
     return this.getAllDoctors({ ...params, verified: true });
+  }
+
+  // Convenience methods for different doctor status filters
+  async getActiveDoctors(params = {}) {
+    return this.getAllDoctors({ ...params, status: "ACTIVE" });
+  }
+
+  async getInactiveDoctors(params = {}) {
+    return this.getAllDoctors({ ...params, status: "INACTIVE" });
+  }
+
+  async getAllDoctorsIncludingInactive(params = {}) {
+    // Explicitly remove status filter to get both active and inactive
+    const { status, ...restParams } = params;
+    return this.getAllDoctors(restParams);
+  }
+
+  // Branch Management Methods
+  async addDoctorToBranch(doctorId, branchId, role = "CONSULTANT") {
+    const response = await fetch(
+      `/api/v1/doctors/branch-transfer/add/${doctorId}?branchId=${branchId}&role=${role}`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to add doctor to branch");
+    }
+
+    return response.json();
+  }
+
+  async transferDoctorBetweenBranches(
+    doctorId,
+    sourceBranchId,
+    targetBranchId
+  ) {
+    const response = await fetch(
+      `/api/v1/doctors/branch-transfer/transfer/${doctorId}?sourceBranchId=${sourceBranchId}&targetBranchId=${targetBranchId}`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to transfer doctor");
+    }
+
+    return response.json();
+  }
+
+  async getDoctorBranches(doctorId) {
+    const response = await fetch(`/api/v1/doctors/${doctorId}/branches`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch doctor branches");
+    }
+
+    return response.json();
+  }
+
+  async removeDoctorFromBranch(doctorId, branchId) {
+    const response = await fetch(
+      `/api/v1/doctors/branch-transfer/remove/${doctorId}?branchId=${branchId}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to remove doctor from branch");
+    }
+
+    return response.json();
+  }
+
+  // Remove doctor from specific branch (soft delete - sets status to INACTIVE)
+  async removeDoctorAddress(doctorId, addressId, practiceRole = "CONSULTANT") {
+    const response = await fetch(
+      `/api/v1/doctor-addresses/remove/${doctorId}/${addressId}?practiceRole=${practiceRole}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to remove doctor from branch");
+    }
+
+    return response.json();
+  }
+
+  // Activate doctor address (sets status to ACTIVE)
+  async activateDoctorAddress(
+    doctorId,
+    addressId,
+    practiceRole = "CONSULTANT"
+  ) {
+    const response = await fetch(
+      `/api/v1/doctor-addresses/activate/${doctorId}/${addressId}?practiceRole=${practiceRole}`,
+      {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to activate doctor address");
+    }
+
+    return response.json();
+  }
+
+  // Get user's accessible branch IDs
+  async getUserAccessibleBranchIds(userId) {
+    console.log(
+      "Debug - getUserAccessibleBranchIds called with userId:",
+      userId
+    );
+
+    // Try the UserController endpoint first
+    let response = await fetch(`/api/v1/users/${userId}/branches`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    // If that fails, try the UserBranchController endpoint
+    if (!response.ok) {
+      console.log("Debug - First endpoint failed, trying alternative endpoint");
+      response = await fetch(
+        `/api/v1/user-branches/user/${userId}/branch-ids`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error("Debug - getUserAccessibleBranchIds error:", error);
+      throw new Error(
+        error.message || "Failed to fetch user accessible branches"
+      );
+    }
+
+    const result = await response.json();
+    console.log("Debug - getUserAccessibleBranchIds result:", result);
+    return result;
+  }
+
+  // ================== NEW ROBUST SOFT DELETE METHODS ==================
+
+  // Get doctor status for a specific branch
+  async getDoctorBranchStatus(doctorId, branchId) {
+    const response = await fetch(
+      `/api/v1/doctors/${doctorId}/branch-status?branchId=${branchId}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to get doctor branch status");
+    }
+
+    return response.json();
+  }
+
+  // Check if doctor is available in specific branch
+  async isDoctorAvailableInBranch(doctorId, branchId) {
+    const response = await fetch(
+      `/api/v1/doctors/${doctorId}/available-in-branch?branchId=${branchId}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to check doctor availability");
+    }
+
+    return response.json();
+  }
+
+  // Get all active branches for a doctor
+  async getDoctorActiveBranches(doctorId) {
+    const response = await fetch(
+      `/api/v1/doctors/${doctorId}/active-branches`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to get doctor active branches");
+    }
+
+    return response.json();
+  }
+
+  // Deactivate doctor from specific branches (Scenarios 1 & 2)
+  async deactivateDoctorFromBranches(
+    doctorId,
+    branchIds,
+    forceGlobalDeactivation = false
+  ) {
+    const requestData = {
+      branchIds,
+      forceGlobalDeactivation,
+    };
+
+    const response = await fetch(
+      `/api/v1/doctors/${doctorId}/deactivate-branches`,
+      {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(
+        error.message || "Failed to deactivate doctor from branches"
+      );
+    }
+
+    return response.json();
+  }
+
+  // Activate doctor in a specific branch (Scenario 3)
+  async activateDoctorInBranch(doctorId, branchId) {
+    const response = await fetch(
+      `/api/v1/doctors/${doctorId}/activate-branch/${branchId}`,
+      {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to activate doctor in branch");
+    }
+
+    return response.json();
+  }
+
+  // Get doctors with branch-specific filtering (shows both active and inactive)
+  async getDoctorsWithBranchStatus(branchId, params = {}) {
+    const queryParams = new URLSearchParams({
+      includeInactive: true, // Always include inactive doctors for the new UI
+      ...params,
+    });
+
+    const response = await fetch(
+      `/api/v1/doctors/branch/${branchId}/with-status?${queryParams}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(
+        error.message || "Failed to fetch doctors with branch status"
+      );
+    }
+
+    return response.json();
+  }
+
+  // Bulk deactivate multiple doctors from branches
+  async bulkDeactivateDoctorsFromBranches(operations) {
+    const response = await fetch("/api/v1/doctors/bulk-deactivate-branches", {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ operations }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to bulk deactivate doctors");
+    }
+
+    return response.json();
+  }
+
+  // Get detailed doctor status across all branches
+  async getDoctorDetailedStatus(doctorId) {
+    const response = await fetch(
+      `/api/v1/doctors/${doctorId}/detailed-status`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to get doctor detailed status");
+    }
+
+    return response.json();
   }
 }
 

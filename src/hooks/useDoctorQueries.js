@@ -1,13 +1,15 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { doctorService } from '../services/doctorService.js';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { doctorService } from "../services/doctorService.js";
 
 // Query keys for consistent cache management
 export const doctorKeys = {
-  all: ['doctors'],
-  lists: () => [...doctorKeys.all, 'list'],
+  all: ["doctors"],
+  lists: () => [...doctorKeys.all, "list"],
   list: (filters) => [...doctorKeys.lists(), { filters }],
-  details: () => [...doctorKeys.all, 'detail'],
+  details: () => [...doctorKeys.all, "detail"],
   detail: (id) => [...doctorKeys.details(), id],
+  branches: () => [...doctorKeys.all, "branches"],
+  doctorBranches: (id) => [...doctorKeys.branches(), id],
 };
 
 // Get all doctors with pagination and filters
@@ -59,7 +61,7 @@ export const useCreateDoctor = () => {
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error('Error creating doctor:', error);
+      console.error("Error creating doctor:", error);
     },
   });
 };
@@ -77,7 +79,7 @@ export const useUpdateDoctor = () => {
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error('Error updating doctor:', error);
+      console.error("Error updating doctor:", error);
     },
   });
 };
@@ -95,7 +97,7 @@ export const useDeleteDoctor = () => {
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error('Error deleting doctor:', error);
+      console.error("Error deleting doctor:", error);
     },
   });
 };
@@ -113,7 +115,7 @@ export const useActivateDoctor = () => {
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error('Error activating doctor:', error);
+      console.error("Error activating doctor:", error);
     },
   });
 };
@@ -131,7 +133,136 @@ export const useDeactivateDoctor = () => {
       queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
     },
     onError: (error) => {
-      console.error('Error deactivating doctor:', error);
+      console.error("Error deactivating doctor:", error);
     },
+  });
+};
+
+// Branch Management Hooks
+
+// Get doctor's branches
+export const useGetDoctorBranches = (doctorId, options = {}) => {
+  return useQuery({
+    queryKey: doctorKeys.doctorBranches(doctorId),
+    queryFn: () => doctorService.getDoctorBranches(doctorId),
+    enabled: !!doctorId,
+    ...options,
+  });
+};
+
+// Add doctor to branch mutation
+export const useAddDoctorToBranch = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ doctorId, branchId, role }) =>
+      doctorService.addDoctorToBranch(doctorId, branchId, role),
+    onSuccess: (data, variables) => {
+      // Invalidate doctor branches and lists
+      queryClient.invalidateQueries({
+        queryKey: doctorKeys.doctorBranches(variables.doctorId),
+      });
+      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error adding doctor to branch:", error);
+    },
+  });
+};
+
+// Transfer doctor between branches mutation
+export const useTransferDoctorBetweenBranches = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ doctorId, sourceBranchId, targetBranchId }) =>
+      doctorService.transferDoctorBetweenBranches(
+        doctorId,
+        sourceBranchId,
+        targetBranchId
+      ),
+    onSuccess: (data, variables) => {
+      // Invalidate doctor branches and lists
+      queryClient.invalidateQueries({
+        queryKey: doctorKeys.doctorBranches(variables.doctorId),
+      });
+      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error transferring doctor:", error);
+    },
+  });
+};
+
+// Remove doctor from branch mutation
+export const useRemoveDoctorFromBranch = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ doctorId, branchId }) =>
+      doctorService.removeDoctorFromBranch(doctorId, branchId),
+    onSuccess: (data, { doctorId }) => {
+      // Invalidate doctor branches to refresh the data
+      queryClient.invalidateQueries({
+        queryKey: doctorKeys.doctorBranches(doctorId),
+      });
+      // Invalidate all doctor lists to refresh the data
+      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error removing doctor from branch:", error);
+    },
+  });
+};
+
+// Remove doctor address mutation (soft delete)
+export const useRemoveDoctorAddress = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ doctorId, addressId, practiceRole }) =>
+      doctorService.removeDoctorAddress(doctorId, addressId, practiceRole),
+    onSuccess: (data, { doctorId }) => {
+      // Invalidate doctor branches to refresh the data
+      queryClient.invalidateQueries({
+        queryKey: doctorKeys.doctorBranches(doctorId),
+      });
+      // Invalidate all doctor lists to refresh the data
+      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error removing doctor address:", error);
+    },
+  });
+};
+
+// Activate doctor address mutation
+export const useActivateDoctorAddress = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ doctorId, addressId, practiceRole }) =>
+      doctorService.activateDoctorAddress(doctorId, addressId, practiceRole),
+    onSuccess: (data, { doctorId }) => {
+      // Invalidate doctor branches to refresh the data
+      queryClient.invalidateQueries({
+        queryKey: doctorKeys.doctorBranches(doctorId),
+      });
+      // Invalidate all doctor lists to refresh the data
+      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error activating doctor address:", error);
+    },
+  });
+};
+
+// Get user's accessible branch IDs
+export const useGetUserAccessibleBranchIds = (userId, options = {}) => {
+  return useQuery({
+    queryKey: ["user", "accessible-branches", userId],
+    queryFn: () => doctorService.getUserAccessibleBranchIds(userId),
+    enabled: !!userId,
+    ...options,
   });
 };

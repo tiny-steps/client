@@ -1,28 +1,77 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
-import { useGetPatientById, useGetPatientMedicalHistory, useGetPatientAllergies, useDeletePatient } from '../hooks/usePatientQueries.js';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card.jsx';
-import { Button } from './ui/button.jsx';
-import { ConfirmModal } from './ui/confirm-modal.jsx';
+import React, { useState } from "react";
+import { useNavigate, useParams } from "react-router";
+import {
+  useGetPatientById,
+  useGetPatientMedicalHistory,
+  useGetPatientAllergies,
+  useDeletePatient,
+  useActivatePatient,
+  useDeactivatePatient,
+} from "../hooks/usePatientQueries.js";
+import { useReactivatePatient } from "../hooks/useEnrichedPatientQueries.js";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
+import { Button } from "./ui/button.jsx";
+import { ConfirmModal } from "./ui/confirm-modal.jsx";
+import { Power, PowerOff, Trash2 } from "lucide-react";
 
 const PatientDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [deleteModal, setDeleteModal] = useState({ open: false });
+  const [activateModal, setActivateModal] = useState({ open: false });
+  const [deactivateModal, setDeactivateModal] = useState({ open: false });
 
   const { data: patientData, isLoading, error } = useGetPatientById(id);
   const { data: medicalHistoryData } = useGetPatientMedicalHistory(id);
   const { data: allergiesData } = useGetPatientAllergies(id);
   const deletePatient = useDeletePatient();
+  const reactivatePatient = useReactivatePatient();
+  const activatePatient = useActivatePatient();
+  const deactivatePatient = useDeactivatePatient();
 
   const handleDeleteConfirm = async () => {
     try {
       await deletePatient.mutateAsync(id);
-      navigate('/patients');
+      navigate("/patients");
     } catch (error) {
-      console.error('Error deleting patient:', error);
+      console.error("Error deleting patient:", error);
     } finally {
       setDeleteModal({ open: false });
+    }
+  };
+
+  const handleActivateClick = () => {
+    setActivateModal({ open: true });
+  };
+
+  const handleDeactivateClick = () => {
+    setDeactivateModal({ open: true });
+  };
+
+  const handleActivateConfirm = async () => {
+    try {
+      await activatePatient.mutateAsync(id);
+      setActivateModal({ open: false });
+    } catch (error) {
+      console.error("Error activating patient:", error);
+    }
+  };
+
+  const handleDeactivateConfirm = async () => {
+    try {
+      await deactivatePatient.mutateAsync(id);
+      setDeactivateModal({ open: false });
+    } catch (error) {
+      console.error("Error deactivating patient:", error);
+    }
+  };
+
+  const handleReactivateClick = async () => {
+    try {
+      await reactivatePatient.mutateAsync(id);
+      // Optionally show success message or refresh data
+    } catch (error) {
+      console.error("Error reactivating patient:", error);
     }
   };
 
@@ -38,7 +87,7 @@ const PatientDetail = () => {
     return (
       <Card className="p-6 bg-red-50 border-red-200">
         <p className="text-red-600">{error.message}</p>
-        <Button onClick={() => navigate('/patients')} className="mt-2">
+        <Button onClick={() => navigate("/patients")} className="mt-2">
           Back to Patients
         </Button>
       </Card>
@@ -53,7 +102,7 @@ const PatientDetail = () => {
     return (
       <Card className="p-6">
         <p className="text-gray-600">Patient not found.</p>
-        <Button onClick={() => navigate('/patients')} className="mt-2">
+        <Button onClick={() => navigate("/patients")} className="mt-2">
           Back to Patients
         </Button>
       </Card>
@@ -65,7 +114,10 @@ const PatientDetail = () => {
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
     return age;
@@ -82,19 +134,107 @@ const PatientDetail = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">{patient.firstName} {patient.lastName}</h1>
+          <h1 className="text-3xl font-bold">
+            {patient.firstName} {patient.lastName}
+          </h1>
           <p className="text-gray-600">Patient ID: {patient.id}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/patients')}>
+          <Button variant="outline" onClick={() => navigate("/patients")}>
             Back to Patients
           </Button>
-          <Button variant="outline" onClick={() => navigate(`/patients/${id}/edit`)}>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/patients/${id}/edit`)}
+          >
             Edit Patient
           </Button>
-          <Button variant="destructive" onClick={() => setDeleteModal({ open: true })}>
-            Delete Patient
-          </Button>
+
+          {/* Status indicator */}
+          <span
+            className={`flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+              patient.status === "ACTIVE"
+                ? "bg-green-100 text-green-800"
+                : patient.status === "INACTIVE"
+                ? "bg-yellow-100 text-yellow-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {patient.status === "ACTIVE"
+              ? "Active"
+              : patient.status === "INACTIVE"
+              ? "Inactive"
+              : "Deleted"}
+          </span>
+
+          {/* Conditional action buttons based on patient status */}
+          {patient.status === "ACTIVE" ? (
+            <>
+              <Button
+                variant="outline"
+                className="text-yellow-600 hover:bg-yellow-50"
+                onClick={handleDeactivateClick}
+                disabled={deactivatePatient.isPending}
+              >
+                {deactivatePatient.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
+                    Deactivating...
+                  </>
+                ) : (
+                  <>
+                    <PowerOff className="h-4 w-4 mr-2" />
+                    Deactivate
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setDeleteModal({ open: true })}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Patient
+              </Button>
+            </>
+          ) : patient.status === "INACTIVE" ? (
+            <Button
+              variant="outline"
+              className="text-green-600 hover:bg-green-50"
+              onClick={handleActivateClick}
+              disabled={activatePatient.isPending}
+            >
+              {activatePatient.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                  Activating...
+                </>
+              ) : (
+                <>
+                  <Power className="h-4 w-4 mr-2" />
+                  Activate Patient
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="text-green-600 hover:bg-green-50"
+              onClick={handleReactivateClick}
+              disabled={reactivatePatient.isPending}
+            >
+              {reactivatePatient.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                  Reactivating...
+                </>
+              ) : (
+                <>
+                  <Power className="h-4 w-4 mr-2" />
+                  Reactivate Patient
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -125,12 +265,18 @@ const PatientDetail = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-500">Date of Birth</p>
-                <p className="text-lg">{new Date(patient.dateOfBirth).toLocaleDateString()}</p>
+                <p className="text-sm font-medium text-gray-500">
+                  Date of Birth
+                </p>
+                <p className="text-lg">
+                  {new Date(patient.dateOfBirth).toLocaleDateString()}
+                </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Age</p>
-                <p className="text-lg">{calculateAge(patient.dateOfBirth)} years</p>
+                <p className="text-lg">
+                  {calculateAge(patient.dateOfBirth)} years
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -142,7 +288,7 @@ const PatientDetail = () => {
                 <p className="text-sm font-medium text-gray-500">Blood Group</p>
                 <p className="text-lg">
                   <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-sm">
-                    {patient.bloodGroup || 'Not specified'}
+                    {patient.bloodGroup || "Not specified"}
                   </span>
                 </p>
               </div>
@@ -159,11 +305,15 @@ const PatientDetail = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-gray-500">Height</p>
-                <p className="text-lg">{patient.height ? `${patient.height} cm` : 'Not specified'}</p>
+                <p className="text-lg">
+                  {patient.height ? `${patient.height} cm` : "Not specified"}
+                </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Weight</p>
-                <p className="text-lg">{patient.weight ? `${patient.weight} kg` : 'Not specified'}</p>
+                <p className="text-lg">
+                  {patient.weight ? `${patient.weight} kg` : "Not specified"}
+                </p>
               </div>
             </div>
             {patient.height && patient.weight && (
@@ -177,12 +327,20 @@ const PatientDetail = () => {
               </div>
             )}
             <div>
-              <p className="text-sm font-medium text-gray-500">Medical History</p>
-              <p className="text-gray-700">{patient.medicalHistory || 'No medical history recorded'}</p>
+              <p className="text-sm font-medium text-gray-500">
+                Medical History
+              </p>
+              <p className="text-gray-700">
+                {patient.medicalHistory || "No medical history recorded"}
+              </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Current Medications</p>
-              <p className="text-gray-700">{patient.currentMedications || 'No current medications'}</p>
+              <p className="text-sm font-medium text-gray-500">
+                Current Medications
+              </p>
+              <p className="text-gray-700">
+                {patient.currentMedications || "No current medications"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -195,11 +353,15 @@ const PatientDetail = () => {
           <CardContent className="space-y-3">
             <div>
               <p className="text-sm font-medium text-gray-500">Contact Name</p>
-              <p className="text-lg">{patient.emergencyContactName || 'Not specified'}</p>
+              <p className="text-lg">
+                {patient.emergencyContactName || "Not specified"}
+              </p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Contact Phone</p>
-              <p className="text-lg">{patient.emergencyContactPhone || 'Not specified'}</p>
+              <p className="text-lg">
+                {patient.emergencyContactPhone || "Not specified"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -210,7 +372,9 @@ const PatientDetail = () => {
             <CardTitle>Address</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700">{patient.address || 'No address recorded'}</p>
+            <p className="text-gray-700">
+              {patient.address || "No address recorded"}
+            </p>
           </CardContent>
         </Card>
 
@@ -223,10 +387,19 @@ const PatientDetail = () => {
             {allergies.length > 0 ? (
               <div className="space-y-2">
                 {allergies.map((allergy, index) => (
-                  <div key={index} className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                    <p className="font-medium text-yellow-800">{allergy.allergen}</p>
-                    <p className="text-sm text-yellow-700">{allergy.reaction}</p>
-                    <p className="text-xs text-yellow-600">Severity: {allergy.severity}</p>
+                  <div
+                    key={index}
+                    className="bg-yellow-50 border border-yellow-200 rounded p-3"
+                  >
+                    <p className="font-medium text-yellow-800">
+                      {allergy.allergen}
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      {allergy.reaction}
+                    </p>
+                    <p className="text-xs text-yellow-600">
+                      Severity: {allergy.severity}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -247,9 +420,12 @@ const PatientDetail = () => {
                 {medicalHistory.map((record, index) => (
                   <div key={index} className="border rounded p-3">
                     <p className="font-medium">{record.condition}</p>
-                    <p className="text-sm text-gray-600">{record.description}</p>
+                    <p className="text-sm text-gray-600">
+                      {record.description}
+                    </p>
                     <p className="text-xs text-gray-500">
-                      Diagnosed: {new Date(record.diagnosedDate).toLocaleDateString()}
+                      Diagnosed:{" "}
+                      {new Date(record.diagnosedDate).toLocaleDateString()}
                     </p>
                   </div>
                 ))}
@@ -270,6 +446,30 @@ const PatientDetail = () => {
         confirmText="Delete Patient"
         variant="destructive"
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Activate Confirmation Modal */}
+      <ConfirmModal
+        open={activateModal.open}
+        onOpenChange={(open) => setActivateModal({ open })}
+        title="Activate Patient"
+        description={`Are you sure you want to activate ${patient.firstName} ${patient.lastName}? This will make the patient available for appointments and services.`}
+        confirmText="Activate Patient"
+        cancelText="Cancel"
+        variant="default"
+        onConfirm={handleActivateConfirm}
+      />
+
+      {/* Deactivate Confirmation Modal */}
+      <ConfirmModal
+        open={deactivateModal.open}
+        onOpenChange={(open) => setDeactivateModal({ open })}
+        title="Deactivate Patient"
+        description={`Are you sure you want to deactivate ${patient.firstName} ${patient.lastName}? This will make the patient inactive but preserve their records.`}
+        confirmText="Deactivate Patient"
+        cancelText="Cancel"
+        variant="outline"
+        onConfirm={handleDeactivateConfirm}
       />
     </div>
   );

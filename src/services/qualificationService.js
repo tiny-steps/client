@@ -98,18 +98,42 @@ class QualificationService {
   }
 
   async deleteQualification(qualificationId) {
-    const response = await fetch(`/api/v1/qualifications/${qualificationId}`, {
-      method: "DELETE",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    // Use soft delete for qualifications to preserve professional history
+    const response = await fetch(
+      `/api/v1/qualifications/${qualificationId}/soft-delete`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || "Failed to delete qualification");
     }
+    return response.json();
+  }
+
+  async reactivateQualification(qualificationId) {
+    const response = await fetch(
+      `/api/v1/qualifications/${qualificationId}/reactivate`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to reactivate qualification");
+    }
+    return response.json();
   }
 
   async createQualificationsBatch(doctorId, qualificationsData) {

@@ -12,6 +12,7 @@ import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import useUserStore from "../store/useUserStore.js";
+import useAddressStore from "../store/useAddressStore.js";
 
 const DoctorList = () => {
   const navigate = useNavigate();
@@ -20,6 +21,9 @@ const DoctorList = () => {
   const [deleteModal, setDeleteModal] = useState({ open: false, doctor: null });
   const { role } = useUserStore();
 
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Client-side search state
   const [searchInputs, setSearchInputs] = useState({
     name: "",
@@ -27,13 +31,25 @@ const DoctorList = () => {
     isVerified: "",
     minRating: "",
     maxRating: "",
+    status: "active", // Add status filter with default to active
   });
 
-  // Fetch doctors
-  const { data, isLoading, error, refetch } = useGetAllDoctors({
+  // Fetch doctors based on status filter
+  const fetchParams = {
     page: currentPage,
     size: 1000, // Fetch all for client-side filtering
-  });
+    branchId: selectedAddressId, // Use selected address ID as branchId
+  };
+
+  // Apply status filter
+  if (searchInputs.status === "active") {
+    fetchParams.status = "ACTIVE";
+  } else if (searchInputs.status === "inactive") {
+    fetchParams.status = "INACTIVE";
+  }
+  // If status is "all", don't set status parameter to fetch both active and inactive
+
+  const { data, isLoading, error, refetch } = useGetAllDoctors(fetchParams);
 
   const deleteDoctorMutation = useDeleteDoctor();
   const activateDoctorMutation = useActivateDoctor();
@@ -121,6 +137,7 @@ const DoctorList = () => {
       isVerified: "",
       minRating: "",
       maxRating: "",
+      status: "active", // Reset to active
     });
     setCurrentPage(0);
   };
@@ -182,7 +199,7 @@ const DoctorList = () => {
 
       {/* Search Filters */}
       <Card className="mt-6 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Name</label>
             <Input
@@ -200,6 +217,19 @@ const DoctorList = () => {
               value={searchInputs.speciality}
               onChange={(e) => handleInputChange("speciality", e.target.value)}
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Status</label>
+            <select
+              name="status"
+              value={searchInputs.status}
+              onChange={(e) => handleInputChange("status", e.target.value)}
+              className="w-full px-3 py-2 border rounded-md"
+            >
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+              <option value="all">All Doctors</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -455,7 +485,7 @@ const DoctorCard = ({
               Edit
             </Button>
           )}
-          {canDelete && (
+          {canDelete && doctor.status === "ACTIVE" && (
             <Button onClick={onDelete} variant="destructive" size="sm">
               Delete
             </Button>

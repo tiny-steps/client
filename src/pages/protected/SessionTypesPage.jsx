@@ -4,11 +4,10 @@ import { useOutletContext } from "react-router";
 import {
   useGetAllSessionTypes,
   useDeleteSessionType,
-  useCreateSessionType,
-  useUpdateSessionType,
   useActivateSessionType,
   useDeactivateSessionType,
 } from "../../hooks/useSessionQueries.js";
+import useAddressStore from "../../store/useAddressStore.js";
 import {
   Card,
   CardHeader,
@@ -48,6 +47,9 @@ const SessionTypesPage = () => {
   const [editingSessionType, setEditingSessionType] = useState(null);
   const { role } = useUserStore();
 
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Search and filter states
   const [searchInputs, setSearchInputs] = useState({
     name: "",
@@ -65,12 +67,11 @@ const SessionTypesPage = () => {
     refetch,
   } = useGetAllSessionTypes({
     size: 1000, // Fetch all for client-side filtering
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations
   const deleteSessionTypeMutation = useDeleteSessionType();
-  const createSessionTypeMutation = useCreateSessionType();
-  const updateSessionTypeMutation = useUpdateSessionType();
   const activateSessionTypeMutation = useActivateSessionType();
   const deactivateSessionTypeMutation = useDeactivateSessionType();
 
@@ -189,23 +190,6 @@ const SessionTypesPage = () => {
     }
   };
 
-  const handleFormSubmit = async (sessionTypeData) => {
-    try {
-      if (editingSessionType) {
-        await updateSessionTypeMutation.mutateAsync({
-          sessionTypeId: editingSessionType.id,
-          sessionTypeData,
-        });
-      } else {
-        await createSessionTypeMutation.mutateAsync(sessionTypeData);
-      }
-      setShowSessionTypeForm(false);
-      setEditingSessionType(null);
-    } catch (error) {
-      console.error("Failed to save session type:", error);
-    }
-  };
-
   const handleInputChange = (field, value) => {
     setSearchInputs((prev) => ({
       ...prev,
@@ -244,7 +228,7 @@ const SessionTypesPage = () => {
   }
 
   return (
-    <div className="p-6 h-full w-full">
+    <div className="container mx-auto mt-6 h-full w-full">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-1">
           <h1 className="text-2xl font-bold mr-6">Session Types Management</h1>
@@ -380,19 +364,8 @@ const SessionTypesPage = () => {
                     <div className="flex gap-1">
                       {role === "ADMIN" && (
                         <>
-                          <Button
-                            onClick={() => handleToggleStatus(sessionType)}
-                            variant={
-                              sessionType.isActive ? "outline" : "default"
-                            }
-                            size="sm"
-                          >
-                            {sessionType.isActive ? (
-                              <CheckCircle className="h-4 w-4" />
-                            ) : (
-                              <XCircle className="h-4 w-4" />
-                            )}
-                          </Button>
+                        
+                          
                           <Button
                             onClick={() => handleEditClick(sessionType)}
                             variant="outline"
@@ -400,6 +373,19 @@ const SessionTypesPage = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          {!sessionType.isActive ?(
+                          <Button
+                            onClick={() => handleToggleStatus(sessionType)}
+                            variant={
+                              sessionType.isActive ? "outline" : "default"
+                            }
+                            size="sm"
+                          >
+                            
+                              <CheckCircle className="h-4 w-4" />
+                            
+                          </Button>
+                        ):(
                           <Button
                             onClick={() => handleDeleteClick(sessionType)}
                             variant="destructive"
@@ -407,6 +393,7 @@ const SessionTypesPage = () => {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                        )}
                         </>
                       )}
                     </div>
@@ -481,14 +468,26 @@ const SessionTypesPage = () => {
 
       {/* Session Type Form Modal */}
       {showSessionTypeForm && (
-        <SessionTypeForm
-          sessionType={editingSessionType}
-          onSubmit={handleFormSubmit}
-          onCancel={() => {
-            setShowSessionTypeForm(false);
-            setEditingSessionType(null);
-          }}
-        />
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4 bg-white/90 backdrop-blur-md border border-white/30 max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="text-gray-900">
+                {editingSessionType ? "Edit Session Type" : "Add Session Type"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SessionTypeForm
+                mode={editingSessionType ? "edit" : "create"}
+                sessionTypeId={editingSessionType?.id}
+                onSuccess={() => {
+                  setShowSessionTypeForm(false);
+                  setEditingSessionType(null);
+                  refetch();
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Delete Confirmation Modal */}

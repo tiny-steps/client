@@ -1,9 +1,11 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
+import AppointmentActions from "./AppointmentActions.jsx";
 
 const DashboardCalendar = ({
   appointments = [],
   availabilities = [],
+  timeSlots = [],
   doctors = [],
   patients = [],
   onAppointmentClick = () => {},
@@ -24,38 +26,39 @@ const DashboardCalendar = ({
     const availableSlots = new Set();
     availabilities.forEach((availability) => {
       if (availability.durations) {
-        availability.durations.forEach((duration) => {
-          if (duration.startTime && duration.endTime) {
-            const start = new Date(`2000-01-01T${duration.startTime}`);
-            let end = new Date(`2000-01-01T${duration.endTime}`);
+        availability.durations
+          .filter(
+            (duration) =>
+              duration.startTime &&
+              duration.endTime &&
+              duration.startTime !== duration.endTime
+          )
+          .forEach((duration) => {
+            // Convert time strings to HH:MM format if they're in HH:MM:SS format
+            const startTimeStr = duration.startTime.includes(":")
+              ? duration.startTime.split(":").slice(0, 2).join(":")
+              : duration.startTime;
+            const endTimeStr = duration.endTime.includes(":")
+              ? duration.endTime.split(":").slice(0, 2).join(":")
+              : duration.endTime;
+
+            const start = new Date(`2000-01-01T${startTimeStr}:00`);
+            let end = new Date(`2000-01-01T${endTimeStr}:00`);
 
             // Handle case where end time is earlier than start time (crosses midnight)
             if (end < start) {
-              const endHour = parseInt(duration.endTime.split(":")[0]);
-              if (
-                endHour < 12 &&
-                endHour < parseInt(duration.startTime.split(":")[0])
-              ) {
-                // This looks like it should be PM, not AM
-                const correctedEndTime = duration.endTime.replace(
-                  /^(\d{1,2}):/,
-                  (match, hour) => {
-                    const correctedHour = parseInt(hour) + 12;
-                    return `${correctedHour.toString().padStart(2, "0")}:`;
-                  }
-                );
-                end = new Date(`2000-01-01T${correctedEndTime}`);
-              } else {
-                end.setDate(end.getDate() + 1);
-              }
+              console.warn(
+                `⚠️ Invalid time range: ${startTimeStr} - ${endTimeStr}. Skipping this duration.`
+              );
+              return; // Skip this invalid duration
             }
 
+            // Generate 30-minute slots for the entire duration range
             while (start < end) {
               availableSlots.add(start.toTimeString().slice(0, 5));
-              start.setMinutes(start.getMinutes() + 30);
+              start.setMinutes(start.getMinutes() + 30); // Always use 30-minute intervals
             }
-          }
-        });
+          });
       }
     });
     return Array.from(availableSlots).sort();
@@ -74,9 +77,11 @@ const DashboardCalendar = ({
     setCurrentDate(nextDate);
   };
 
-  // Get appointments for current date
+  // Get appointments for current date, excluding cancelled appointments
   const dayAppointments = appointments.filter(
-    (a) => a.appointmentDate === formatLocalDate(currentDate)
+    (a) =>
+      a.appointmentDate === formatLocalDate(currentDate) &&
+      a.status?.toUpperCase() !== "CANCELLED"
   );
 
   // Get availability for current date
@@ -84,53 +89,71 @@ const DashboardCalendar = ({
   const dayOfWeek = selectedDateObj.getDay();
   const backendDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
-  // Debug logging (reduced for production)
-  console.log(
-    "🔍 DashboardCalendar - Availabilities count:",
-    availabilities.length
-  );
-  console.log(
-    "🔍 DashboardCalendar - Appointments count:",
-    appointments.length
-  );
-
-  // Try filtering by day of week first
-  let dayAvailabilities = availabilities.filter((availability) => {
-    return availability.dayOfWeek === backendDayOfWeek && availability.active;
+  // Debug logging
+  console.log("🔍 DashboardCalendar Debug:", {
+    availabilities: availabilities.length,
+    appointments: appointments.length,
+    currentDate: formatLocalDate(currentDate),
+    currentDateString: currentDate.toDateString(),
+    dayOfWeek,
+    backendDayOfWeek,
   });
 
-  // If no availabilities found, try without day filtering (fallback)
-  if (dayAvailabilities.length === 0) {
-    console.log(
-      "No availabilities found with day filtering, using all active availabilities"
+  // Filter by day of week, active status, and must have valid durations with start/end times
+  let dayAvailabilities = availabilities.filter((availability) => {
+    return (
+      availability.dayOfWeek === backendDayOfWeek &&
+      availability.active &&
+      availability.durations &&
+      availability.durations.length > 0 &&
+      availability.durations.some(
+        (duration) =>
+          duration.startTime &&
+          duration.endTime &&
+          duration.startTime !== duration.endTime
+      )
     );
-    dayAvailabilities = availabilities.filter((availability) => {
-      return availability.active;
-    });
-  }
+  });
 
-  console.log(
-    "Final filtered day availabilities count:",
-    dayAvailabilities.length
-  );
+  // NO fallback - if no availabilities for this day, there should be no slots
 
-  // Generate all available time slots for the day
-  const allAvailableSlots =
-    generateTimeSlotsFromAvailability(dayAvailabilities);
+  console.log("🔍 DashboardCalendar Filtered:", {
+    filteredAvailabilities: dayAvailabilities.length,
+    sampleAvailability: dayAvailabilities[0] || null,
+    availableForToday: availabilities.filter(
+      (a) => a.dayOfWeek === backendDayOfWeek
+    ),
+    activeAvailabilities: availabilities.filter((a) => a.active),
+    validDurations: dayAvailabilities.flatMap(
+      (a) =>
+        a.durations
+          ?.filter((d) => d.startTime && d.endTime && d.startTime !== d.endTime)
+          ?.map((d) => `${d.startTime}-${d.endTime}`) || []
+    ),
+  });
+
+  // Use new time slots API if available, otherwise fallback to availability logic
+  const allAvailableSlots = timeSlots.length > 0 
+    ? timeSlots.filter(slot => slot.status === 'available').map(slot => slot.startTime.substring(0, 5))
+    : generateTimeSlotsFromAvailability(dayAvailabilities);
 
   // Get booked time slots
-  const bookedSlots = dayAppointments.map((a) => a.startTime?.substring(0, 5));
+  const bookedSlots = timeSlots.length > 0
+    ? timeSlots.filter(slot => slot.status === 'booked').map(slot => slot.startTime.substring(0, 5))
+    : dayAppointments.map((a) => a.startTime?.substring(0, 5));
 
   // Create a set of all relevant time slots (available + booked)
   const relevantSlots = new Set([...allAvailableSlots, ...bookedSlots]);
-  const timeSlots = Array.from(relevantSlots).sort();
+  const displayTimeSlots = Array.from(relevantSlots).sort();
 
   // Check if there are any slots for today
-  const hasAnySlots = timeSlots.length > 0;
+  const hasAnySlots = displayTimeSlots.length > 0;
 
-  console.log("Generated available slots count:", allAvailableSlots.length);
-  console.log("Booked slots count:", bookedSlots.length);
-  console.log("Total time slots:", timeSlots.length);
+  console.log("🔍 DashboardCalendar Slots:", {
+    availableSlots: allAvailableSlots.length,
+    bookedSlots: bookedSlots.length,
+    totalSlots: displayTimeSlots.length,
+  });
 
   const formatDate = (date) => {
     return date.toLocaleDateString("en-US", {
@@ -142,12 +165,12 @@ const DashboardCalendar = ({
   };
 
   return (
-    <div className="bg-white/20 backdrop-blur-md border border-white/30 dark:bg-gray-800/20 dark:border-gray-700/30 p-6 rounded-lg shadow-lg">
+    <div className="bg-white/20 backdrop-blur-md border border-white/30 p-6 rounded-lg shadow-lg">
       {/* Header with navigation */}
       <div className="flex justify-between items-center mb-6">
         <button
           onClick={handlePrevDay}
-          className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+          className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -156,7 +179,7 @@ const DashboardCalendar = ({
         </h2>
         <button
           onClick={handleNextDay}
-          className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
+          className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -166,10 +189,10 @@ const DashboardCalendar = ({
       {!hasAnySlots ? (
         <div className="flex flex-col items-center justify-center py-12">
           <div className="text-6xl mb-4">👨‍⚕️</div>
-          <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
             No Doctors Available Today
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">
+          <p className="text-gray-500 mb-6">
             Try navigating to another day to find available appointments
           </p>
           <button
@@ -181,7 +204,7 @@ const DashboardCalendar = ({
         </div>
       ) : (
         <div className="space-y-3">
-          {timeSlots.map((time) => {
+          {displayTimeSlots.map((time) => {
             // Check if this time slot has an appointment
             const appointment = dayAppointments.find(
               (a) => a.startTime?.substring(0, 5) === time
@@ -193,16 +216,42 @@ const DashboardCalendar = ({
             // Find which doctors are available at this time
             const availableDoctors = dayAvailabilities
               .filter((availability) => {
-                return availability.durations?.some((duration) => {
-                  const start = new Date(`2000-01-01T${duration.startTime}`);
-                  const end = new Date(`2000-01-01T${duration.endTime}`);
-                  const slotTime = new Date(`2000-01-01T${time}`);
-                  return slotTime >= start && slotTime < end;
-                });
+                return availability.durations
+                  ?.filter(
+                    (duration) =>
+                      duration.startTime &&
+                      duration.endTime &&
+                      duration.startTime !== duration.endTime
+                  )
+                  ?.some((duration) => {
+                    // Convert time strings to HH:MM format if they're in HH:MM:SS format
+                    const startTimeStr = duration.startTime.includes(":")
+                      ? duration.startTime.split(":").slice(0, 2).join(":")
+                      : duration.startTime;
+                    const endTimeStr = duration.endTime.includes(":")
+                      ? duration.endTime.split(":").slice(0, 2).join(":")
+                      : duration.endTime;
+
+                    const start = new Date(`2000-01-01T${startTimeStr}:00`);
+                    const end = new Date(`2000-01-01T${endTimeStr}:00`);
+                    const slotTime = new Date(`2000-01-01T${time}:00`);
+
+                    // Skip invalid time ranges
+                    if (end <= start) {
+                      console.warn(
+                        `⚠️ Invalid time range: ${startTimeStr} - ${endTimeStr}`
+                      );
+                      return false;
+                    }
+
+                    return slotTime >= start && slotTime < end;
+                  });
               })
-              .map(
-                (availability) => availability.doctorName || "Unknown Doctor"
-              );
+              .map((availability) => {
+                return (
+                  availability.doctorName || `Doctor ${availability.doctorId}`
+                );
+              });
 
             if (appointment) {
               // Enrich appointment data with names
@@ -221,27 +270,36 @@ const DashboardCalendar = ({
               return (
                 <div
                   key={time}
-                  className="flex items-center p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-                  onClick={() => onAppointmentClick(appointment)}
+                  className="flex items-center p-3 bg-red-50 border border-red-200 rounded-lg transition-colors"
                 >
-                  <div className="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <div className="w-16 text-sm font-medium text-gray-900 ">
                     {time}
                   </div>
                   <div className="flex-1 ml-4">
                     <div className="flex items-center space-x-2">
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                      <span className="text-sm font-medium text-red-800 ">
                         Booked
                       </span>
                     </div>
-                    <div className="text-sm text-gray-900 dark:text-gray-100 mt-1">
+                    <div className="text-sm text-gray-900 mt-1">
                       {patientName} - {doctorName}
                     </div>
                     {appointment.sessionTypeId && (
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                      <div className="text-xs text-gray-600 ">
                         Session ID: {appointment.sessionTypeId}
                       </div>
                     )}
+                    <div className="mt-2">
+                      <AppointmentActions
+                        appointment={appointment}
+                        onView={onAppointmentClick}
+                        size="sm"
+                        className="justify-start"
+                        patients={patients}
+                        doctors={doctors}
+                      />
+                    </div>
                   </div>
                 </div>
               );
@@ -250,21 +308,21 @@ const DashboardCalendar = ({
               return (
                 <div
                   key={time}
-                  className="flex items-center p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                  className="flex items-center p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
                   onClick={() => onTimeSlotClick(time)}
                 >
-                  <div className="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <div className="w-16 text-sm font-medium text-gray-900 ">
                     {time}
                   </div>
                   <div className="flex-1 ml-4">
                     <div className="flex items-center space-x-2">
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                      <span className="text-sm font-medium text-green-800 ">
                         Available
                       </span>
                     </div>
                     {availableDoctors.length > 0 && (
-                      <div className="text-sm text-gray-900 dark:text-gray-100 mt-1">
+                      <div className="text-sm text-gray-900 mt-1">
                         {availableDoctors.join(", ")}
                       </div>
                     )}
@@ -275,8 +333,8 @@ const DashboardCalendar = ({
           })}
 
           {/* Summary */}
-          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+          <div className="mt-6 pt-4 border-t border-gray-200 ">
+            <div className="flex justify-between text-sm text-gray-600 ">
               <span>Total Appointments: {dayAppointments.length}</span>
               <span>
                 Available Slots:{" "}

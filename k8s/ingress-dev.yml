@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ts-react-client-ingress-dev
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
+    traefik.ingress.kubernetes.io/redirect-entry-point: https
+    traefik.ingress.kubernetes.io/cors-allow-origin-list: "https://dev.tinystepscdc.com"
+    traefik.ingress.kubernetes.io/cors-allow-methods: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+    traefik.ingress.kubernetes.io/cors-allow-headers: "Authorization,Content-Type,Accept,Origin,User-Agent,DNT,Cache-Control,X-Mx-ReqToken,Keep-Alive,X-Requested-With,If-Modified-Since"
+    traefik.ingress.kubernetes.io/cors-allow-credentials: "true"
+    traefik.ingress.kubernetes.io/cors-max-age: "86400"
+spec:
+  ingressClassName: traefik
+  tls:
+  - hosts:
+    - dev.tinystepscdc.com
+    secretName: dev-tinystepscdc-tls
+  rules:
+  - host: dev.tinystepscdc.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-api-gateway
+            port:
+              number: 8080
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ts-react-client-service
+            port:
+              number: 80

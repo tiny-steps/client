@@ -8,6 +8,7 @@ import {
   useUpdateAward,
 } from "../../hooks/useAwardQueries.js";
 import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
+import useAddressStore from "../../store/useAddressStore.js";
 import {
   Card,
   CardHeader,
@@ -40,6 +41,9 @@ const AwardsPage = () => {
   const [editingAward, setEditingAward] = useState(null);
   const { role } = useUserStore();
 
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Search and filter states
   const [searchInputs, setSearchInputs] = useState({
     title: "",
@@ -60,6 +64,7 @@ const AwardsPage = () => {
 
   const { data: doctorsData } = useGetAllDoctors({
     size: 1000,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations
@@ -225,7 +230,7 @@ const AwardsPage = () => {
   }
 
   return (
-    <div className="p-6 h-full w-full">
+    <div className="container mx-auto mt-6 h-full w-full">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">Awards Management</h1>

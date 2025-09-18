@@ -1,15 +1,15 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { patientService } from '../services/patientService.js';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { patientService } from "../services/patientService.js";
 
 export const patientKeys = {
-  all: ['patients'],
-  lists: () => [...patientKeys.all, 'list'],
+  all: ["patients"],
+  lists: () => [...patientKeys.all, "list"],
   list: (filters) => [...patientKeys.lists(), { filters }],
-  details: () => [...patientKeys.all, 'detail'],
+  details: () => [...patientKeys.all, "detail"],
   detail: (id) => [...patientKeys.details(), id],
-  medicalHistory: (id) => [...patientKeys.detail(id), 'medicalHistory'],
-  allergies: (id) => [...patientKeys.detail(id), 'allergies'],
-  healthSummary: (id) => [...patientKeys.detail(id), 'healthSummary'],
+  medicalHistory: (id) => [...patientKeys.detail(id), "medicalHistory"],
+  allergies: (id) => [...patientKeys.detail(id), "allergies"],
+  healthSummary: (id) => [...patientKeys.detail(id), "healthSummary"],
 };
 
 export const useGetAllPatients = (params = {}, options = {}) => {
@@ -85,5 +85,87 @@ export const useDeletePatient = () => {
       queryClient.removeQueries({ queryKey: patientKeys.detail(deletedId) });
       queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
     },
+  });
+};
+
+// Soft delete operations - simple global activate/deactivate
+export const useActivatePatient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: patientService.activatePatient,
+    onSuccess: (data, patientId) => {
+      queryClient.invalidateQueries({
+        queryKey: patientKeys.detail(patientId),
+      });
+      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error activating patient:", error);
+    },
+  });
+};
+
+export const useDeactivatePatient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: patientService.deactivatePatient,
+    onSuccess: (data, patientId) => {
+      queryClient.invalidateQueries({
+        queryKey: patientKeys.detail(patientId),
+      });
+      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error deactivating patient:", error);
+    },
+  });
+};
+
+export const useSoftDeletePatient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: patientService.softDeletePatient,
+    onSuccess: (data, patientId) => {
+      queryClient.invalidateQueries({
+        queryKey: patientKeys.detail(patientId),
+      });
+      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error soft deleting patient:", error);
+    },
+  });
+};
+
+export const useReactivatePatient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: patientService.reactivatePatient,
+    onSuccess: (data, patientId) => {
+      queryClient.invalidateQueries({
+        queryKey: patientKeys.detail(patientId),
+      });
+      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
+    },
+    onError: (error) => {
+      console.error("Error reactivating patient:", error);
+    },
+  });
+};
+
+// Hooks for getting patients by status
+export const useGetActivePatients = (params = {}, options = {}) => {
+  return useQuery({
+    queryKey: ["patients", "active", params],
+    queryFn: () => patientService.getActivePatientsList(),
+    ...options,
+  });
+};
+
+export const useGetDeletedPatients = (params = {}, options = {}) => {
+  return useQuery({
+    queryKey: ["patients", "deleted", params],
+    queryFn: () => patientService.getDeletedPatientsList(),
+    ...options,
   });
 };

@@ -104,8 +104,29 @@ class PatientAllergyService {
   }
 
   async deletePatientAllergy(id) {
-    const response = await fetch(`/api/v1/patient-allergies/${id}`, {
-      method: "DELETE",
+    // Use soft delete for patient allergies to preserve medical history
+    const response = await fetch(
+      `/api/v1/patient-allergies/${id}/soft-delete`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to delete patient allergy");
+    }
+
+    return response.json();
+  }
+
+  async reactivatePatientAllergy(id) {
+    const response = await fetch(`/api/v1/patient-allergies/${id}/reactivate`, {
+      method: "PATCH",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -114,10 +135,10 @@ class PatientAllergyService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || "Failed to delete patient allergy");
+      throw new Error(error.message || "Failed to reactivate patient allergy");
     }
 
-    return response.ok;
+    return response.json();
   }
 
   async searchAllergiesByAllergen(allergen, params = {}) {
@@ -187,24 +208,28 @@ class PatientAllergyService {
   }
 
   async removeAllergy(patientId, allergen) {
-    const response = await fetch(`/api/v1/patient-allergies/remove`, {
-      method: "DELETE",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        patientId,
-        allergen,
-      }),
-    });
+    // Use soft delete instead of hard delete to preserve medical history
+    const response = await fetch(
+      `/api/v1/patient-allergies/remove/soft-delete`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId,
+          allergen,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || "Failed to remove allergy");
     }
 
-    return response.ok;
+    return response.json();
   }
 }
 

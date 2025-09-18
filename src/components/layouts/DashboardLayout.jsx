@@ -52,6 +52,7 @@ const DashboardLayout = () => {
       <Watermark />
 
       <Header isNavOpen={isNavOpen} setIsNavOpen={setIsNavOpen} />
+
       <SideNav
         isOpen={isNavOpen}
         setIsOpen={setIsNavOpen}
@@ -61,13 +62,11 @@ const DashboardLayout = () => {
         bottomContent={bottomItems}
       />
 
-      {/* Main content area - responsive to sidebar state */}
-      <main
-        className={`transition-all duration-400 ease-in-out pt-16 min-h-screen relative z-10 ${
-          isNavOpen ? "ml-64" : "ml-16"
-        }`}
-      >
-        <Outlet context={{ activeItem }} />
+      {/* Main content area - fixed position, no margin shifts */}
+      <main className="transition-all duration-400 ease-in-out pt-16 h-screen overflow-y-auto relative z-10 ml-16">
+        <div className="pb-6 px-4 sm:px-6 lg:px-8">
+          <Outlet context={{ activeItem }} />
+        </div>
       </main>
     </div>
   );

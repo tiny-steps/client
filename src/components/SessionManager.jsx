@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
-  useGetAllSessions,
   useDeleteSession,
+  useActivateSession,
 } from "../hooks/useSessionQueries.js";
-import { useGetAllEnrichedDoctors } from "../hooks/useEnrichedDoctorQueries.js";
+import { useGetAllEnrichedSessions } from "../hooks/useEnrichedSessionQueries.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import useUserStore from "../store/useUserStore.js";
+import useAddressStore from "../store/useAddressStore.js";
 import { BookOpen, Plus, Search, Settings } from "lucide-react";
 
 const SessionManager = () => {
@@ -22,6 +23,9 @@ const SessionManager = () => {
   });
   const { role } = useUserStore();
 
+  // Get the selected address ID to use as branchId
+  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
+
   // Search states for sessions
   const [sessionSearchInputs, setSessionSearchInputs] = useState({
     sessionType: "",
@@ -30,52 +34,47 @@ const SessionManager = () => {
     maxPrice: "",
   });
 
-  // Fetch data for sessions
+  // Status filter state
+  const [statusFilter, setStatusFilter] = useState("all"); // "active", "inactive", "all"
+
+  // Fetch enriched sessions data
   const {
     data: sessionsData,
     isLoading: sessionsLoading,
     error: sessionsError,
     refetch: refetchSessions,
-  } = useGetAllSessions({
+  } = useGetAllEnrichedSessions({
     size: 1000,
+    branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
   // Mutations
   const deleteSession = useDeleteSession();
+  const activateSession = useActivateSession();
 
-  const { data: doctorsData } = useGetAllEnrichedDoctors({ size: 100 });
-
-  // Enrich sessions with doctor information
-  const enrichedSessions = useMemo(() => {
-    const allSessions = sessionsData?.content || [];
-    const allDoctors = doctorsData?.data?.content || [];
-
-    return allSessions.map((session) => {
-      const doctor = allDoctors.find((d) => d.id === session.doctorId);
-      return {
-        ...session,
-        doctor: doctor
-          ? {
-              id: doctor.id,
-              name: `${doctor.firstName} ${doctor.lastName}`,
-              speciality: doctor.speciality,
-              email: doctor.email,
-              phone: doctor.phone,
-            }
-          : null,
-      };
-    });
-  }, [sessionsData?.content, doctorsData?.data?.content]);
+  // Sessions are already enriched from the hook, no need for additional enrichment
+  const enrichedSessions = sessionsData?.content || [];
 
   // Filter sessions based on search
   const filteredSessions = useMemo(() => {
     const { sessionType, doctor, minPrice, maxPrice } = sessionSearchInputs;
 
+    let filtered = enrichedSessions;
+
+    // Apply status filter
+    if (statusFilter === "active") {
+      filtered = filtered.filter((session) => session.isActive === true);
+    } else if (statusFilter === "inactive") {
+      filtered = filtered.filter((session) => session.isActive === false);
+    }
+    // "all" shows all sessions regardless of status
+
+    // Apply search filters
     if (!sessionType && !doctor && !minPrice && !maxPrice) {
-      return enrichedSessions;
+      return filtered;
     }
 
-    return enrichedSessions.filter((session) => {
+    return filtered.filter((session) => {
       if (
         sessionType &&
         !session.sessionType?.name
@@ -92,7 +91,7 @@ const SessionManager = () => {
       if (maxPrice && session.price > parseFloat(maxPrice)) return false;
       return true;
     });
-  }, [enrichedSessions, sessionSearchInputs]);
+  }, [enrichedSessions, sessionSearchInputs, statusFilter]);
 
   // Pagination
   const paginatedData = useMemo(() => {
@@ -127,6 +126,14 @@ const SessionManager = () => {
     }
   };
 
+  const handleActivateSession = async (sessionId) => {
+    try {
+      await activateSession.mutateAsync(sessionId);
+    } catch (error) {
+      console.error("Failed to activate session:", error);
+    }
+  };
+
   const clearSearch = () => {
     setSessionSearchInputs({
       sessionType: "",
@@ -134,12 +141,14 @@ const SessionManager = () => {
       minPrice: "",
       maxPrice: "",
     });
+    setStatusFilter("all");
     setCurrentPage(0);
   };
 
   const isLoading = sessionsLoading;
   const error = sessionsError;
-  const hasActiveFilters = Object.values(sessionSearchInputs).some((v) => v);
+  const hasActiveFilters =
+    Object.values(sessionSearchInputs).some((v) => v) || statusFilter !== "all";
 
   if (isLoading) {
     return (
@@ -167,7 +176,7 @@ const SessionManager = () => {
   }
 
   return (
-    <div className="p-6 h-full w-full">
+    <div>
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-1">
@@ -204,6 +213,22 @@ const SessionManager = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* Status Filter Dropdown */}
+            <div className="flex items-center gap-4 mb-4">
+              <label className="text-sm font-medium text-gray-700">
+                Filter by Status:
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Sessions</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Input
                 placeholder="Search by session type..."
@@ -339,13 +364,29 @@ const SessionManager = () => {
                 >
                   Edit
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDeleteClick(item)}
-                >
-                  Delete
-                </Button>
+                {item.isActive ? (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteClick(item);
+                    }}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    Delete
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleActivateSession(item.id);
+                    }}
+                    variant="default"
+                    size="sm"
+                  >
+                    Activate
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

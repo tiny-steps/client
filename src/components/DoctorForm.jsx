@@ -6,15 +6,21 @@ import {
   useCreateDoctor,
   useUpdateDoctor,
   useGetDoctorById,
+  useGetUserAccessibleBranchIds,
 } from "../hooks/useDoctorQueries.js";
-import { useGetUserById, useUpdateUser } from "../hooks/useUserQueries.js";
+import { useDeleteUser } from "../hooks/useUserQueries.js";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Label } from "./ui/label.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import { CreateDoctorFormSchema } from "../schema/doctors/create.js";
+import { UpdateDoctorFormSchema } from "../schema/doctors/update.js";
 import useUserStore from "../store/useUserStore.js";
+import useBranchStore from "../store/useBranchStore.js";
+import useAddressStore from "../store/useAddressStore.js";
+import { authService } from "../services/authService.js";
+import { jwtDecode } from "jwt-decode";
 
 const DoctorForm = () => {
   const { doctorId } = useParams();
@@ -23,6 +29,20 @@ const DoctorForm = () => {
   const [updateModal, setUpdateModal] = useState(false);
   const [formData, setFormData] = useState(null);
   const { userId } = useUserStore();
+  const branches = useBranchStore((state) => state.branches);
+  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
+  const setBranches = useBranchStore((state) => state.setBranches);
+  const setSelectedBranchId = useBranchStore(
+    (state) => state.setSelectedBranchId
+  );
+
+  // Address store for getting branch details
+  const addresses = useAddressStore((state) => state.addresses);
+  const fetchAddresses = useAddressStore((state) => state.fetchAddresses);
+
+  // Get user's accessible branch IDs from API
+  const { data: userAccessibleBranchesData, error: userBranchesError } =
+    useGetUserAccessibleBranchIds(userId);
 
   const {
     register,
@@ -30,20 +50,100 @@ const DoctorForm = () => {
     formState: { errors, isSubmitting },
     setValue,
   } = useForm({
-    resolver: zodResolver(CreateDoctorFormSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      gender: "MALE",
-      summary: "",
-      about: "",
-      imageUrl: "",
-      experienceYears: 0,
-      speciality: "",
-      password: "",
-    },
+    resolver: isEdit
+      ? zodResolver(UpdateDoctorFormSchema)
+      : zodResolver(CreateDoctorFormSchema),
+    mode: "onBlur",
+    defaultValues: isEdit
+      ? {
+          name: "",
+          gender: "MALE",
+          summary: "",
+          about: "",
+          imageUrl: "",
+          experienceYears: 0,
+          speciality: "",
+          branchId: selectedBranchId || "",
+          // No password field for edit mode
+        }
+      : {
+          name: "",
+          email: "",
+          phone: "",
+          gender: "MALE",
+          summary: "",
+          about: "",
+          imageUrl: "",
+          experienceYears: 0,
+          speciality: "",
+          password: "",
+          branchId: selectedBranchId || "",
+        },
   });
+
+  // Debug logging
+  console.log("DoctorForm rendered - isEdit:", isEdit, "doctorId:", doctorId);
+  console.log("Form errors:", errors);
+  console.log("Form isSubmitting:", isSubmitting);
+  console.log(
+    "Schema being used:",
+    isEdit ? "UpdateDoctorFormSchema" : "CreateDoctorFormSchema"
+  );
+  // Extract branch IDs from API response
+  const userAccessibleBranchIds = userAccessibleBranchesData?.data || [];
+
+  // Debug logging
+  console.log("🔍 Debug - DoctorForm branches:", branches);
+  console.log("🔍 Debug - DoctorForm selectedBranchId:", selectedBranchId);
+  console.log("🔍 Debug - DoctorForm branches.length:", branches?.length);
+  console.log(
+    "🔍 Debug - DoctorForm userAccessibleBranchesData:",
+    userAccessibleBranchesData
+  );
+  console.log(
+    "🔍 Debug - DoctorForm userAccessibleBranchIds:",
+    userAccessibleBranchIds
+  );
+  console.log("🔍 Debug - DoctorForm userBranchesError:", userBranchesError);
+
+  // Load branches from API if not already loaded
+  useEffect(() => {
+    if (branches.length === 0 && userAccessibleBranchIds.length > 0) {
+      console.log("🔍 Debug - Loading branches from API data");
+
+      // Filter addresses to only show those the user has access to
+      const userAccessibleAddresses = addresses.filter((addr) =>
+        userAccessibleBranchIds.includes(addr.id)
+      );
+
+      console.log(
+        "🔍 Debug - userAccessibleAddresses:",
+        userAccessibleAddresses
+      );
+
+      if (userAccessibleAddresses.length > 0) {
+        setBranches(userAccessibleAddresses);
+        // Set default selected branch to first available branch
+        setSelectedBranchId(userAccessibleAddresses[0].id);
+      }
+    }
+  }, [
+    branches.length,
+    userAccessibleBranchIds,
+    addresses,
+    setBranches,
+    setSelectedBranchId,
+  ]);
+
+  // Fetch addresses if not already loaded
+  useEffect(() => {
+    if (userId && addresses.length === 0) {
+      console.log("🔍 Debug - Fetching addresses for userId:", userId);
+      fetchAddresses(userId).catch((error) => {
+        console.warn("Failed to fetch addresses:", error.message);
+      });
+    }
+  }, [userId, addresses.length, fetchAddresses]);
 
   // Fetch doctor data if editing
   const {
@@ -52,22 +152,13 @@ const DoctorForm = () => {
     error: fetchError,
   } = useGetDoctorById(doctorId, { enabled: isEdit });
 
-  // Fetch user data if we have a userId
-  const {
-    data: userData,
-    isLoading: isLoadingUser,
-    error: userError,
-  } = useGetUserById(doctorData?.data?.userId, {
-    enabled: isEdit && !!doctorData?.data?.userId,
-  });
-
   const createDoctorMutation = useCreateDoctor();
   const updateDoctorMutation = useUpdateDoctor();
-  const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
 
   // Populate form when editing
   useEffect(() => {
-    if (isEdit && doctorData) {
+    if (isEdit && doctorData && doctorData.data) {
       const doctor = doctorData.data;
       setValue("name", doctor.name || "");
       setValue("gender", doctor.gender || "MALE");
@@ -76,20 +167,22 @@ const DoctorForm = () => {
       setValue("imageUrl", doctor.imageUrl || "");
       setValue("experienceYears", doctor.experienceYears || 0);
       setValue("speciality", doctor.speciality || "");
+      setValue("branchId", selectedBranchId || "");
 
-      // Set email and phone from user data if available
-      if (userData?.data) {
-        setValue("email", userData.data.email || "");
-        setValue("phone", userData.data.phone || "");
-      } else {
-        // Fallback to doctor data if user data is not available
-        setValue("email", doctor.email || "");
-        setValue("phone", doctor.phone || "");
-      }
+      // Note: Email and phone are not stored in doctor entity, so we don't set them in edit mode
+      // The doctor service will handle user updates internally
     }
-  }, [doctorData, userData, isEdit, setValue]);
+  }, [doctorData, isEdit, setValue, selectedBranchId]);
 
   const onSubmit = async (data) => {
+    console.log("🚀 onSubmit called - Form submitted with data:", data);
+    console.log("🚀 isEdit:", isEdit, "errors:", errors);
+    console.log(
+      "🚀 Schema being used:",
+      isEdit ? "UpdateDoctorFormSchema" : "CreateDoctorFormSchema"
+    );
+    console.log("🚀 Form data keys:", Object.keys(data));
+
     // Add userId to the data for backend
     const submitData = {
       ...data,
@@ -100,6 +193,15 @@ const DoctorForm = () => {
     if (isEdit && !submitData.password) {
       delete submitData.password;
     }
+
+    // Remove email and phone fields in edit mode since they're not part of doctor entity
+    // In create mode, these fields are needed for user registration
+    if (isEdit) {
+      delete submitData.email;
+      delete submitData.phone;
+    }
+
+    console.log("🚀 Submit data:", submitData);
 
     if (isEdit) {
       // Show confirmation modal for updates
@@ -117,31 +219,27 @@ const DoctorForm = () => {
   };
 
   const handleUpdateConfirm = async () => {
+    console.log("Update confirmed with formData:", formData);
+    console.log("Doctor ID:", doctorId);
+
     if (formData && doctorId) {
       try {
+        console.log("Starting doctor update...");
+
         // Update doctor data
         await updateDoctorMutation.mutateAsync({
           id: doctorId,
           data: formData,
         });
 
-        // If email or phone changed, also update user data
-        const doctor = doctorData.data;
-        const user = userData?.data;
+        console.log("Doctor updated successfully");
 
-        if (
-          user &&
-          (formData.email !== user.email || formData.phone !== user.phone)
-        ) {
-          await updateUserMutation.mutateAsync({
-            userId: doctor.userId,
-            userData: {
-              email: formData.email,
-              phone: formData.phone,
-            },
-          });
-        }
+        // User updates are now handled internally by the doctor service
+        console.log(
+          "Doctor updated successfully - user updates handled by doctor service"
+        );
 
+        // Navigate back to doctors list and trigger refresh
         navigate("/doctors");
       } catch (error) {
         console.error("Failed to update doctor:", error);
@@ -199,34 +297,38 @@ const DoctorForm = () => {
                 )}
               </div>
 
-              <div>
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register("email")}
-                  placeholder="doctor@example.com"
-                />
-                {errors.email && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
+              {!isEdit && (
+                <div>
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register("email")}
+                    placeholder="doctor@example.com"
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {errors.email.message}
+                    </p>
+                  )}
+                </div>
+              )}
 
-              <div>
-                <Label htmlFor="phone">Phone *</Label>
-                <Input
-                  id="phone"
-                  {...register("phone")}
-                  placeholder="Phone number"
-                />
-                {errors.phone && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {errors.phone.message}
-                  </p>
-                )}
-              </div>
+              {!isEdit && (
+                <div>
+                  <Label htmlFor="phone">Phone *</Label>
+                  <Input
+                    id="phone"
+                    {...register("phone")}
+                    placeholder="Phone number"
+                  />
+                  {errors.phone && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {errors.phone.message}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="gender">Gender *</Label>
@@ -272,6 +374,37 @@ const DoctorForm = () => {
                 {errors.experienceYears && (
                   <p className="text-sm text-red-600 mt-1">
                     {errors.experienceYears.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Branch Selection */}
+              <div>
+                <Label htmlFor="branchId">Branch *</Label>
+                <select
+                  id="branchId"
+                  {...register("branchId")}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  defaultValue={selectedBranchId || ""}
+                >
+                  <option value="">
+                    {branches.length === 0
+                      ? userBranchesError
+                        ? "Error loading branches - Check API connection"
+                        : userAccessibleBranchIds.length === 0
+                        ? "No accessible branches found"
+                        : "Loading branches..."
+                      : "Select a branch..."}
+                  </option>
+                  {branches.map((branch) => (
+                    <option key={branch?.id} value={branch?.id}>
+                      {branch?.name} {branch?.isPrimary ? "(Primary)" : ""}
+                    </option>
+                  ))}
+                </select>
+                {errors.branchId && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.branchId.message}
                   </p>
                 )}
               </div>
@@ -347,6 +480,9 @@ const DoctorForm = () => {
                   updateDoctorMutation.isPending
                 }
                 className="flex-1"
+                onClick={() =>
+                  console.log("Update button clicked - isEdit:", isEdit)
+                }
               >
                 {isSubmitting ||
                 createDoctorMutation.isPending ||
