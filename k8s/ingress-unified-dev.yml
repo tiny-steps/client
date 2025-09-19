@@ -94,24 +94,6 @@ spec:
             name: ts-react-client-service
             port:
               number: 80
-      
-      # Client app assets - using dedicated path prefix
-      - path: /client-assets
-        pathType: Prefix
-        backend:
-          service:
-            name: ts-react-client-service
-            port:
-              number: 80
-      
-      # Frontend app assets - using dedicated path prefix
-      - path: /frontend-assets
-        pathType: Prefix
-        backend:
-          service:
-            name: ts-frontend-service
-            port:
-              number: 80
       - path: /logo.webp
         pathType: ImplementationSpecific
         backend:
@@ -131,14 +113,5 @@ spec:
         backend:
           service:
             name: ts-react-client-service
-            port:
-              number: 80
-      
-      # Frontend application routes - catch remaining paths
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: ts-frontend-service
             port:
               number: 80
