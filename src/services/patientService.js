@@ -75,7 +75,7 @@ class PatientService {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(patientData),
+      body: JSON.stringify({...patientData, status:"ACTIVE"}),
     });
 
     if (!response.ok) {
