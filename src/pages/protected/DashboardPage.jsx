@@ -4,6 +4,8 @@ import { useUserProfile } from "@/hooks/useUserQuery.js";
 import DashboardCards from "@/components/dashboard/DashboardCards.jsx";
 import DashboardHeader from "@/components/dashboard/DashboardHeader.jsx";
 import { useDashboardData } from "@/hooks/useDashboardData.js";
+import { usePageEntranceAnimation, useCardRevealAnimation } from "@/hooks/useAnimations.js";
+import { motion } from "motion/react";
 
 const DashboardPage = () => {
   const location = useLocation();
@@ -81,6 +83,10 @@ const DashboardPage = () => {
   const { data: user } = useUserProfile();
   const [selectedDate, setSelectedDate] = useState(new Date());
 
+  // Animation hooks
+  const pageRef = usePageEntranceAnimation({ duration: 0.6, enableStagger: true });
+  const cardsRef = useCardRevealAnimation({ stagger: 0.2, duration: 0.7 });
+
   // Use the custom hook for dashboard data management
   const {
     appointments,
@@ -98,44 +104,64 @@ const DashboardPage = () => {
   } = useDashboardData(selectedDate);
 
   return (
-    <div className="min-h-screen">
+    <motion.div 
+      ref={pageRef}
+      className="min-h-screen"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="max-w-7xl mx-auto">
-        <DashboardHeader
-          userName={user?.data.name}
-          activeItemDescription={activeItem.description}
-        />
+        <div className="animate-child">
+          <DashboardHeader
+            userName={user?.data.name}
+            activeItemDescription={activeItem.description}
+            variant="glass"
+          />
+        </div>
 
         {isLoading ? (
-          <div className="flex justify-center items-center p-8 sm:p-12 lg:p-16">
+          <motion.div 
+            className="flex justify-center items-center p-8 sm:p-12 lg:p-16"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
             <div className="flex flex-col items-center gap-4">
               <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600"></div>
               <span className="text-sm sm:text-base text-gray-600 font-medium">
                 Loading dashboard data...
               </span>
             </div>
-          </div>
+          </motion.div>
         ) : (
-          <div className="pb-8 sm:pb-12">
-            <DashboardCards
-              appointments={appointments}
-              doctors={doctors}
-              bookingStats={bookingStats}
-              onAppointmentStatusChange={handleAppointmentStatus}
-              onDoctorStatusChange={handleDoctorStatus}
-              onSlotSelection={handleSlotSelection}
-              selectedDate={selectedDate}
-              rawPatients={rawPatients}
-              rawDoctors={rawDoctors}
-            />
+          <div ref={cardsRef} className="pb-8 sm:pb-12 animate-child">
+            <div className="card-animate">
+              <DashboardCards
+                appointments={appointments}
+                doctors={doctors}
+                bookingStats={bookingStats}
+                onAppointmentStatusChange={handleAppointmentStatus}
+                onDoctorStatusChange={handleDoctorStatus}
+                onSlotSelection={handleSlotSelection}
+                selectedDate={selectedDate}
+                rawPatients={rawPatients}
+                rawDoctors={rawDoctors}
+              />
+            </div>
           </div>
         )}
 
-        {/* Error Display */}
+        {/* Error Display with enhanced styling */}
         {errors && Object.values(errors).some((error) => error) && (
-          <div
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
             className="mt-4 p-4 sm:p-6 
-                         bg-yellow-50 border border-yellow-200 rounded-lg sm:rounded-xl 
-                         shadow-sm"
+                       bg-gradient-to-r from-yellow-50 to-orange-50 
+                       border border-yellow-200 rounded-xl 
+                       shadow-lg backdrop-blur-sm animate-child"
           >
             <h3 className="text-base sm:text-lg font-semibold text-yellow-800 mb-2">
               Dashboard Data Issues
@@ -145,10 +171,10 @@ const DashboardPage = () => {
               backend service issues or network problems. The application will
               continue to work with available data.
             </p>
-          </div>
+          </motion.div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

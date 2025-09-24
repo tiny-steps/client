@@ -4,13 +4,30 @@ import { cn } from "@/lib/utils"
 
 function Card({
  className,
+ variant = "default",
  ...props
 }) {
+ const getCardVariant = () => {
+   switch (variant) {
+     case "glass":
+       return "bg-white/20 backdrop-blur-md border border-white/30 shadow-lg";
+     case "solid":
+       return "bg-white border border-gray-200 shadow-sm";
+     case "elevated":
+       return "bg-white/30 backdrop-blur-lg border border-white/40 shadow-xl";
+     case "subtle":
+       return "bg-white/10 backdrop-blur-sm border border-white/20 shadow-md";
+     default:
+       return "bg-white/20 backdrop-blur-md border border-white/30 shadow-lg";
+   }
+ };
+
  return (
  (<div
  data-slot="card"
  className={cn(
- "bg-white/20 backdrop-blur-md border border-white/30 text-card-foreground flex flex-col gap-6 rounded-xl py-6 shadow-lg",
+ "text-card-foreground flex flex-col gap-6 rounded-xl py-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:scale-[1.02]",
+ getCardVariant(),
  className
  )}
  {...props} />)

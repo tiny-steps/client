@@ -3,6 +3,8 @@ import { useLocation } from "@tanstack/react-router";
 import { useUserProfile } from "@/hooks/useUserQuery.js";
 import DashboardHeader from "@/components/dashboard/DashboardHeader.jsx";
 import PatientsList from "../../components/PatientsList.jsx";
+import { usePageEntranceAnimation, useTableAnimation } from "@/hooks/useAnimations.js";
+import { motion } from "motion/react";
 
 const PatientsPage = () => {
   const location = useLocation();
@@ -77,17 +79,36 @@ const PatientsPage = () => {
   const activeItem = getActiveItem();
   const { data: user } = useUserProfile();
 
-  return (
-    <>
-      <DashboardHeader
-        userName={user?.data.name}
-        activeItemDescription={activeItem.description}
-      />
+  // Animation hooks
+  const pageRef = usePageEntranceAnimation({ duration: 0.6 });
+  const tableRef = useTableAnimation({ stagger: 0.08, delay: 0.3 });
 
-      <div className="container mx-auto mt-6">
-        <PatientsList />
+  return (
+    <motion.div
+      ref={pageRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="animate-child">
+        <DashboardHeader
+          userName={user?.data.name}
+          activeItemDescription={activeItem.description}
+          variant="glass"
+        />
       </div>
-    </>
+
+      <motion.div 
+        className="container mx-auto mt-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <div ref={tableRef} className="animate-child">
+          <PatientsList />
+        </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

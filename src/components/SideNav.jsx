@@ -94,41 +94,43 @@ export default function SideNav({
   return (
     <div
       ref={navRef}
-      className={`fixed top-[4rem] left-0 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 flex flex-col z-50 ${containerClassName}`}
+      className={`fixed top-[4rem] left-0 h-[calc(100vh-4rem)] bg-white/20 backdrop-blur-md border-r border-white/30 flex flex-col z-50 transition-all duration-500 ${containerClassName}`}
       style={{
         width: isOpen ? 256 : 60,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
       }}
     >
-      {/* Header - Fixed at top */}
+      {/* Header - Fixed at top with enhanced styling */}
       <div
-        className={`sidenav-title text-gray-700 font-semibold pt-4 pb-6 px-4 overflow-hidden whitespace-nowrap transition-opacity duration-300 flex-shrink-0 ${
+        className={`sidenav-title text-gray-800 font-bold pt-4 pb-6 px-4 overflow-hidden whitespace-nowrap transition-all duration-300 flex-shrink-0 border-b border-white/20 bg-white/10 backdrop-blur-sm ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
       >
-        Tiny Steps
-        <span className="text-sm text-gray-500 block">CDC</span>
+        <div className="text-lg bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          Tiny Steps
+        </div>
+        <span className="text-sm text-gray-600 block font-medium">CDC</span>
       </div>
 
-      {/* Top Content - After header */}
+      {/* Top Content - After header with enhanced styling */}
       {topContent && (
-        <div className="px-2 pb-4">
+        <div className="px-2 pb-4 border-b border-white/20">
           {Array.isArray(topContent) ? (
             topContent.map((item, idx) => (
               <div
                 key={idx}
-                className={`flex items-center p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 hover:bg-gray-100`}
+                className={`flex items-center p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 hover:bg-white/20 hover:backdrop-blur-md hover:shadow-lg transform hover:scale-105`}
                 onClick={() => item.onClick?.()}
                 title={!isOpen ? item.name : undefined}
               >
                 <item.icon
-                  className={`flex-shrink-0 transition-all duration-300 ${
+                  className={`flex-shrink-0 transition-all duration-300 text-gray-700 ${
                     isOpen ? "mr-3" : "mx-auto"
                   }`}
                   size={24}
                 />
                 {isOpen && (
-                  <span className="block whitespace-nowrap transition-opacity duration-300 opacity-100">
+                  <span className="block whitespace-nowrap transition-opacity duration-300 opacity-100 font-medium text-gray-800">
                     {item.name}
                   </span>
                 )}
@@ -153,10 +155,10 @@ export default function SideNav({
             return (
               <div key={idx}>
                 <div
-                  className={`flex items-center p-2 mb-1 rounded-lg cursor-pointer transition-all duration-300 ${itemClassName} ${
+                  className={`flex items-center p-2 mb-1 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${itemClassName} ${
                     isActive
-                      ? "bg-blue-100 text-blue-600 font-bold"
-                      : "hover:bg-gray-100"
+                      ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-md border border-blue-300/30 text-blue-700 font-bold shadow-lg"
+                      : "hover:bg-white/20 hover:backdrop-blur-md hover:shadow-md text-gray-700"
                   }`}
                   onClick={() => handleItemClick(item)}
                   title={!isOpen ? item.name : undefined} // Tooltip on collapsed
@@ -192,10 +194,10 @@ export default function SideNav({
                       return (
                         <div
                           key={subIdx}
-                          className={`flex items-center p-2 mb-1 rounded-lg cursor-pointer transition-all duration-300 ${itemClassName} ${
+                          className={`flex items-center p-2 mb-1 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${itemClassName} ${
                             isSubActive
-                              ? "bg-blue-50 text-blue-600 font-semibold"
-                              : "hover:bg-gray-50"
+                              ? "bg-gradient-to-r from-blue-400/15 to-purple-400/15 backdrop-blur-sm border border-blue-200/30 text-blue-600 font-semibold shadow-md"
+                              : "hover:bg-white/15 hover:backdrop-blur-sm text-gray-600"
                           }`}
                           onClick={() => handleSubItemClick(subItem)}
                           title={subItem.name}
@@ -218,31 +220,31 @@ export default function SideNav({
         </div>
       </div>
 
-      {/* Bottom Content - Fixed at bottom */}
+      {/* Bottom Content - Fixed at bottom with enhanced styling */}
       {bottomContent && (
-        <div className="flex-shrink-0 border-t border-gray-200 bg-gray-50 px-2 py-4">
+        <div className="flex-shrink-0 border-t border-white/30 bg-white/10 backdrop-blur-sm px-2 py-4">
           {Array.isArray(bottomContent) ? (
             // If bottomContent is an array of items with icons
             bottomContent.map((item, idx) => (
               <div
                 key={idx}
-                className={`flex items-center p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 hover:bg-gray-100`}
+                className={`flex items-center p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 hover:bg-white/20 hover:backdrop-blur-md hover:shadow-lg transform hover:scale-105`}
                 onClick={() => item.onClick?.()}
                 title={!isOpen ? item.name : undefined}
               >
                 <item.icon
-                  className={`flex-shrink-0 transition-all duration-300 ${
+                  className={`flex-shrink-0 transition-all duration-300 text-gray-700 ${
                     isOpen ? "mr-3" : "mx-auto"
                   }`}
                   size={24}
                 />
                 {isOpen && (
                   <div className="flex-grow">
-                    <span className="block whitespace-nowrap transition-opacity duration-300 opacity-100">
+                    <span className="block whitespace-nowrap transition-opacity duration-300 opacity-100 font-medium text-gray-800">
                       {item.name}
                     </span>
                     {item.subtitle && (
-                      <span className="block text-xs text-gray-500 whitespace-nowrap">
+                      <span className="block text-xs text-gray-600 whitespace-nowrap font-medium">
                         {item.subtitle}
                       </span>
                     )}
