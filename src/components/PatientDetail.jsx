@@ -16,7 +16,9 @@ import { Power, PowerOff, Trash2 } from "lucide-react";
 
 const PatientDetail = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const params = useParams({});
+  console.log("PatientDetail params:", params); // Debug log
+  const { id } = params || {}; // Safe destructuring
   const [deleteModal, setDeleteModal] = useState({ open: false });
   const [activateModal, setActivateModal] = useState({ open: false });
   const [deactivateModal, setDeactivateModal] = useState({ open: false });

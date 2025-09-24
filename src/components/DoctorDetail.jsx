@@ -13,7 +13,7 @@ import { Card } from "./ui/card.jsx";
 
 const DoctorDetail = () => {
   const pageRef = useRef(null);
-  const { doctorId } = useParams();
+  const { doctorId } = useParams({});
   const navigate = useNavigate();
 
   const {

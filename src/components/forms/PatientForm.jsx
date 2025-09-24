@@ -12,7 +12,9 @@ import { ConfirmModal } from "../ui/confirm-modal.jsx";
 
 const PatientForm = ({ mode = "create" }) => {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const params = useParams({});
+  console.log("PatientForm params:", params); // Debug log
+  const { id } = params || {}; // Safe destructuring
   const isEdit = mode === "edit" && id;
 
   const [formData, setFormData] = useState({
@@ -120,18 +122,6 @@ const PatientForm = ({ mode = "create" }) => {
 
         // Update patient data
         await updatePatient.mutateAsync({ id, data: patientData });
-
-        // Handle email update separately if email changed
-        // Note: We would need to compare with original email to see if it changed
-        // For now, we'll update email if it's provided
-        if (formData.email) {
-          try {
-            await updateEmail.mutateAsync({ id, newEmail: formData.email });
-          } catch (emailError) {
-            console.error("Error updating email:", emailError);
-            // Don't fail the entire update if email update fails
-          }
-        }
       } else {
         // For creation, send all data including user fields
         const submitData = {

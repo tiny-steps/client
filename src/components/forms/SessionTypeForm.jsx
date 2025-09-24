@@ -40,7 +40,7 @@ const sessionTypeSchema = z.object({
 
 const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
   const navigate = useNavigate();
-  const { id: routeId } = useParams();
+  const { id: routeId } = useParams({});
   const id = sessionTypeId || routeId;
   const isEditMode = mode === "edit" || !!id;
 

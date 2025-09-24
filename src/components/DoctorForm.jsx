@@ -8,7 +8,6 @@ import {
   useGetDoctorById,
   useGetUserAccessibleBranchIds,
 } from "../hooks/useDoctorQueries.js";
-import { useDeleteUser } from "../hooks/useUserQueries.js";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
@@ -19,11 +18,9 @@ import { UpdateDoctorFormSchema } from "../schema/doctors/update.js";
 import useUserStore from "../store/useUserStore.js";
 import useBranchStore from "../store/useBranchStore.js";
 import useAddressStore from "../store/useAddressStore.js";
-import { authService } from "../services/authService.js";
-import { jwtDecode } from "jwt-decode";
 
 const DoctorForm = () => {
-  const { doctorId } = useParams();
+  const { doctorId } = useParams({});
   const navigate = useNavigate();
   const isEdit = !!doctorId;
   const [updateModal, setUpdateModal] = useState(false);
@@ -154,7 +151,6 @@ const DoctorForm = () => {
 
   const createDoctorMutation = useCreateDoctor();
   const updateDoctorMutation = useUpdateDoctor();
-  const deleteUserMutation = useDeleteUser();
 
   // Populate form when editing
   useEffect(() => {

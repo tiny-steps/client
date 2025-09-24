@@ -56,6 +56,14 @@ import Speech from "./pages/public/therapies/Speech.jsx";
 
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
+// Additional components for detail and form pages
+import DoctorDetail from "./components/DoctorDetail.jsx";
+import DoctorForm from "./components/DoctorForm.jsx";
+import PatientDetail from "./components/PatientDetail.jsx";
+import PatientForm from "./components/forms/PatientForm.jsx";
+import SessionForm from "./components/forms/SessionForm.jsx";
+import SessionTypeForm from "./components/forms/SessionTypeForm.jsx";
+
 // Root route
 const rootRoute = createRootRoute({
   component: () => (
@@ -390,6 +398,43 @@ const doctorsSpecializationsRoute = createRoute({
   ),
 });
 
+// Doctor detail and form routes
+const doctorAddRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/doctors/add",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <DoctorForm />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
+const doctorDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/doctors/$doctorId",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <DoctorDetail />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
+const doctorEditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/doctors/$doctorId/edit",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <DoctorForm />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
 const patientsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/patients",
@@ -410,6 +455,43 @@ const patientsAllergiesRoute = createRoute({
     <ProtectedRoute>
       <DashboardLayout>
         <PatientAllergiesPage />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
+// Patient detail and form routes
+const patientAddRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/patients/add",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <PatientForm />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
+const patientDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/patients/$id",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <PatientDetail />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
+const patientEditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/patients/$id/edit",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <PatientForm mode="edit" />
       </DashboardLayout>
     </ProtectedRoute>
   ),
@@ -446,6 +528,44 @@ const sessionTypesRoute = createRoute({
     <ProtectedRoute>
       <DashboardLayout>
         <SessionTypesPage />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
+// Session form routes
+const sessionAddRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/sessions/add",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <SessionForm />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
+const sessionEditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/sessions/$id/edit",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <SessionForm mode="edit" />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
+// Session type form routes
+const sessionTypeEditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/session-types/$id/edit",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <SessionTypeForm mode="edit" />
       </DashboardLayout>
     </ProtectedRoute>
   ),
@@ -519,14 +639,23 @@ const routeTree = rootRoute.addChildren([
   // Protected routes
   dashboardRoute,
   doctorsRoute,
+  doctorAddRoute,
   doctorsAwardsRoute,
   doctorsQualificationsRoute,
   doctorsSpecializationsRoute,
+  doctorDetailRoute,
+  doctorEditRoute,
   patientsRoute,
+  patientAddRoute,
   patientsAllergiesRoute,
+  patientDetailRoute,
+  patientEditRoute,
   timingRoute,
   sessionsRoute,
+  sessionAddRoute,
   sessionTypesRoute,
+  sessionEditRoute,
+  sessionTypeEditRoute,
   scheduleRoute,
   reportsRoute,
   profileRoute,

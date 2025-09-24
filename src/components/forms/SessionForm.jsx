@@ -10,7 +10,6 @@ import {
 } from "../../hooks/useSessionQueries.js";
 import { useGetAllSessionTypes } from "../../hooks/useSessionQueries.js";
 import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
-import useBranchStore from "../../store/useBranchStore.js";
 import useAddressStore from "../../store/useAddressStore.js";
 import useUserStore from "../../store/useUserStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card.jsx";
@@ -35,7 +34,7 @@ const sessionSchema = z.object({
 
 const SessionForm = ({ mode = "create" }) => {
   // Determine if we're in edit mode based on URL params
-  const { id } = useParams();
+  const { id } = useParams({});
   const isEditMode = mode === "edit" || !!id;
   const navigate = useNavigate();
 
