@@ -14,9 +14,9 @@ import {
   FormMessage,
 } from "./ui/form.jsx";
 import { Clock, Info, AlertTriangle } from "lucide-react";
+import useBranchStore from "../store/useBranchStore.js";
 import useAddressStore from "../store/useAddressStore.js";
 import useUserStore from "../store/useUserStore.js";
-import { useBranchFilter } from "../hooks/useBranchFilter.js";
 import { useGetTimeSlots } from "../hooks/useTimingQueries.js";
 import {
   isPastDate,
@@ -43,18 +43,7 @@ const appointmentSchema = z
   })
   .refine(
     (data) => {
-      if (data.appointmentDate) {
-        return !isPastDate(data.appointmentDate);
-      }
-      return true;
-    },
-    {
-      message: "Cannot book appointments on past dates",
-      path: ["appointmentDate"],
-    }
-  )
-  .refine(
-    (data) => {
+      // Validate that the appointment is not in the past
       if (data.appointmentDate && data.startTime) {
         return !isPastTimeSlot(data.appointmentDate, data.startTime);
       }
@@ -62,7 +51,7 @@ const appointmentSchema = z
     },
     {
       message: "Cannot book appointments in the past",
-      path: ["startTime"],
+      path: ["startTime"], // This will show the error on the time field
     }
   );
 
@@ -85,29 +74,38 @@ const EnhancedAppointmentModal = ({
   const [validationErrors, setValidationErrors] = useState([]);
   const [conflictWarning, setConflictWarning] = useState("");
 
-  // Use the branch filter hook to get effective branch data
-  const { branchId, hasSelection } = useBranchFilter();
+  // Get branch information - try multiple sources
+  const branches = useBranchStore((state) => state.branches);
+  const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
 
-  // Get addresses for branch selection dropdown
-  const addresses = useAddressStore((state) => state.addresses);
-  const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
-  const fetchAddresses = useAddressStore((state) => state.fetchAddresses);
+  // Fallback to addresses if branches are not available
+  const addresses = useAddressStore?.((state) => state.addresses) || [];
+  const selectedAddressId = useAddressStore?.(
+    (state) => state.selectedAddressId
+  );
 
-  // User store
-  const userId = useUserStore((state) => state.userId);
+  // Use whichever source has data
+  const effectiveBranches = branches.length > 0 ? branches : addresses;
+  const effectiveSelectedBranchId = selectedBranchId || selectedAddressId;
 
-  // Fetch addresses if not already loaded
+  // Debug logging
   useEffect(() => {
-    if (isOpen && userId && addresses.length === 0) {
-      console.log(
-        "🔍 EnhancedAppointmentModal - Fetching addresses for userId:",
-        userId
-      );
-      fetchAddresses(userId).catch((error) => {
-        console.warn("Failed to fetch addresses:", error.message);
-      });
-    }
-  }, [isOpen, userId, addresses.length, fetchAddresses]);
+    console.log("🔍 EnhancedAppointmentModal - Debug info:", {
+      branches: branches.length,
+      addresses: addresses.length,
+      effectiveBranches: effectiveBranches.length,
+      selectedBranchId,
+      selectedAddressId,
+      effectiveSelectedBranchId,
+    });
+  }, [
+    branches,
+    addresses,
+    effectiveBranches,
+    selectedBranchId,
+    selectedAddressId,
+    effectiveSelectedBranchId,
+  ]);
 
   // Get minimum selectable date (today)
   const minDate = getMinSelectableDate();
@@ -123,7 +121,7 @@ const EnhancedAppointmentModal = ({
       consultationType: "IN_PERSON",
       notes: "",
       sessionDurationMinutes: 30,
-      branchId: selectedAddressId || "", // Set default to selected branch
+      branchId: effectiveSelectedBranchId || "", // Set default to selected branch
     },
   });
 
@@ -147,10 +145,10 @@ const EnhancedAppointmentModal = ({
         consultationType: "IN_PERSON",
         notes: "",
         sessionDurationMinutes: 30,
-        branchId: selectedAddressId || "",
+        branchId: effectiveSelectedBranchId || "",
       });
     }
-  }, [isOpen, selectedDoctor, selectedDate, form, selectedAddressId]);
+  }, [isOpen, selectedDoctor, selectedDate, form, effectiveSelectedBranchId]);
 
   // Set the first doctor as default when doctors data changes and no doctor is selected
   useEffect(() => {
@@ -364,16 +362,25 @@ const EnhancedAppointmentModal = ({
                         }}
                         className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
                       >
-                        <option value="">Select a branch...</option>
-                        {addresses.map((address) => (
-                          <option key={address.id} value={address.id}>
-                            {address.name ||
-                              `${address.type} - ${address.city}`}
-                            {address.isDefault ? " (Default)" : ""}
+                        <option value="">
+                          {effectiveBranches.length === 0
+                            ? "Loading branches..."
+                            : "Select a branch..."}
+                        </option>
+                        {effectiveBranches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name || `${branch.type} - ${branch.city}`}{" "}
+                            {branch.isPrimary ? "(Primary)" : ""}
                           </option>
                         ))}
                       </select>
                     </FormControl>
+                    {effectiveBranches.length === 0 && (
+                      <p className="text-sm text-amber-600 mt-1">
+                        No branches available. Please check your branch access
+                        permissions.
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -590,35 +597,55 @@ const EnhancedAppointmentModal = ({
                 )}
               />
 
-              {/* Duration Section */}
+              {/* Session Duration Management */}
               {selectedSession && (
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    <span className="font-medium text-gray-800">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-blue-900">
                       Session Duration
                     </span>
                   </div>
 
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">
-                        Default duration:{" "}
-                        <span className="font-medium">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-blue-800">
+                        Default Duration:{" "}
+                        <strong>
                           {formatTime(
                             selectedSession.sessionType
                               ?.defaultDurationMinutes || 30
                           )}
-                        </span>
+                        </strong>
                       </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setModifyDuration(!modifyDuration)}
+                      <Input
+                        type="number"
+                        value={
+                          selectedSession.sessionType?.defaultDurationMinutes ||
+                          30
+                        }
+                        disabled
+                        className="w-20 px-2 py-1 text-sm bg-gray-100"
+                        min="5"
+                        max="480"
+                      />
+                      <span className="text-sm text-gray-600">minutes</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="modifyDuration"
+                        checked={modifyDuration}
+                        onChange={(e) => setModifyDuration(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor="modifyDuration"
+                        className="text-sm text-blue-800"
                       >
-                        {modifyDuration ? "Use Default" : "Modify Duration"}
-                      </Button>
+                        Modify Duration
+                      </label>
                     </div>
 
                     {modifyDuration && (
@@ -654,6 +681,12 @@ const EnhancedAppointmentModal = ({
                         )}
                       />
                     )}
+
+                    <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
+                      <Info className="h-3 w-3 inline mr-1" />
+                      Available time slots are calculated based on the session
+                      duration and existing appointments.
+                    </div>
                   </div>
                 </div>
               )}
@@ -685,13 +718,13 @@ const EnhancedAppointmentModal = ({
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormLabel>Notes</FormLabel>
                     <FormControl>
                       <textarea
                         {...field}
+                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 resize-none"
                         rows={3}
-                        className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 resize-vertical"
-                        placeholder="Additional notes for the appointment..."
+                        placeholder="Optional notes..."
                       />
                     </FormControl>
                     <FormMessage />
@@ -702,19 +735,18 @@ const EnhancedAppointmentModal = ({
               {/* Validation Errors Display */}
               {validationErrors.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5 mr-2" />
-                    <div>
-                      <h4 className="text-sm font-medium text-red-800">
-                        Please fix the following issues:
-                      </h4>
-                      <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
-                        {validationErrors.map((error, index) => (
-                          <li key={index}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
+                  <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    <span>Validation Errors</span>
                   </div>
+                  <ul className="text-red-700 text-sm space-y-1">
+                    {validationErrors.map((error, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-red-500 mt-0.5">•</span>
+                        <span>{error}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
@@ -728,7 +760,7 @@ const EnhancedAppointmentModal = ({
                     sessions.length === 0 ||
                     validationErrors.length > 0 ||
                     conflictWarning ||
-                    !form.watch("branchId")
+                    (!form.watch("branchId") && effectiveBranches.length > 0)
                   }
                 >
                   {isLoading ? "Creating..." : "Create Appointment"}

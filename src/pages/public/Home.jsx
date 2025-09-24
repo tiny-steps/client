@@ -45,7 +45,7 @@ const Home = () => {
     { icon: '🏃', number: '800+', label: 'Therapy Hours' },
     { icon: '🏆', number: '95%', label: 'Success Rate' },
     { icon: '👨‍👩‍👧', number: '300+', label: 'Families Supported' },
-    { icon: '🧑‍⚕️', number: '5', label: 'Certified therapist' },
+    { icon: '🧑‍⚕️', number: '5', label: 'Certified Therapists' },
   ]
 
   const experts = [
