@@ -246,15 +246,12 @@ class DoctorService {
   }
 
   async getDoctorBranches(doctorId) {
-    const response = await fetch(
-      `/api/v1/doctors/branch-transfer/doctor/${doctorId}/branches`,
-      {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const response = await fetch(`/api/v1/doctors/${doctorId}/branches`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
     if (!response.ok) {
       const error = await response.json();
@@ -306,7 +303,11 @@ class DoctorService {
   }
 
   // Activate doctor address (sets status to ACTIVE)
-  async activateDoctorAddress(doctorId, addressId, practiceRole = "CONSULTANT") {
+  async activateDoctorAddress(
+    doctorId,
+    addressId,
+    practiceRole = "CONSULTANT"
+  ) {
     const response = await fetch(
       `/api/v1/doctor-addresses/activate/${doctorId}/${addressId}?practiceRole=${practiceRole}`,
       {
