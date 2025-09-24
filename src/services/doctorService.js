@@ -326,6 +326,55 @@ class DoctorService {
     return response.json();
   }
 
+  // Get doctors with branch status for a specific branch
+  async getDoctorsWithBranchStatus(branchId, params = {}) {
+    const cleanParams = { ...params };
+    
+    // Build query parameters
+    const searchParams = new URLSearchParams();
+    if (cleanParams.page !== undefined)
+      searchParams.append("page", cleanParams.page);
+    if (cleanParams.size !== undefined)
+      searchParams.append("size", cleanParams.size);
+    if (cleanParams.status !== undefined)
+      searchParams.append("status", cleanParams.status);
+    if (cleanParams.name)
+      searchParams.append("name", cleanParams.name);
+    if (cleanParams.speciality)
+      searchParams.append("speciality", cleanParams.speciality);
+
+    const response = await fetch(
+      `/api/v1/doctors/branch/${branchId}/status?${searchParams}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      // Fallback to the regular branch endpoint if status endpoint doesn't exist
+      const fallbackResponse = await fetch(
+        `/api/v1/doctors/branch/${branchId}?${searchParams}`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      
+      if (!fallbackResponse.ok) {
+        throw new Error("Failed to fetch doctors with branch status");
+      }
+      
+      return fallbackResponse.json();
+    }
+
+    return response.json();
+  }
+
   // Get user's accessible branch IDs
   async getUserAccessibleBranchIds(userId) {
     console.log(
