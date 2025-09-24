@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from "react";
-import MenuIcon from "./MenuIcon";
+import MenuIcon from "./MenuIcon.jsx";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import useBranchStore from "../store/useBranchStore.js";
@@ -8,7 +8,7 @@ import useUserStore from "../store/useUserStore.js";
 import { branchService } from "../services/branchService.js";
 import { jwtDecode } from "jwt-decode";
 
-export default function Header({ isNavOpen, setIsNavOpen }) {
+export default function DashboardHeader({ isNavOpen, setIsNavOpen }) {
   const toggleNav = () => {
     setIsNavOpen(!isNavOpen);
   };

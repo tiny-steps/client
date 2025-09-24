@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import {  useNavigate  } from "@tanstack/react-router";
 import {
   useDeleteSession,
   useActivateSession,
@@ -199,7 +199,7 @@ const SessionsList = () => {
               Try Again
             </Button>
             <Button
-              onClick={() => navigate("/session-types")}
+              onClick={() => navigate({ to: "/session-types" })}
               variant="default"
             >
               Manage Session Types Instead
@@ -217,7 +217,7 @@ const SessionsList = () => {
     <div className="p-6 h-full w-full">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Session Offerings</h1>
-        <Button onClick={() => navigate("/sessions/add")}>
+        <Button onClick={() => navigate({ to: "/sessions/add" })}>
           Add New Session
         </Button>
       </div>
@@ -389,14 +389,14 @@ const SessionsList = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate(`/sessions/${session.id}`)}
+                  onClick={() => navigate({ to: `/sessions/${session.id}` })}
                 >
                   View
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate(`/sessions/${session.id}/edit`)}
+                  onClick={() => navigate({ to: `/sessions/${session.id}/edit` })}
                 >
                   Edit
                 </Button>

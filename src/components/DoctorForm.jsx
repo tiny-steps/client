@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router";
+import {  useParams, useNavigate  } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -211,7 +211,7 @@ const DoctorForm = () => {
       // Direct create for new doctors
       try {
         await createDoctorMutation.mutateAsync(submitData);
-        navigate("/doctors");
+        navigate({ to: "/doctors" });
       } catch (error) {
         console.error("Failed to create doctor:", error);
       }
@@ -240,7 +240,7 @@ const DoctorForm = () => {
         );
 
         // Navigate back to doctors list and trigger refresh
-        navigate("/doctors");
+        navigate({ to: "/doctors" });
       } catch (error) {
         console.error("Failed to update doctor:", error);
       } finally {
@@ -266,7 +266,7 @@ const DoctorForm = () => {
             Error Loading Doctor
           </h3>
           <p className="text-red-600 mb-4">{fetchError.message}</p>
-          <Button onClick={() => navigate("/doctors")} variant="outline">
+          <Button onClick={() => navigate({ to: "/doctors" })} variant="outline">
             Back to Doctors List
           </Button>
         </Card>
@@ -497,7 +497,7 @@ const DoctorForm = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate("/doctors")}
+                onClick={() => navigate({ to: "/doctors" })}
               >
                 Cancel
               </Button>

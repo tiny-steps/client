@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
-import { useOutletContext } from "react-router";
+import { useNavigate, useLocation } from "@tanstack/react-router";
+
 import {
   useGetAllSessionTypes,
   useDeleteSessionType,
@@ -35,7 +35,78 @@ import {
 import SessionTypeForm from "../../components/forms/SessionTypeForm.jsx";
 
 const SessionTypesPage = () => {
-  const { activeItem } = useOutletContext();
+  const location = useLocation();
+
+  // Get active item info based on current route
+  const getActiveItem = () => {
+    const mapping = {
+      "/dashboard": {
+        name: "Dashboard",
+        description: "Welcome to Admin Dashboard",
+      },
+      "/doctors": {
+        name: "Doctor",
+        description: "Manage Doctors with ease",
+      },
+      "/doctors/awards": {
+        name: "Awards",
+        description: "Manage doctor awards",
+      },
+      "/doctors/qualifications": {
+        name: "Qualifications",
+        description: "Manage doctor qualifications",
+      },
+      "/doctors/specializations": {
+        name: "Specializations",
+        description: "Manage doctor specializations",
+      },
+      "/patients": {
+        name: "Patient",
+        description: "Patient Management is a breeze",
+      },
+      "/patients/allergies": {
+        name: "Allergies",
+        description: "Manage patient allergies",
+      },
+      "/patients/medications": {
+        name: "Medications",
+        description: "Manage patient medications",
+      },
+      "/patients/emergency-contacts": {
+        name: "Emergency Contacts",
+        description: "Manage emergency contacts",
+      },
+      "/timing": {
+        name: "Timing",
+        description: "Effortless Timing Management",
+      },
+      "/sessions": {
+        name: "Session",
+        description: "Unified Session & Session Type Management",
+      },
+      "/sessions/types": {
+        name: "Session Types",
+        description: "Manage session types",
+      },
+      "/schedule": {
+        name: "Schedule",
+        description: "Appointment Scheduling Made Easy",
+      },
+      "/reports": {
+        name: "Report",
+        description: "Generate Reports in a Click",
+      },
+      "/profile": {
+        name: "Profile",
+        description: "Manage your profile",
+      },
+    };
+    return (
+      mapping[location.pathname] || { name: "Unknown", description: "Page" }
+    );
+  };
+
+  const activeItem = getActiveItem();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(12);
@@ -234,7 +305,7 @@ const SessionTypesPage = () => {
           <h1 className="text-2xl font-bold mr-6">Session Types Management</h1>
           <Button
             variant="outline"
-            onClick={() => navigate("/sessions")}
+            onClick={() => navigate({ to: "/sessions" })}
             className="flex items-center"
           >
             <BookOpen className="w-4 h-4 mr-2" />
@@ -364,8 +435,6 @@ const SessionTypesPage = () => {
                     <div className="flex gap-1">
                       {role === "ADMIN" && (
                         <>
-                        
-                          
                           <Button
                             onClick={() => handleEditClick(sessionType)}
                             variant="outline"
@@ -373,27 +442,25 @@ const SessionTypesPage = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          {!sessionType.isActive ?(
-                          <Button
-                            onClick={() => handleToggleStatus(sessionType)}
-                            variant={
-                              sessionType.isActive ? "outline" : "default"
-                            }
-                            size="sm"
-                          >
-                            
+                          {!sessionType.isActive ? (
+                            <Button
+                              onClick={() => handleToggleStatus(sessionType)}
+                              variant={
+                                sessionType.isActive ? "outline" : "default"
+                              }
+                              size="sm"
+                            >
                               <CheckCircle className="h-4 w-4" />
-                            
-                          </Button>
-                        ):(
-                          <Button
-                            onClick={() => handleDeleteClick(sessionType)}
-                            variant="destructive"
-                            size="sm"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => handleDeleteClick(sessionType)}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </>
                       )}
                     </div>

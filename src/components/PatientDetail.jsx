@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import {  useNavigate, useParams  } from "@tanstack/react-router";
 import {
   useGetPatientById,
   useGetPatientMedicalHistory,
@@ -32,7 +32,7 @@ const PatientDetail = () => {
   const handleDeleteConfirm = async () => {
     try {
       await deletePatient.mutateAsync(id);
-      navigate("/patients");
+      navigate({ to: "/patients" });
     } catch (error) {
       console.error("Error deleting patient:", error);
     } finally {
@@ -87,7 +87,7 @@ const PatientDetail = () => {
     return (
       <Card className="p-6 bg-red-50 border-red-200">
         <p className="text-red-600">{error.message}</p>
-        <Button onClick={() => navigate("/patients")} className="mt-2">
+        <Button onClick={() => navigate({ to: "/patients" })} className="mt-2">
           Back to Patients
         </Button>
       </Card>
@@ -102,7 +102,7 @@ const PatientDetail = () => {
     return (
       <Card className="p-6">
         <p className="text-gray-600">Patient not found.</p>
-        <Button onClick={() => navigate("/patients")} className="mt-2">
+        <Button onClick={() => navigate({ to: "/patients" })} className="mt-2">
           Back to Patients
         </Button>
       </Card>
@@ -140,12 +140,12 @@ const PatientDetail = () => {
           <p className="text-gray-600">Patient ID: {patient.id}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate("/patients")}>
+          <Button variant="outline" onClick={() => navigate({ to: "/patients" })}>
             Back to Patients
           </Button>
           <Button
             variant="outline"
-            onClick={() => navigate(`/patients/${id}/edit`)}
+            onClick={() => navigate({ to: `/patients/${id}/edit` })}
           >
             Edit Patient
           </Button>

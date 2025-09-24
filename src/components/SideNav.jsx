@@ -1,5 +1,5 @@
-import React, { useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router";
+import React, { useRef, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 export default function SideNav({
   items = [],
   bottomContent,
+  topContent,
   activeItem,
   onItemClick,
   containerClassName = "",
@@ -19,12 +20,28 @@ export default function SideNav({
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState(new Set());
 
+  // Auto-expand parent items when their subroutes are active
+  useEffect(() => {
+    const currentExpandedItems = new Set();
+    items.forEach((item) => {
+      if (item.subItems && item.subItems.length > 0) {
+        const hasActiveSubItem = item.subItems.some(
+          (subItem) => location.pathname === subItem.route
+        );
+        if (hasActiveSubItem) {
+          currentExpandedItems.add(item.name);
+        }
+      }
+    });
+    setExpandedItems(currentExpandedItems);
+  }, [location.pathname, items]);
+
   const handleItemClick = (item) => {
     // If item has subItems, toggle expansion
     if (item.subItems && item.subItems.length > 0) {
       // If sidebar is collapsed, navigate to the first subItem instead of expanding
       if (!isOpen) {
-        navigate(item.subItems[0].route);
+        navigate({ to: item.subItems[0].route });
         onItemClick?.(item.subItems[0]);
         return;
       }
@@ -40,14 +57,14 @@ export default function SideNav({
       });
     } else {
       // Navigate to the route
-      navigate(item.route);
+      navigate({ to: item.route });
       // Call the existing onItemClick handler
       onItemClick?.(item);
     }
   };
 
   const handleSubItemClick = (subItem) => {
-    navigate(subItem.route);
+    navigate({ to: subItem.route });
     onItemClick?.(subItem);
   };
 
@@ -92,6 +109,38 @@ export default function SideNav({
         Tiny Steps
         <span className="text-sm text-gray-500 block">CDC</span>
       </div>
+
+      {/* Top Content - After header */}
+      {topContent && (
+        <div className="px-2 pb-4">
+          {Array.isArray(topContent) ? (
+            topContent.map((item, idx) => (
+              <div
+                key={idx}
+                className={`flex items-center p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 hover:bg-gray-100`}
+                onClick={() => item.onClick?.()}
+                title={!isOpen ? item.name : undefined}
+              >
+                <item.icon
+                  className={`flex-shrink-0 transition-all duration-300 ${
+                    isOpen ? "mr-3" : "mx-auto"
+                  }`}
+                  size={24}
+                />
+                {isOpen && (
+                  <span className="block whitespace-nowrap transition-opacity duration-300 opacity-100">
+                    {item.name}
+                  </span>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="p-2 text-center text-gray-500 text-sm">
+              Invalid top content format
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Navigation Items - Scrollable area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import {  useNavigate  } from "@tanstack/react-router";
 import {
   useDeleteSession,
   useActivateSession,
@@ -183,7 +183,7 @@ const SessionManager = () => {
           <h1 className="text-2xl font-bold mr-6">Session Management</h1>
           <Button
             variant="outline"
-            onClick={() => navigate("/sessions/types")}
+            onClick={() => navigate({ to: "/sessions/types" })}
             className="flex items-center"
           >
             <Settings className="w-4 h-4 mr-2" />
@@ -194,7 +194,7 @@ const SessionManager = () => {
         {/* Action Buttons */}
         <div className="flex gap-2">
           <Button
-            onClick={() => navigate("/sessions/add")}
+            onClick={() => navigate({ to: "/sessions/add" })}
             className="flex items-center"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -308,7 +308,7 @@ const SessionManager = () => {
           <Card
             key={item.id}
             className="hover:shadow-lg transition-all cursor-pointer"
-            onClick={() => navigate(`/sessions/${item.id}`)}
+            onClick={() => navigate({ to: `/sessions/${item.id}` })}
           >
             <CardHeader>
               <div className="flex items-start justify-between">
@@ -360,7 +360,7 @@ const SessionManager = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate(`/sessions/${item.id}/edit`)}
+                  onClick={() => navigate({ to: `/sessions/${item.id}/edit` })}
                 >
                   Edit
                 </Button>

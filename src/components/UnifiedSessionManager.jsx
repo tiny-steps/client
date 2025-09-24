@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import {  useNavigate  } from "@tanstack/react-router";
 import {
   useGetAllSessionTypes,
   useDeleteSession,
@@ -358,7 +358,7 @@ const UnifiedSessionManager = () => {
                 Add Session Type
               </Button>
               <Button
-                onClick={() => navigate("/sessions/add")}
+                onClick={() => navigate({ to: "/sessions/add" })}
                 className="flex items-center"
               >
                 <Plus className="w-4 h-4 mr-2" />
