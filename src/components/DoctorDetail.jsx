@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import {  Link, useParams, useNavigate  } from "@tanstack/react-router";
+import { Link, useParams, useNavigate } from "@tanstack/react-router";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import {

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import {  useNavigate  } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useDeleteSession,
   useActivateSession,
@@ -396,7 +396,9 @@ const SessionsList = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate({ to: `/sessions/${session.id}/edit` })}
+                  onClick={() =>
+                    navigate({ to: `/sessions/${session.id}/edit` })
+                  }
                 >
                   Edit
                 </Button>

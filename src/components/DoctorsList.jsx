@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import {  useNavigate  } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useGetAllDoctors,
   useDeleteDoctor,
@@ -274,7 +274,9 @@ const DoctorsList = () => {
     <div className="p-6 h-full w-full ">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Doctors List</h1>
-        <Button onClick={() => navigate({ to: "/doctors/add" })}>Add New Doctor</Button>
+        <Button onClick={() => navigate({ to: "/doctors/add" })}>
+          Add New Doctor
+        </Button>
       </div>
 
       {/* Instant Search Form */}
@@ -497,7 +499,9 @@ const DoctorsList = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => navigate({ to: `/doctors/${doctor.id}/edit` })}
+                    onClick={() =>
+                      navigate({ to: `/doctors/${doctor.id}/edit` })
+                    }
                   >
                     Edit
                   </Button>

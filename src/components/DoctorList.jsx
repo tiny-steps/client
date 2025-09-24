@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import {  useNavigate  } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useGetAllDoctors,
   useDeleteDoctor,
@@ -194,7 +194,9 @@ const DoctorList = () => {
     <div className="p-6 h-full w-full">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Doctors</h1>
-        <Button onClick={() => navigate({ to: "/doctors/add" })}>Add New Doctor</Button>
+        <Button onClick={() => navigate({ to: "/doctors/add" })}>
+          Add New Doctor
+        </Button>
       </div>
 
       {/* Search Filters */}

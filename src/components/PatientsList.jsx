@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import {  useNavigate  } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useGetAllEnrichedPatients,
   useDeleteEnrichedPatient,
@@ -250,7 +250,9 @@ const PatientsList = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate({ to: `/patients/${patient.id}/edit` })}
+                  onClick={() =>
+                    navigate({ to: `/patients/${patient.id}/edit` })
+                  }
                 >
                   Edit
                 </Button>

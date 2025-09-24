@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {  useParams, useNavigate  } from "@tanstack/react-router";
+import { useParams, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -266,7 +266,10 @@ const DoctorForm = () => {
             Error Loading Doctor
           </h3>
           <p className="text-red-600 mb-4">{fetchError.message}</p>
-          <Button onClick={() => navigate({ to: "/doctors" })} variant="outline">
+          <Button
+            onClick={() => navigate({ to: "/doctors" })}
+            variant="outline"
+          >
             Back to Doctors List
           </Button>
         </Card>

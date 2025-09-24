@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {  useNavigate, useParams  } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   useGetEnrichedPatientById,
   useCreateEnrichedPatient,

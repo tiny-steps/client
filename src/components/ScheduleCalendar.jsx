@@ -4,7 +4,7 @@ import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import { ErrorModal } from "./ui/error-modal.jsx";
-import {  useNavigate  } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useGetAllAppointments,
   useCreateAppointment,
@@ -398,7 +398,9 @@ const ScheduleCalendar = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  navigate({ to: `/appointments/${appointment.id}` })
+                                  navigate({
+                                    to: `/appointments/${appointment.id}`,
+                                  })
                                 }
                                 title="View Appointment"
                               >

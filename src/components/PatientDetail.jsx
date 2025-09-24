@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import {  useNavigate, useParams  } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   useGetPatientById,
   useGetPatientMedicalHistory,
@@ -140,7 +140,10 @@ const PatientDetail = () => {
           <p className="text-gray-600">Patient ID: {patient.id}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate({ to: "/patients" })}>
+          <Button
+            variant="outline"
+            onClick={() => navigate({ to: "/patients" })}
+          >
             Back to Patients
           </Button>
           <Button

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import {  useNavigate  } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useDeleteSession,
   useActivateSession,

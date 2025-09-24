@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import {  useNavigate, useParams  } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
