@@ -1,5 +1,5 @@
 import React from "react";
-import { useOutletContext } from "react-router";
+import { useLocation } from "@tanstack/react-router";
 import {
  Card,
  CardHeader,
@@ -10,7 +10,76 @@ import { Button } from "../../components/ui/button.jsx";
 import { Construction, Plus } from "lucide-react";
 
 const PlaceholderPage = ({ title, description, icon: Icon }) => {
- const { activeItem } = useOutletContext();
+ const location = useLocation();
+  
+  // Get active item info based on current route
+  const getActiveItem = () => {
+    const mapping = {
+    "/dashboard": {
+        "name": "Dashboard",
+        "description": "Welcome to Admin Dashboard"
+    },
+    "/doctors": {
+        "name": "Doctor",
+        "description": "Manage Doctors with ease"
+    },
+    "/doctors/awards": {
+        "name": "Awards",
+        "description": "Manage doctor awards"
+    },
+    "/doctors/qualifications": {
+        "name": "Qualifications",
+        "description": "Manage doctor qualifications"
+    },
+    "/doctors/specializations": {
+        "name": "Specializations",
+        "description": "Manage doctor specializations"
+    },
+    "/patients": {
+        "name": "Patient",
+        "description": "Patient Management is a breeze"
+    },
+    "/patients/allergies": {
+        "name": "Allergies",
+        "description": "Manage patient allergies"
+    },
+    "/patients/medications": {
+        "name": "Medications",
+        "description": "Manage patient medications"
+    },
+    "/patients/emergency-contacts": {
+        "name": "Emergency Contacts",
+        "description": "Manage emergency contacts"
+    },
+    "/timing": {
+        "name": "Timing",
+        "description": "Effortless Timing Management"
+    },
+    "/sessions": {
+        "name": "Session",
+        "description": "Unified Session & Session Type Management"
+    },
+    "/sessions/types": {
+        "name": "Session Types",
+        "description": "Manage session types"
+    },
+    "/schedule": {
+        "name": "Schedule",
+        "description": "Appointment Scheduling Made Easy"
+    },
+    "/reports": {
+        "name": "Report",
+        "description": "Generate Reports in a Click"
+    },
+    "/profile": {
+        "name": "Profile",
+        "description": "Manage your profile"
+    }
+};
+    return mapping[location.pathname] || { name: 'Unknown', description: 'Page' };
+  };
+  
+  const activeItem = getActiveItem();
 
  return (
  <div className="p-6 h-full w-full">

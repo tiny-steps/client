@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import {  useNavigate  } from "@tanstack/react-router";
 import {
   useGetAllDoctors,
   useDeleteDoctor,
@@ -194,7 +194,7 @@ const DoctorList = () => {
     <div className="p-6 h-full w-full">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Doctors</h1>
-        <Button onClick={() => navigate("/doctors/add")}>Add New Doctor</Button>
+        <Button onClick={() => navigate({ to: "/doctors/add" })}>Add New Doctor</Button>
       </div>
 
       {/* Search Filters */}
@@ -312,7 +312,7 @@ const DoctorList = () => {
                 key={doctor.id}
                 doctor={doctor}
                 onDelete={() => setDeleteModal({ open: true, doctor })}
-                onEdit={() => navigate(`/doctors/edit/${doctor.id}`)}
+                onEdit={() => navigate({ to: `/doctors/edit/${doctor.id}` })}
                 onActivate={() => activateDoctorMutation.mutate(doctor.id)}
                 onDeactivate={() => deactivateDoctorMutation.mutate(doctor.id)}
                 canEdit={role === "ADMIN"}

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router";
+import {  useNavigate  } from "@tanstack/react-router";
 import {
   useGetAllEnrichedPatients,
   useDeleteEnrichedPatient,
@@ -145,7 +145,7 @@ const PatientsList = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Patients</h1>
         <Button
-          onClick={() => navigate("/patients/add")}
+          onClick={() => navigate({ to: "/patients/add" })}
           className="bg-blue-600 hover:bg-blue-700"
         >
           Add Patient
@@ -243,14 +243,14 @@ const PatientsList = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate(`/patients/${patient.id}`)}
+                  onClick={() => navigate({ to: `/patients/${patient.id}` })}
                 >
                   View
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate(`/patients/${patient.id}/edit`)}
+                  onClick={() => navigate({ to: `/patients/${patient.id}/edit` })}
                 >
                   Edit
                 </Button>

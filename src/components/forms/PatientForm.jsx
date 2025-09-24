@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router";
+import {  useNavigate, useParams  } from "@tanstack/react-router";
 import {
   useGetEnrichedPatientById,
   useCreateEnrichedPatient,
@@ -148,7 +148,7 @@ const PatientForm = ({ mode = "create" }) => {
         await createPatient.mutateAsync(submitData);
       }
 
-      navigate("/patients");
+      navigate({ to: "/patients" });
       // Force a page reload to ensure fresh data
       window.location.reload();
     } catch (error) {
@@ -172,7 +172,7 @@ const PatientForm = ({ mode = "create" }) => {
         <h1 className="text-2xl font-bold">
           {isEdit ? "Edit Patient" : "Add New Patient"}
         </h1>
-        <Button variant="outline" onClick={() => navigate("/patients")}>
+        <Button variant="outline" onClick={() => navigate({ to: "/patients" })}>
           Back to Patients
         </Button>
       </div>
@@ -357,7 +357,7 @@ const PatientForm = ({ mode = "create" }) => {
           <Button
             type="button"
             variant="outline"
-            onClick={() => navigate("/patients")}
+            onClick={() => navigate({ to: "/patients" })}
           >
             Cancel
           </Button>

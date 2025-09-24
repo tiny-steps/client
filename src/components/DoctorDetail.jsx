@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { Link, useParams, useNavigate } from "react-router";
+import {  Link, useParams, useNavigate  } from "@tanstack/react-router";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import {
@@ -49,7 +49,7 @@ const DoctorDetail = () => {
     if (window.confirm(`Are you sure you want to delete ${doctor.name}?`)) {
       try {
         await deleteDoctorMutation.mutateAsync(doctor.id);
-        navigate("/doctors");
+        navigate({ to: "/doctors" });
       } catch (error) {
         console.error("Error deleting doctor:", error);
       }

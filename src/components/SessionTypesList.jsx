@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import {  useNavigate  } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   useGetAllSessionTypes,

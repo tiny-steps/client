@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useNavigate, useParams } from "react-router";
+import {  useNavigate, useParams  } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -117,7 +117,7 @@ const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
       if (onSuccess) {
         onSuccess();
       } else {
-        navigate("/sessions");
+        navigate({ to: "/sessions" });
       }
     } catch (error) {
       console.error("Failed to save session type:", error);
@@ -299,7 +299,7 @@ const SessionTypeForm = ({ mode = "create", onSuccess, sessionTypeId }) => {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => navigate("/sessions")}
+                      onClick={() => navigate({ to: "/sessions" })}
                       className="flex-1"
                     >
                       Cancel
