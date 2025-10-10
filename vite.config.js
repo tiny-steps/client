@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    port: 3000,
     proxy: {
       "/api": {
         target: "http://localhost:8080", // Or http://localhost:8080 if your gateway is local

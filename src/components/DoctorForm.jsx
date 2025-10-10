@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,6 +25,10 @@ const DoctorForm = () => {
   const isEdit = !!doctorId;
   const [updateModal, setUpdateModal] = useState(false);
   const [formData, setFormData] = useState(null);
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const canvasRef = useRef(null);
   const { userId } = useUserStore();
   const branches = useBranchStore((state) => state.branches);
   const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
@@ -165,10 +169,68 @@ const DoctorForm = () => {
       setValue("speciality", doctor.speciality || "");
       setValue("branchId", selectedBranchId || "");
 
+      // If doctor has an existing image, set it as the preview
+      if (doctor.imageUrl) {
+        console.log("📸 Loading existing doctor image:", doctor.imageUrl);
+        setImagePreviewUrl(doctor.imageUrl);
+        // Draw the existing image into the canvas
+        setTimeout(() => {
+          try {
+            const img = new Image();
+            // Don't set crossOrigin for same-origin images
+            // img.crossOrigin = "anonymous";
+            img.onload = () => {
+              console.log("✅ Image loaded successfully for canvas");
+              const canvas = canvasRef.current;
+              if (!canvas) {
+                console.warn("Canvas ref not available");
+                return;
+              }
+              const ctx = canvas.getContext("2d");
+              if (!ctx) {
+                console.warn("Canvas context not available");
+                return;
+              }
+              const size = canvas.width;
+              ctx.clearRect(0, 0, size, size);
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, size, size);
+              const scale = Math.max(
+                (size / img.width) * zoom,
+                (size / img.height) * zoom
+              );
+              const drawWidth = img.width * scale;
+              const drawHeight = img.height * scale;
+              const dx = (size - drawWidth) / 2;
+              const dy = (size - drawHeight) / 2;
+              ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
+              ctx.globalCompositeOperation = "destination-in";
+              ctx.beginPath();
+              ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+              ctx.closePath();
+              ctx.fill();
+              ctx.globalCompositeOperation = "source-over";
+            };
+            img.onerror = (e) => {
+              console.error(
+                "❌ Failed to load existing doctor image:",
+                doctor.imageUrl,
+                e
+              );
+              // If image fails to load, clear the preview
+              setImagePreviewUrl(null);
+            };
+            img.src = doctor.imageUrl;
+          } catch (err) {
+            console.error("❌ Failed to render existing image preview:", err);
+          }
+        }, 0);
+      }
+
       // Note: Email and phone are not stored in doctor entity, so we don't set them in edit mode
       // The doctor service will handle user updates internally
     }
-  }, [doctorData, isEdit, setValue, selectedBranchId]);
+  }, [doctorData, isEdit, setValue, selectedBranchId, zoom]);
 
   const onSubmit = async (data) => {
     console.log("🚀 onSubmit called - Form submitted with data:", data);
@@ -178,6 +240,73 @@ const DoctorForm = () => {
       isEdit ? "UpdateDoctorFormSchema" : "CreateDoctorFormSchema"
     );
     console.log("🚀 Form data keys:", Object.keys(data));
+
+    // If an image file is selected, attempt to upload it (if endpoint configured)
+    if (selectedImageFile) {
+      const uploadEndpoint = import.meta.env.VITE_UPLOAD_ENDPOINT;
+      // Prepare cropped image from canvas if available
+      let fileToUpload = selectedImageFile;
+      try {
+        if (canvasRef.current) {
+          const blob = await new Promise((resolve) =>
+            canvasRef.current.toBlob((b) => resolve(b), "image/jpeg", 0.92)
+          );
+          if (blob) {
+            fileToUpload = new File(
+              [blob],
+              selectedImageFile.name || "avatar.jpg",
+              {
+                type: "image/jpeg",
+              }
+            );
+          }
+        }
+      } catch (e) {
+        console.warn(
+          "Failed to prepare cropped image, falling back to original file."
+        );
+      }
+
+      if (uploadEndpoint) {
+        try {
+          const formDataUpload = new FormData();
+          formDataUpload.append("file", fileToUpload);
+          const res = await fetch(uploadEndpoint, {
+            method: "POST",
+            body: formDataUpload,
+            credentials: "include",
+          });
+          if (!res.ok) {
+            throw new Error("Image upload failed");
+          }
+          const uploadJson = await res.json();
+          // Expecting { url: "https://..." }
+          if (uploadJson?.url) {
+            data.imageUrl = uploadJson.url;
+          } else if (uploadJson?.data?.url) {
+            data.imageUrl = uploadJson.data.url;
+          } else {
+            throw new Error("Upload response missing URL");
+          }
+        } catch (err) {
+          console.error("Image upload error:", err);
+          alert(
+            "Image upload failed. Please try again later or contact support."
+          );
+          return;
+        }
+      } else {
+        // No upload endpoint → embed base64 image for backend user-service to persist
+        if (canvasRef.current) {
+          try {
+            const dataUrl = canvasRef.current.toDataURL("image/jpeg", 0.92);
+            data.imageData = dataUrl; // backend to store and return a URL
+          } catch (e) {
+            console.warn("Failed generating data URL for image");
+          }
+        }
+      }
+    }
 
     // Add userId to the data for backend
     const submitData = {
@@ -409,18 +538,160 @@ const DoctorForm = () => {
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="imageUrl">Profile Image URL</Label>
-              <Input
-                id="imageUrl"
-                {...register("imageUrl")}
-                placeholder="https://example.com/image.jpg"
-              />
-              {errors.imageUrl && (
-                <p className="text-sm text-red-600 mt-1">
-                  {errors.imageUrl.message}
-                </p>
-              )}
+            {/* Profile Image Uploader with circular crop */}
+            <div className="space-y-2">
+              <Label>Profile Photo *</Label>
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center gap-2">
+                  <div
+                    className="w-28 h-28 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border"
+                    style={{
+                      maskImage:
+                        "radial-gradient(circle at center, black 99%, transparent 100%)",
+                      WebkitMaskImage:
+                        "radial-gradient(circle at center, black 99%, transparent 100%)",
+                    }}
+                  >
+                    {imagePreviewUrl ? (
+                      <canvas
+                        ref={canvasRef}
+                        width={256}
+                        height={256}
+                        className="scale-50"
+                      />
+                    ) : (
+                      <span className="text-gray-400 text-xs text-center px-2">
+                        No image
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setSelectedImageFile(file);
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const url = reader.result;
+                        setImagePreviewUrl(url);
+                        // Draw into canvas centered with current zoom
+                        setTimeout(() => {
+                          try {
+                            const img = new Image();
+                            img.onload = () => {
+                              const canvas = canvasRef.current;
+                              if (!canvas) return;
+                              const ctx = canvas.getContext("2d");
+                              if (!ctx) return;
+                              const size = canvas.width; // square canvas
+                              ctx.clearRect(0, 0, size, size);
+                              // Fill transparent background
+                              ctx.fillStyle = "#ffffff";
+                              ctx.fillRect(0, 0, size, size);
+                              // Compute scaled draw to cover square
+                              const scale = Math.max(
+                                (size / img.width) * zoom,
+                                (size / img.height) * zoom
+                              );
+                              const drawWidth = img.width * scale;
+                              const drawHeight = img.height * scale;
+                              const dx = (size - drawWidth) / 2;
+                              const dy = (size - drawHeight) / 2;
+                              ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
+                              // Apply circular mask by drawing circle and compositing
+                              ctx.globalCompositeOperation = "destination-in";
+                              ctx.beginPath();
+                              ctx.arc(
+                                size / 2,
+                                size / 2,
+                                size / 2,
+                                0,
+                                Math.PI * 2
+                              );
+                              ctx.closePath();
+                              ctx.fill();
+                              ctx.globalCompositeOperation = "source-over";
+                            };
+                            img.src = url;
+                          } catch (err) {
+                            console.warn("Failed to render preview", err);
+                          }
+                        }, 0);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                  {errors.imageUrl && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {errors.imageUrl.message}
+                    </p>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="zoom">Zoom</Label>
+                    <input
+                      id="zoom"
+                      type="range"
+                      min="1"
+                      max="2.5"
+                      step="0.01"
+                      value={zoom}
+                      onChange={(e) => {
+                        const z = parseFloat(e.target.value);
+                        setZoom(z);
+                        if (!imagePreviewUrl) return;
+                        try {
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = canvasRef.current;
+                            if (!canvas) return;
+                            const ctx = canvas.getContext("2d");
+                            if (!ctx) return;
+                            const size = canvas.width;
+                            ctx.clearRect(0, 0, size, size);
+                            ctx.fillStyle = "#ffffff";
+                            ctx.fillRect(0, 0, size, size);
+                            const scale = Math.max(
+                              (size / img.width) * z,
+                              (size / img.height) * z
+                            );
+                            const drawWidth = img.width * scale;
+                            const drawHeight = img.height * scale;
+                            const dx = (size - drawWidth) / 2;
+                            const dy = (size - drawHeight) / 2;
+                            ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
+                            ctx.globalCompositeOperation = "destination-in";
+                            ctx.beginPath();
+                            ctx.arc(
+                              size / 2,
+                              size / 2,
+                              size / 2,
+                              0,
+                              Math.PI * 2
+                            );
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.globalCompositeOperation = "source-over";
+                          };
+                          img.src = imagePreviewUrl;
+                        } catch (err) {
+                          console.warn("Failed to update zoom preview", err);
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Upload and adjust your photo. It will be saved as a circle.
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Note: Requires VITE_UPLOAD_ENDPOINT to upload and store the
+                    image.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {!isEdit && (

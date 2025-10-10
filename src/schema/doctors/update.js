@@ -125,12 +125,13 @@ export const UpdateDoctorFormSchema = z.object({
   summary: z.string().optional(),
   about: z.string().optional(),
   imageUrl: z.string().optional(),
+  imageData: z.string().optional(), // Base64 image data for upload
   experienceYears: z
     .number({ required_error: "Experience years is required" })
     .int()
     .min(0, "Experience years must be non-negative")
     .max(100, "Experience years must not exceed 100"),
-  speciality: z.string().min(1, "Speciality is required"),
+  speciality: z.string().optional(),
   branchId: z.string().min(1, "Branch selection is required"),
   // Password is optional for updates - only validate if not empty
   password: z

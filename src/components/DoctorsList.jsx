@@ -420,6 +420,20 @@ const DoctorsList = () => {
                       src={doctor.imageUrl}
                       alt={doctor.name}
                       className="w-12 h-12 rounded-full object-cover"
+                      onError={(e) => {
+                        console.error(
+                          "Image failed to load:",
+                          doctor.imageUrl,
+                          e
+                        );
+                        e.target.style.display = "none";
+                      }}
+                      onLoad={() =>
+                        console.log(
+                          "Image loaded successfully:",
+                          doctor.imageUrl
+                        )
+                      }
                     />
                   )}
                 </div>

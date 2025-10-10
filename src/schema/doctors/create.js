@@ -84,6 +84,7 @@ export const CreateDoctorFormSchema = z.object({
   summary: z.string().optional(),
   about: z.string().optional(),
   imageUrl: z.string().optional(),
+  imageData: z.string().optional(), // Base64 image data for upload
   experienceYears: z
     .number({ required_error: "Experience years is required" })
     .int()

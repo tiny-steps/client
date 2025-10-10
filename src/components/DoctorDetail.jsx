@@ -17,11 +17,14 @@ const DoctorDetail = () => {
   const navigate = useNavigate();
 
   const {
-    data: doctor,
+    data: doctorResponse,
     isLoading,
     error,
     refetch,
   } = useGetDoctorById(doctorId);
+
+  // Unwrap the data from the API response
+  const doctor = doctorResponse?.data;
 
   const deleteDoctorMutation = useDeleteDoctor();
   const activateDoctorMutation = useActivateDoctor();
@@ -242,19 +245,43 @@ const DoctorDetail = () => {
           <div className="lg:col-span-1">
             <Card className="p-6">
               <div className="text-center mb-6">
-                {doctor.imageUrl ? (
-                  <img
-                    src={doctor.imageUrl}
-                    alt={doctor.name}
-                    className="w-32 h-32 rounded-full object-cover mx-auto mb-4"
-                  />
-                ) : (
-                  <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
-                    <span className="text-gray-600 text-4xl font-medium">
-                      {doctor.name}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  console.log(
+                    "🔍 DoctorDetail - doctor.imageUrl:",
+                    doctor.imageUrl
+                  );
+                  console.log("🔍 DoctorDetail - doctor object:", doctor);
+                  return doctor.imageUrl ? (
+                    <img
+                      src={doctor.imageUrl}
+                      alt={doctor.name}
+                      className="w-32 h-32 rounded-full object-cover mx-auto mb-4"
+                      onError={(e) => {
+                        console.error(
+                          "Image failed to load in detail view:",
+                          doctor.imageUrl,
+                          e
+                        );
+                        e.target.style.display = "none";
+                      }}
+                      onLoad={() =>
+                        console.log(
+                          "Image loaded successfully in detail view:",
+                          doctor.imageUrl
+                        )
+                      }
+                    />
+                  ) : (
+                    <>
+                      {console.log("❌ No imageUrl found, showing fallback")}
+                      <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
+                        <span className="text-gray-600 text-4xl font-medium">
+                          {doctor.name}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
                 <h2 className="text-xl font-semibold">{doctor.name}</h2>
                 {doctor.specializations &&
                   doctor.specializations.length > 0 && (
