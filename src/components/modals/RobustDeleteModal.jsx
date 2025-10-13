@@ -76,7 +76,13 @@ const RobustDeleteModal = ({
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{doctor.name}</CardTitle>
-            <p className="text-sm text-gray-600">{doctor.speciality}</p>
+            <p className="text-sm text-gray-600">
+              {doctor.specializations && doctor.specializations.length > 0
+                ? doctor.specializations
+                    .map((spec) => spec.speciality)
+                    .join(", ")
+                : "General"}
+            </p>
           </CardHeader>
         </Card>
 

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { doctorService } from "../services/doctorService.js";
-import {useToast} from "@/components/ui/toast.jsx";
-import {addressService} from "@/services/addressService.js";
+import { useToast } from "@/components/ui/toast.jsx";
+import { addressService } from "@/services/addressService.js";
 
 // Query keys for consistent cache management
 export const doctorKeys = {
@@ -82,24 +82,6 @@ export const useUpdateDoctor = () => {
     },
     onError: (error) => {
       console.error("Error updating doctor:", error);
-    },
-  });
-};
-
-// Delete doctor mutation
-export const useDeleteDoctor = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: doctorService.deleteDoctor,
-    onSuccess: (data, deletedId) => {
-      // Remove the deleted doctor from cache
-      queryClient.removeQueries({ queryKey: doctorKeys.detail(deletedId) });
-      // Invalidate all doctor lists to refresh the data
-      queryClient.invalidateQueries({ queryKey: doctorKeys.lists() });
-    },
-    onError: (error) => {
-      console.error("Error deleting doctor:", error);
     },
   });
 };
@@ -269,18 +251,17 @@ export const useGetUserAccessibleBranchIds = (userId, options = {}) => {
   });
 };
 
-
 export const useDeactivateDoctorFromBranches = () => {
   const queryClient = useQueryClient();
   const { success, error: showError } = useToast();
 
   return useMutation({
     mutationFn: ({ doctorId, branchIds, forceGlobalDeactivation = false }) =>
-        doctorService.deactivateDoctorFromBranches(
-            doctorId,
-            branchIds,
-            forceGlobalDeactivation
-        ),
+      doctorService.deactivateDoctorFromBranches(
+        doctorId,
+        branchIds,
+        forceGlobalDeactivation
+      ),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
       queryClient.invalidateQueries({ queryKey: ["doctorBranchStatus"] });
@@ -302,7 +283,7 @@ export const useActivateDoctorInBranch = () => {
 
   return useMutation({
     mutationFn: ({ doctorId, branchId }) =>
-        doctorService.activateDoctorInBranch(doctorId, branchId),
+      doctorService.activateDoctorInBranch(doctorId, branchId),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
       queryClient.invalidateQueries({ queryKey: ["doctorBranchStatus"] });
@@ -319,9 +300,9 @@ export const useActivateDoctorInBranch = () => {
 
 // Hook for getting doctors with branch status (includes both active and inactive)
 export const useGetDoctorsWithBranchStatus = (
-    branchId,
-    params = {},
-    options = {}
+  branchId,
+  params = {},
+  options = {}
 ) => {
   return useQuery({
     queryKey: ["doctorsWithBranchStatus", branchId, params],
@@ -356,18 +337,18 @@ export const useGetDoctorActiveBranches = (doctorId, options = {}) => {
           return {
             id: branchId,
             name:
-                addressData.name ||
-                addressData.metadata?.branchName ||
-                `${addressData.city}, ${addressData.state}` ||
-                `Branch ${branchId.toString().slice(0, 8)}`,
+              addressData.name ||
+              addressData.metadata?.branchName ||
+              `${addressData.city}, ${addressData.state}` ||
+              `Branch ${branchId.toString().slice(0, 8)}`,
             city: addressData.city || "Unknown",
             state: addressData.state || "Unknown",
             type: addressData.type || "",
           };
         } catch (error) {
           console.warn(
-              `Failed to fetch details for branch ${branchId}:`,
-              error
+            `Failed to fetch details for branch ${branchId}:`,
+            error
           );
           return {
             id: branchId,
@@ -392,22 +373,22 @@ export const useBulkDeactivateDoctorsFromBranches = () => {
 
   return useMutation({
     mutationFn: (operations) =>
-        doctorService.bulkDeactivateDoctorsFromBranches(operations),
+      doctorService.bulkDeactivateDoctorsFromBranches(operations),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["doctors"] });
       queryClient.invalidateQueries({ queryKey: ["doctorBranchStatus"] });
       queryClient.invalidateQueries({ queryKey: ["doctorsWithBranchStatus"] });
 
       console.log(
-          `Bulk operation completed: ${
-              data.results?.length || 0
-          } doctors processed`
+        `Bulk operation completed: ${
+          data.results?.length || 0
+        } doctors processed`
       );
     },
     onError: (error) => {
       console.error(
-          "Failed to perform bulk operation:",
-          error.message || "Unknown error"
+        "Failed to perform bulk operation:",
+        error.message || "Unknown error"
       );
     },
   });

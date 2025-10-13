@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  useGetAllDoctors,
-  useDeleteDoctor,
-} from "../hooks/useDoctorQueries.js";
+import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
 import {
   useDeactivateDoctorFromBranches,
   useActivateDoctorInBranch,
+  useActivateDoctorInBranches,
   useGetDoctorsWithBranchStatus,
 } from "../hooks/useDoctorRobustSoftDelete.js";
 import {
@@ -20,19 +18,23 @@ import { ConfirmModal } from "./ui/confirm-modal.jsx";
 import { useBranchFilter } from "../hooks/useBranchFilter.js";
 import BranchManagementModal from "./modals/BranchManagementModal.jsx";
 import RobustDeleteModal from "./modals/RobustDeleteModal.jsx";
+import BranchActivationModal from "./modals/BranchActivationModal.jsx";
 import { Building2, Plus, ArrowRightLeft, Power, Trash2 } from "lucide-react";
 
 const DoctorsList = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(10);
-  const [deleteModal, setDeleteModal] = useState({ open: false, doctor: null });
   const [branchModal, setBranchModal] = useState({ open: false, doctor: null });
   const [robustDeleteModal, setRobustDeleteModal] = useState({
     open: false,
     doctor: null,
   });
   const [activateModal, setActivateModal] = useState({
+    open: false,
+    doctor: null,
+  });
+  const [branchActivationModal, setBranchActivationModal] = useState({
     open: false,
     doctor: null,
   });
@@ -43,6 +45,7 @@ const DoctorsList = () => {
   // Use robust soft delete hooks
   const deactivateMutation = useDeactivateDoctorFromBranches();
   const activateMutation = useActivateDoctorInBranch();
+  const activateInBranchesMutation = useActivateDoctorInBranches();
 
   // Client-side search state
   const [searchInputs, setSearchInputs] = useState({
@@ -74,9 +77,6 @@ const DoctorsList = () => {
         }
       );
 
-  // Delete doctor mutation
-  const deleteDoctorMutation = useDeleteDoctor();
-
   // Client-side filtering using useMemo for performance (Google-style)
   const filteredDoctors = useMemo(() => {
     const allDoctors = data?.data?.content || [];
@@ -98,12 +98,14 @@ const DoctorsList = () => {
         if (!nameMatch) return false;
       }
 
-      // Speciality filter (case-insensitive partial match)
+      // Speciality filter (case-insensitive partial match) - search through specializations array
       if (searchInputs.speciality) {
-        const specialityMatch = doctor.speciality
-          ?.toLowerCase()
-          .includes(searchInputs.speciality.toLowerCase());
-        if (!specialityMatch) return false;
+        const hasMatchingSpeciality = doctor.specializations?.some((spec) =>
+          spec.speciality
+            ?.toLowerCase()
+            .includes(searchInputs.speciality.toLowerCase())
+        );
+        if (!hasMatchingSpeciality) return false;
       }
 
       // Experience filter (greater than or equal)
@@ -172,7 +174,14 @@ const DoctorsList = () => {
   };
 
   const handleActivateClick = (doctor) => {
-    setActivateModal({ open: true, doctor });
+    // Check if doctor is globally deactivated
+    if (doctor.status === "INACTIVE") {
+      // Show branch selection modal for globally deactivated doctors
+      setBranchActivationModal({ open: true, doctor });
+    } else {
+      // Use existing single branch activation for branch-specific deactivation
+      setActivateModal({ open: true, doctor });
+    }
   };
 
   const handleRobustDeleteConfirm = async (params) => {
@@ -198,14 +207,12 @@ const DoctorsList = () => {
     }
   };
 
-  const handleDeleteConfirm = async () => {
-    if (deleteModal.doctor) {
-      try {
-        await deleteDoctorMutation.mutateAsync(deleteModal.doctor.id);
-        setDeleteModal({ open: false, doctor: null });
-      } catch (error) {
-        console.error("Failed to delete doctor:", error);
-      }
+  const handleBranchActivationConfirm = async (params) => {
+    try {
+      await activateInBranchesMutation.mutateAsync(params);
+      setBranchActivationModal({ open: false, doctor: null });
+    } catch (error) {
+      console.error("Failed to activate doctor in branches:", error);
     }
   };
 
@@ -401,17 +408,30 @@ const DoctorsList = () => {
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
-                      {searchInputs.speciality ? (
-                        <span
-                          dangerouslySetInnerHTML={{
-                            __html: doctor.speciality.replace(
-                              new RegExp(`(${searchInputs.speciality})`, "gi"),
-                              '<mark class="bg-yellow-200">$1</mark>'
-                            ),
-                          }}
-                        />
+                      {doctor.specializations &&
+                      doctor.specializations.length > 0 ? (
+                        searchInputs.speciality ? (
+                          <span
+                            dangerouslySetInnerHTML={{
+                              __html: doctor.specializations
+                                .map((spec) => spec.speciality)
+                                .join(", ")
+                                .replace(
+                                  new RegExp(
+                                    `(${searchInputs.speciality})`,
+                                    "gi"
+                                  ),
+                                  '<mark class="bg-yellow-200">$1</mark>'
+                                ),
+                            }}
+                          />
+                        ) : (
+                          doctor.specializations
+                            .map((spec) => spec.speciality)
+                            .join(", ")
+                        )
                       ) : (
-                        doctor.speciality
+                        "General"
                       )}
                     </p>
                   </div>
@@ -463,9 +483,9 @@ const DoctorsList = () => {
                   <p className="text-sm">
                     <strong>Gender:</strong> {doctor.gender}
                   </p>
-                  {doctor.summary && (
+                  {doctor.remarks && (
                     <p className="text-sm text-gray-600 mt-2">
-                      {doctor.summary}
+                      {doctor.remarks}
                     </p>
                   )}
 
@@ -537,11 +557,15 @@ const DoctorsList = () => {
                       size="sm"
                       variant="default"
                       onClick={() => handleActivateClick(doctor)}
-                      disabled={activateMutation.isPending || !branchId}
+                      disabled={
+                        activateMutation.isPending ||
+                        activateInBranchesMutation.isPending
+                      }
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
                       <Power className="h-3 w-3 mr-1" />
-                      {activateMutation.isPending
+                      {activateMutation.isPending ||
+                      activateInBranchesMutation.isPending
                         ? "Activating..."
                         : "Activate"}
                     </Button>
@@ -605,18 +629,6 @@ const DoctorsList = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal - Legacy */}
-      <ConfirmModal
-        open={deleteModal.open}
-        onOpenChange={(open) => setDeleteModal({ open, doctor: null })}
-        title="Delete Doctor"
-        description={`Are you sure you want to delete ${deleteModal.doctor?.name}? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="destructive"
-        onConfirm={handleDeleteConfirm}
-      />
-
       {/* Robust Delete Modal */}
       <RobustDeleteModal
         isOpen={robustDeleteModal.open}
@@ -637,6 +649,15 @@ const DoctorsList = () => {
         cancelText="Cancel"
         variant="default"
         onConfirm={handleActivateConfirm}
+      />
+
+      {/* Branch Activation Modal */}
+      <BranchActivationModal
+        isOpen={branchActivationModal.open}
+        onClose={() => setBranchActivationModal({ open: false, doctor: null })}
+        doctor={branchActivationModal.doctor}
+        onConfirm={handleBranchActivationConfirm}
+        isLoading={activateInBranchesMutation.isPending}
       />
 
       {/* Branch Management Modal */}

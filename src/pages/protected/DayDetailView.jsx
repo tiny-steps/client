@@ -44,6 +44,7 @@ const DayDetailView = ({
   const { data: doctorsData } = useGetAllEnrichedDoctors(
     {
       size: 100,
+      status: "ACTIVE", // Only fetch active doctors for selection
       ...(branchId && { branchId }), // Only include branchId if it's not null
     },
     {

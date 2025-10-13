@@ -66,8 +66,8 @@ class SpecializationService {
     return result;
   }
 
-  async createSpecialization(doctorId, specializationData) {
-    const response = await fetch(`/api/v1/specializations/doctor/${doctorId}`, {
+  async createSpecialization(specializationData) {
+    const response = await fetch(`/api/v1/specializations`, {
       method: "POST",
       credentials: "include",
       headers: {
@@ -106,9 +106,9 @@ class SpecializationService {
   }
 
   async deleteSpecialization(specializationId) {
-    // Use soft delete for specializations to preserve professional history
+    // Deactivate the master specialization
     const response = await fetch(
-      `/api/v1/specializations/${specializationId}/soft-delete`,
+      `/api/v1/specializations/${specializationId}/deactivate`,
       {
         method: "PATCH",
         credentials: "include",
@@ -120,14 +120,14 @@ class SpecializationService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || "Failed to delete specialization");
+      throw new Error(error.message || "Failed to deactivate specialization");
     }
     return response.json();
   }
 
   async reactivateSpecialization(specializationId) {
     const response = await fetch(
-      `/api/v1/specializations/${specializationId}/reactivate`,
+      `/api/v1/specializations/${specializationId}/activate`,
       {
         method: "PATCH",
         credentials: "include",
@@ -139,7 +139,7 @@ class SpecializationService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || "Failed to reactivate specialization");
+      throw new Error(error.message || "Failed to activate specialization");
     }
     return response.json();
   }

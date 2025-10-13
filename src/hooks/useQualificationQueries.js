@@ -108,6 +108,10 @@ export const useDeleteQualification = () => {
  // Invalidate doctor queries to refresh the data
  queryClient.invalidateQueries({ queryKey: ["doctors"] });
  queryClient.invalidateQueries({ queryKey: ["doctors", "list"] });
+ // If we have the doctorId from the response, invalidate specific doctor
+ if (data && data.doctorId) {
+ queryClient.invalidateQueries({ queryKey: ["doctors", "detail", data.doctorId] });
+ }
  },
  onError: (error) => {
  console.error('Error deleting qualification:', error);

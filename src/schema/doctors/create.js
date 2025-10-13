@@ -28,7 +28,7 @@ export const CreateDoctorSchema = z.object({
     .string()
     .regex(/^(MALE|FEMALE|OTHER)$/, "Gender must be MALE, FEMALE, or OTHER")
     .optional(),
-  summary: z.string().optional(),
+  remarks: z.string().optional(),
   about: z.string().optional(),
   imageUrl: z
     .string()
@@ -81,7 +81,7 @@ export const CreateDoctorFormSchema = z.object({
   gender: z.enum(["MALE", "FEMALE", "OTHER"], {
     required_error: "Gender is required",
   }),
-  summary: z.string().optional(),
+  remarks: z.string().optional(),
   about: z.string().optional(),
   imageUrl: z.string().optional(),
   imageData: z.string().optional(), // Base64 image data for upload
@@ -90,7 +90,7 @@ export const CreateDoctorFormSchema = z.object({
     .int()
     .min(0, "Experience years must be non-negative")
     .max(100, "Experience years must not exceed 100"),
-  speciality: z.string().min(1, "Speciality is required"),
+  speciality: z.string().optional(), // Optional: handled separately via specializations array
   branchId: z.string().min(1, "Branch selection is required"),
 });
 

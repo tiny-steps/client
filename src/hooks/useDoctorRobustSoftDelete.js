@@ -51,6 +51,33 @@ export const useActivateDoctorInBranch = () => {
   });
 };
 
+// Hook for activating doctor in multiple branches
+export const useActivateDoctorInBranches = () => {
+  const queryClient = useQueryClient();
+  const { success, error: showError } = useToast();
+
+  return useMutation({
+    mutationFn: ({ doctorId, branchIds, reason, practiceRole }) =>
+      doctorService.activateDoctorInBranches(
+        doctorId,
+        branchIds,
+        reason,
+        practiceRole
+      ),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["doctors"] });
+      queryClient.invalidateQueries({ queryKey: ["doctorBranchStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["doctorsWithBranchStatus"] });
+
+      const { message } = data;
+      success(message);
+    },
+    onError: (error) => {
+      showError(error.message || "Failed to activate doctor in branches");
+    },
+  });
+};
+
 // Hook for getting doctors with branch status (includes both active and inactive)
 export const useGetDoctorsWithBranchStatus = (
   branchId,

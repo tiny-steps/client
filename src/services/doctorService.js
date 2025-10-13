@@ -117,25 +117,6 @@ class DoctorService {
     return response.json();
   }
 
-  async deleteDoctor(id) {
-    // For doctors, we'll use deactivate instead of hard delete to preserve data
-    // This maintains referential integrity with appointments and other records
-    const response = await fetch(`/api/v1/doctors/${id}/deactivate`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to deactivate doctor");
-    }
-
-    return response.json();
-  }
-
   async activateDoctor(id) {
     // Primary method for activating doctors - uses POST method as per backend API
     const response = await fetch(`/api/v1/doctors/${id}/activate`, {
@@ -157,6 +138,36 @@ class DoctorService {
   // Alias for activateDoctor for consistency with other services
   async reactivateDoctor(id) {
     return this.activateDoctor(id);
+  }
+
+  async activateDoctorInBranches(
+    doctorId,
+    branchIds,
+    reason = null,
+    practiceRole = "CONSULTANT"
+  ) {
+    const response = await fetch(
+      `/api/v1/doctors/${doctorId}/activate-branches`,
+      {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          branchIds: branchIds,
+          reason: reason,
+          practiceRole: practiceRole,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to activate doctor in branches");
+    }
+
+    return response.json();
   }
 
   async deactivateDoctor(id) {
@@ -596,6 +607,245 @@ class DoctorService {
     }
 
     return response.json();
+  }
+
+  // ==================== SPECIALIZATION METHODS ====================
+
+  // Specialization APIs (ID-based, independent of doctors)
+
+  /**
+   * Get all active specializations
+   * Returns full specialization objects with IDs
+   */
+  async getAllSpecializations() {
+    const response = await fetch(`/api/v1/specializations`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch specializations");
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get all specialization names (for dropdown/autocomplete)
+   * Returns just the names, not full objects
+   */
+  async getSpecializationNames() {
+    const response = await fetch(`/api/v1/specializations/names`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch specialization names");
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Create a new specialization
+   * @param {Object} data - {name: string, description: string}
+   */
+  async createSpecialization(data) {
+    const response = await fetch(`/api/v1/specializations`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to create specialization");
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get specialization by ID
+   */
+  async getSpecializationById(id) {
+    const response = await fetch(`/api/v1/specializations/${id}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch specialization");
+    }
+
+    return response.json();
+  }
+
+  // DEPRECATED: Old API (kept for backward compatibility)
+  /**
+   * @deprecated Use getAllSpecializations() instead
+   * Get all unique speciality names (for dropdown/autocomplete)
+   */
+  async getDistinctSpecialities() {
+    // Fallback to old API if new one doesn't exist
+    try {
+      const response = await this.getAllSpecializations();
+      return response.data?.map((s) => s.name) || [];
+    } catch (error) {
+      // If new API fails, try old API
+      const response = await fetch(
+        `/api/v1/specializations/unique/specialities`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.message || "Failed to fetch distinct specialities"
+        );
+      }
+
+      return response.json();
+    }
+  }
+
+  /**
+   * Get all specializations for a specific doctor
+   */
+  async getDoctorSpecializations(doctorId) {
+    const response = await fetch(
+      `/api/v1/doctor-specializations/doctor/${doctorId}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(
+        error.message || "Failed to fetch doctor specializations"
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Create multiple specializations for a doctor in batch
+   * @param {string} doctorId - Doctor UUID
+   * @param {Array} specializations - Array of {speciality, subspecialization?}
+   */
+  async createSpecializationsBatch(doctorId, specializations) {
+    const response = await fetch(
+      `/api/v1/doctor-specializations/doctor/${doctorId}/batch`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(specializations),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to create specializations");
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Delete all specializations for a doctor
+   */
+  async deleteAllDoctorSpecializations(doctorId) {
+    const response = await fetch(
+      `/api/v1/doctor-specializations/doctor/${doctorId}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to delete specializations");
+    }
+
+    // DELETE returns 204 No Content, so no json to parse
+    return true;
+  }
+
+  /**
+   * Search specializations by speciality name and get doctor IDs
+   */
+  async searchDoctorsBySpeciality(speciality, page = 0, size = 100) {
+    const searchParams = new URLSearchParams({
+      speciality,
+      page,
+      size,
+    });
+
+    const response = await fetch(
+      `/api/v1/doctor-specializations/search/speciality?${searchParams}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to search specializations");
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Replace all specializations for a doctor
+   * (Deletes existing and creates new ones)
+   */
+  async replaceSpecializations(doctorId, newSpecializations) {
+    // Delete all existing specializations
+    await this.deleteAllDoctorSpecializations(doctorId);
+
+    // Create new ones if provided
+    if (newSpecializations && newSpecializations.length > 0) {
+      return await this.createSpecializationsBatch(
+        doctorId,
+        newSpecializations
+      );
+    }
+
+    return { data: [] };
   }
 }
 

@@ -98,17 +98,14 @@ class QualificationService {
   }
 
   async deleteQualification(qualificationId) {
-    // Use soft delete for qualifications to preserve professional history
-    const response = await fetch(
-      `/api/v1/qualifications/${qualificationId}/soft-delete`,
-      {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    // Use hard delete for qualifications as per backend implementation
+    const response = await fetch(`/api/v1/qualifications/${qualificationId}`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
     if (!response.ok) {
       const error = await response.json();

@@ -78,9 +78,10 @@ const SessionForm = ({ mode = "create" }) => {
     size: 100,
     branchId: form.watch("branchId") || selectedBranchId,
   });
-  // Filter doctors by selected branch
+  // Filter doctors by selected branch - only active doctors for selection
   const { data: doctorsData } = useGetAllDoctors({
     size: 100,
+    status: "ACTIVE", // Only fetch active doctors for selection
     branchId: form.watch("branchId") || selectedBranchId,
   });
 

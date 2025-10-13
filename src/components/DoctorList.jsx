@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   useGetAllDoctors,
-  useDeleteDoctor,
   useActivateDoctor,
   useDeactivateDoctor,
 } from "../hooks/useDoctorQueries.js";
@@ -18,7 +17,6 @@ const DoctorList = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(10);
-  const [deleteModal, setDeleteModal] = useState({ open: false, doctor: null });
   const { role } = useUserStore();
 
   // Get the selected address ID to use as branchId
@@ -51,7 +49,6 @@ const DoctorList = () => {
 
   const { data, isLoading, error, refetch } = useGetAllDoctors(fetchParams);
 
-  const deleteDoctorMutation = useDeleteDoctor();
   const activateDoctorMutation = useActivateDoctor();
   const deactivateDoctorMutation = useDeactivateDoctor();
 
@@ -78,14 +75,16 @@ const DoctorList = () => {
         return false;
       }
 
-      // Speciality filter
-      if (
-        searchInputs.speciality &&
-        !doctor.speciality
-          ?.toLowerCase()
-          .includes(searchInputs.speciality.toLowerCase())
-      ) {
-        return false;
+      // Speciality filter - search through specializations array
+      if (searchInputs.speciality) {
+        const hasMatchingSpeciality = doctor.specializations?.some((spec) =>
+          spec.speciality
+            ?.toLowerCase()
+            .includes(searchInputs.speciality.toLowerCase())
+        );
+        if (!hasMatchingSpeciality) {
+          return false;
+        }
       }
 
       // Verification filter
@@ -140,18 +139,6 @@ const DoctorList = () => {
       status: "active", // Reset to active
     });
     setCurrentPage(0);
-  };
-
-  const handleDeleteConfirm = async () => {
-    const { doctor } = deleteModal;
-    if (!doctor) return;
-
-    try {
-      await deleteDoctorMutation.mutateAsync(doctor.id);
-      setDeleteModal({ open: false, doctor: null });
-    } catch (error) {
-      console.error("Failed to delete doctor:", error);
-    }
   };
 
   const handleInputChange = (field, value) => {
@@ -313,12 +300,10 @@ const DoctorList = () => {
               <DoctorCard
                 key={doctor.id}
                 doctor={doctor}
-                onDelete={() => setDeleteModal({ open: true, doctor })}
                 onEdit={() => navigate({ to: `/doctors/edit/${doctor.id}` })}
                 onActivate={() => activateDoctorMutation.mutate(doctor.id)}
                 onDeactivate={() => deactivateDoctorMutation.mutate(doctor.id)}
                 canEdit={role === "ADMIN"}
-                canDelete={role === "ADMIN"}
               />
             ))}
           </div>
@@ -359,30 +344,12 @@ const DoctorList = () => {
           </div>
         </div>
       )}
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        open={deleteModal.open}
-        onOpenChange={(open) => setDeleteModal({ open, doctor: null })}
-        title="Delete Doctor"
-        description={`Are you sure you want to delete ${deleteModal.doctor?.name}? This action cannot be undone.`}
-        confirmText="Delete"
-        onConfirm={handleDeleteConfirm}
-      />
     </div>
   );
 };
 
 // Doctor Card Component
-const DoctorCard = ({
-  doctor,
-  onDelete,
-  onEdit,
-  onActivate,
-  onDeactivate,
-  canEdit,
-  canDelete,
-}) => {
+const DoctorCard = ({ doctor, onEdit, onActivate, onDeactivate, canEdit }) => {
   const [userData, setUserData] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(false);
 
@@ -443,14 +410,13 @@ const DoctorCard = ({
       <CardContent>
         <div className="space-y-2">
           <p className="text-sm">
-            <strong>Speciality:</strong> {doctor.speciality || "N/A"}
+            <strong>Speciality:</strong>{" "}
+            {doctor.specializations && doctor.specializations.length > 0
+              ? doctor.specializations.map((spec) => spec.speciality).join(", ")
+              : "N/A"}
           </p>
           <p className="text-sm">
             <strong>Experience:</strong> {doctor.experienceYears} years
-          </p>
-          <p className="text-sm">
-            <strong>Rating:</strong> {doctor.ratingAverage} (
-            {doctor.reviewCount} reviews)
           </p>
 
           {/* User Contact Information */}
@@ -476,8 +442,8 @@ const DoctorCard = ({
             </>
           )}
 
-          {doctor.summary && (
-            <p className="text-sm text-gray-600 mt-2">{doctor.summary}</p>
+          {doctor.remarks && (
+            <p className="text-sm text-gray-600 mt-2">{doctor.remarks}</p>
           )}
         </div>
 
@@ -485,11 +451,6 @@ const DoctorCard = ({
           {canEdit && (
             <Button onClick={onEdit} variant="outline" size="sm">
               Edit
-            </Button>
-          )}
-          {canDelete && doctor.status === "ACTIVE" && (
-            <Button onClick={onDelete} variant="destructive" size="sm">
-              Delete
             </Button>
           )}
           {canEdit && doctor.status === "ACTIVE" && (

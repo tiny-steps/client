@@ -81,7 +81,9 @@ const EnhancedAppointmentModal = ({
 
   // Fallback to addresses if branches are not available
   const addresses = useAddressStore?.((state) => state.addresses) || [];
-  const selectedAddressId = useAddressStore?.((state) => state.selectedAddressId);
+  const selectedAddressId = useAddressStore?.(
+    (state) => state.selectedAddressId
+  );
 
   // Use whichever source has data
   const effectiveBranches = branches.length > 0 ? branches : addresses;
@@ -97,7 +99,14 @@ const EnhancedAppointmentModal = ({
       selectedAddressId,
       effectiveSelectedBranchId,
     });
-  }, [branches, addresses, effectiveBranches, selectedBranchId, selectedAddressId, effectiveSelectedBranchId]);
+  }, [
+    branches,
+    addresses,
+    effectiveBranches,
+    selectedBranchId,
+    selectedAddressId,
+    effectiveSelectedBranchId,
+  ]);
 
   // Get minimum selectable date (today)
   const minDate = getMinSelectableDate();
@@ -361,14 +370,16 @@ const EnhancedAppointmentModal = ({
                         </option>
                         {effectiveBranches.map((branch) => (
                           <option key={branch.id} value={branch.id}>
-                            {branch.name || `${branch.type} - ${branch.city}`} {branch.isPrimary ? "(Primary)" : ""}
+                            {branch.name || `${branch.type} - ${branch.city}`}{" "}
+                            {branch.isPrimary ? "(Primary)" : ""}
                           </option>
                         ))}
                       </select>
                     </FormControl>
                     {effectiveBranches.length === 0 && (
                       <p className="text-sm text-amber-600 mt-1">
-                        No branches available. Please check your branch access permissions.
+                        No branches available. Please check your branch access
+                        permissions.
                       </p>
                     )}
                     <FormMessage />
@@ -419,8 +430,9 @@ const EnhancedAppointmentModal = ({
                         {doctors.map((doctor) => (
                           <option key={doctor.id} value={doctor.id}>
                             {doctor.firstName} {doctor.lastName}
-                            {doctor.speciality
-                              ? ` - ${doctor.speciality}`
+                            {doctor.specializations &&
+                            doctor.specializations.length > 0
+                              ? ` - ${doctor.specializations[0].speciality}`
                               : " - General"}
                           </option>
                         ))}

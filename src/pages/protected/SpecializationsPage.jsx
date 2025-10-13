@@ -7,7 +7,6 @@ import {
   useCreateSpecialization,
   useUpdateSpecialization,
 } from "../../hooks/useSpecializationQueries.js";
-import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
 import useAddressStore from "../../store/useAddressStore.js";
 import {
   Card,
@@ -120,8 +119,6 @@ const SpecializationsPage = () => {
   // Search and filter states
   const [searchInputs, setSearchInputs] = useState({
     speciality: "",
-    doctor: "",
-    subspecialization: "",
   });
 
   // Fetch data
@@ -130,14 +127,7 @@ const SpecializationsPage = () => {
     isLoading,
     error,
     refetch,
-  } = useGetAllSpecializations({
-    size: 1000, // Fetch all for client-side filtering
-  });
-
-  const { data: doctorsData } = useGetAllDoctors({
-    size: 1000,
-    branchId: selectedAddressId, // Use selected address ID as branchId
-  });
+  } = useGetAllSpecializations();
 
   // Mutations
   const deleteSpecializationMutation = useDeleteSpecialization();
@@ -146,58 +136,27 @@ const SpecializationsPage = () => {
 
   // Filter specializations based on search criteria
   const filteredSpecializations = useMemo(() => {
-    const allSpecializations = specializationsData?.data?.content || [];
-    const allDoctors = doctorsData?.data?.content || [];
+    // NEW: We're getting master specializations (name, description, isActive)
+    const allSpecializations = specializationsData?.data || [];
 
-    if (
-      !searchInputs.speciality &&
-      !searchInputs.doctor &&
-      !searchInputs.subspecialization
-    ) {
+    if (!searchInputs.speciality) {
       return allSpecializations;
     }
 
     return allSpecializations.filter((specialization) => {
-      // Speciality filter
+      // Name filter (used to be speciality)
       if (
         searchInputs.speciality &&
-        !specialization.speciality
+        !specialization.name
           ?.toLowerCase()
           .includes(searchInputs.speciality.toLowerCase())
       ) {
         return false;
       }
 
-      // Doctor filter
-      if (searchInputs.doctor) {
-        const doctor = allDoctors.find((d) => d.id === specialization.doctorId);
-        if (
-          !doctor ||
-          !doctor.name
-            ?.toLowerCase()
-            .includes(searchInputs.doctor.toLowerCase())
-        ) {
-          return false;
-        }
-      }
-
-      // Subspecialization filter
-      if (
-        searchInputs.subspecialization &&
-        !specialization.subspecialization
-          ?.toLowerCase()
-          .includes(searchInputs.subspecialization.toLowerCase())
-      ) {
-        return false;
-      }
-
       return true;
     });
-  }, [
-    specializationsData?.data?.content,
-    doctorsData?.data?.content,
-    searchInputs,
-  ]);
+  }, [specializationsData?.data, searchInputs]);
 
   // Pagination
   const paginatedSpecializations = useMemo(() => {
@@ -247,15 +206,15 @@ const SpecializationsPage = () => {
       if (editingSpecialization) {
         await updateSpecializationMutation.mutateAsync({
           specializationId: editingSpecialization.id,
-          specializationData,
+          specializationData: {
+            name: specializationData.name,
+            description: specializationData.description,
+          },
         });
       } else {
         await createSpecializationMutation.mutateAsync({
-          doctorId: specializationData.doctorId,
-          specializationData: {
-            speciality: specializationData.speciality,
-            subspecialization: specializationData.subspecialization,
-          },
+          name: specializationData.name,
+          description: specializationData.description,
         });
       }
       setShowSpecializationForm(false);
@@ -276,8 +235,6 @@ const SpecializationsPage = () => {
   const clearSearch = () => {
     setSearchInputs({
       speciality: "",
-      doctor: "",
-      subspecialization: "",
     });
     setCurrentPage(0);
   };
@@ -317,33 +274,15 @@ const SpecializationsPage = () => {
 
       {/* Search Filters */}
       <Card className="mb-6 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Speciality</label>
-            <Input
-              placeholder="Search by speciality..."
-              value={searchInputs.speciality}
-              onChange={(e) => handleInputChange("speciality", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Doctor</label>
-            <Input
-              placeholder="Search by doctor name..."
-              value={searchInputs.doctor}
-              onChange={(e) => handleInputChange("doctor", e.target.value)}
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">
-              Subspecialization
+              Specialization Name
             </label>
             <Input
-              placeholder="Search by subspecialization..."
-              value={searchInputs.subspecialization}
-              onChange={(e) =>
-                handleInputChange("subspecialization", e.target.value)
-              }
+              placeholder="Search by name..."
+              value={searchInputs.speciality}
+              onChange={(e) => handleInputChange("speciality", e.target.value)}
             />
           </div>
         </div>
@@ -351,8 +290,7 @@ const SpecializationsPage = () => {
           <div className="mt-4 flex justify-between items-center">
             <span className="text-sm text-gray-600">
               {filteredSpecializations.length} of{" "}
-              {specializationsData?.data?.totalElements || 0} specializations
-              found
+              {specializationsData?.data?.length || 0} specializations found
             </span>
             <Button onClick={clearSearch} variant="outline" size="sm">
               Clear Filters
@@ -384,9 +322,6 @@ const SpecializationsPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {paginatedSpecializations.map((specialization) => {
-              const doctor = doctorsData?.data?.content?.find(
-                (d) => d.id === specialization.doctorId
-              );
               return (
                 <Card
                   key={specialization.id}
@@ -397,14 +332,25 @@ const SpecializationsPage = () => {
                       <div className="flex-1">
                         <CardTitle className="text-lg flex items-center gap-2">
                           <Heart className="h-5 w-5 text-red-500" />
-                          {specialization.speciality}
+                          {specialization.name}
                         </CardTitle>
-                        {specialization.subspecialization && (
+                        {specialization.description && (
                           <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
                             <Stethoscope className="h-4 w-4" />
-                            {specialization.subspecialization}
+                            {specialization.description}
                           </div>
                         )}
+                        <div className="mt-2">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              specialization.isActive
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {specialization.isActive ? "Active" : "Inactive"}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex gap-1">
                         {role === "ADMIN" && (
@@ -428,15 +374,6 @@ const SpecializationsPage = () => {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {doctor && (
-                        <p className="text-sm">
-                          <strong>Doctor:</strong> {doctor.name}
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
                 </Card>
               );
             })}
@@ -483,7 +420,6 @@ const SpecializationsPage = () => {
       {showSpecializationForm && (
         <SpecializationForm
           specialization={editingSpecialization}
-          doctors={doctorsData?.data?.content || []}
           onSubmit={handleFormSubmit}
           onCancel={() => {
             setShowSpecializationForm(false);
@@ -497,7 +433,7 @@ const SpecializationsPage = () => {
         open={deleteModal.open}
         onOpenChange={(open) => setDeleteModal({ open, specialization: null })}
         title="Delete Specialization"
-        description={`Are you sure you want to delete "${deleteModal.specialization?.speciality}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${deleteModal.specialization?.name}"? This will be deactivated and can be reactivated later.`}
         confirmText="Delete"
         onConfirm={handleDeleteConfirm}
       />

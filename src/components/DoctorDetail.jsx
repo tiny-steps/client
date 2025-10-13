@@ -1,15 +1,16 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Link, useParams, useNavigate } from "@tanstack/react-router";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import {
   useGetDoctorById,
-  useDeleteDoctor,
   useActivateDoctor,
   useDeactivateDoctor,
 } from "../hooks/useDoctorQueries.js";
+import { useActivateDoctorInBranches } from "../hooks/useDoctorRobustSoftDelete.js";
 import { Button } from "./ui/button.jsx";
 import { Card } from "./ui/card.jsx";
+import BranchActivationModal from "./modals/BranchActivationModal.jsx";
 
 const DoctorDetail = () => {
   const pageRef = useRef(null);
@@ -26,9 +27,9 @@ const DoctorDetail = () => {
   // Unwrap the data from the API response
   const doctor = doctorResponse?.data;
 
-  const deleteDoctorMutation = useDeleteDoctor();
   const activateDoctorMutation = useActivateDoctor();
   const deactivateDoctorMutation = useDeactivateDoctor();
+  const activateInBranchesMutation = useActivateDoctorInBranches();
 
   useGSAP(() => {
     if (!pageRef.current) return;
@@ -48,26 +49,34 @@ const DoctorDetail = () => {
     );
   }, []);
 
-  const handleDeleteDoctor = async () => {
-    if (window.confirm(`Are you sure you want to delete ${doctor.name}?`)) {
-      try {
-        await deleteDoctorMutation.mutateAsync(doctor.id);
-        navigate({ to: "/doctors" });
-      } catch (error) {
-        console.error("Error deleting doctor:", error);
-      }
-    }
-  };
+  const [branchActivationModal, setBranchActivationModal] = useState({
+    open: false,
+    doctor: null,
+  });
 
   const handleToggleStatus = async () => {
     try {
       if (doctor.status === "ACTIVE") {
         await deactivateDoctorMutation.mutateAsync(doctor.id);
       } else {
-        await activateDoctorMutation.mutateAsync(doctor.id);
+        // For globally deactivated doctors, show branch selection modal
+        if (doctor.status === "INACTIVE") {
+          setBranchActivationModal({ open: true, doctor });
+        } else {
+          await activateDoctorMutation.mutateAsync(doctor.id);
+        }
       }
     } catch (error) {
       console.error("Error toggling doctor status:", error);
+    }
+  };
+
+  const handleBranchActivationConfirm = async (params) => {
+    try {
+      await activateInBranchesMutation.mutateAsync(params);
+      setBranchActivationModal({ open: false, doctor: null });
+    } catch (error) {
+      console.error("Failed to activate doctor in branches:", error);
     }
   };
 
@@ -218,23 +227,6 @@ const DoctorDetail = () => {
                   "Activate"
                 )}
               </Button>
-              {doctor.status === "ACTIVE" && (
-                <Button
-                  onClick={handleDeleteDoctor}
-                  variant="outline"
-                  className="text-red-600 hover:bg-red-50"
-                  disabled={deleteDoctorMutation.isPending}
-                >
-                  {deleteDoctorMutation.isPending ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
-                      Deleting...
-                    </>
-                  ) : (
-                    "Delete"
-                  )}
-                </Button>
-              )}
             </div>
           </div>
         </div>
@@ -333,13 +325,6 @@ const DoctorDetail = () => {
                       <span className="text-gray-500">Gender:</span>
                       <span className="ml-2">{doctor.gender}</span>
                     </div>
-                    <div>
-                      <span className="text-gray-500">Rating:</span>
-                      <span className="ml-2">
-                        {doctor.ratingAverage?.toFixed(1)} ⭐ (
-                        {doctor.reviewCount} reviews)
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -348,13 +333,21 @@ const DoctorDetail = () => {
 
           {/* Right Column - Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Summary */}
-            {doctor.summary && (
+            {/* Remarks */}
+            {doctor.remarks && (
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Remarks</h3>
+                <p className="text-gray-700 leading-relaxed">
+                  {doctor.remarks}
+                </p>
+              </Card>
+            )}
+
+            {/* About */}
+            {doctor.about && (
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">About</h3>
-                <p className="text-gray-700 leading-relaxed">
-                  {doctor.summary}
-                </p>
+                <p className="text-gray-700 leading-relaxed">{doctor.about}</p>
               </Card>
             )}
 
@@ -378,30 +371,27 @@ const DoctorDetail = () => {
             {/* Statistics */}
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4">Statistics</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
                     {doctor.experienceYears}
                   </div>
                   <div className="text-sm text-gray-500">Years Experience</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {doctor.ratingAverage?.toFixed(1)}
-                  </div>
-                  <div className="text-sm text-gray-500">Average Rating</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {doctor.reviewCount}
-                  </div>
-                  <div className="text-sm text-gray-500">Total Reviews</div>
-                </div>
               </div>
             </Card>
           </div>
         </div>
       </div>
+
+      {/* Branch Activation Modal */}
+      <BranchActivationModal
+        isOpen={branchActivationModal.open}
+        onClose={() => setBranchActivationModal({ open: false, doctor: null })}
+        doctor={branchActivationModal.doctor}
+        onConfirm={handleBranchActivationConfirm}
+        isLoading={activateInBranchesMutation.isPending}
+      />
     </div>
   );
 };

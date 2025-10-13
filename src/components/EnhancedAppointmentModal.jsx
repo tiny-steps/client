@@ -429,8 +429,9 @@ const EnhancedAppointmentModal = ({
                         {doctors.map((doctor) => (
                           <option key={doctor.id} value={doctor.id}>
                             {doctor.firstName} {doctor.lastName}
-                            {doctor.speciality
-                              ? ` - ${doctor.speciality}`
+                            {doctor.specializations &&
+                            doctor.specializations.length > 0
+                              ? ` - ${doctor.specializations[0].speciality}`
                               : " - General"}
                           </option>
                         ))}

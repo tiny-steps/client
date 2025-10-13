@@ -20,7 +20,7 @@ export const UpdateDoctorSchema = z.object({
     .string()
     .regex(/^(MALE|FEMALE|OTHER)$/, "Gender must be MALE, FEMALE, or OTHER")
     .optional(),
-  summary: z.string().optional(),
+  remarks: z.string().optional(),
   about: z.string().optional(),
   imageUrl: z
     .string()
@@ -75,7 +75,7 @@ export const PartialUpdateDoctorSchema = z
       .string()
       .regex(/^(MALE|FEMALE|OTHER)$/, "Gender must be MALE, FEMALE, or OTHER")
       .optional(),
-    summary: z.string().optional(),
+    remarks: z.string().optional(),
     about: z.string().optional(),
     imageUrl: z
       .string()
@@ -122,7 +122,7 @@ export const UpdateDoctorFormSchema = z.object({
   gender: z.enum(["MALE", "FEMALE", "OTHER"], {
     required_error: "Gender is required",
   }),
-  summary: z.string().optional(),
+  remarks: z.string().optional(),
   about: z.string().optional(),
   imageUrl: z.string().optional(),
   imageData: z.string().optional(), // Base64 image data for upload

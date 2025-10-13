@@ -18,6 +18,11 @@ import { UpdateDoctorFormSchema } from "../schema/doctors/update.js";
 import useUserStore from "../store/useUserStore.js";
 import useBranchStore from "../store/useBranchStore.js";
 import useAddressStore from "../store/useAddressStore.js";
+import PhotoUploadModal from "./PhotoUploadModal.jsx";
+import { Camera, X } from "lucide-react";
+import { useToast } from "./ui/toast.jsx";
+import CreatableSelect from "react-select/creatable";
+import { doctorService } from "../services/doctorService.js";
 
 const DoctorForm = () => {
   const { doctorId } = useParams({});
@@ -29,6 +34,13 @@ const DoctorForm = () => {
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [zoom, setZoom] = useState(1);
   const canvasRef = useRef(null);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const toast = useToast();
+
+  // Specializations state (ID-based)
+  const [selectedSpecializations, setSelectedSpecializations] = useState([]);
+  const [availableSpecializations, setAvailableSpecializations] = useState([]);
+  const [specializationsLoading, setSpecializationsLoading] = useState(false);
   const { userId } = useUserStore();
   const branches = useBranchStore((state) => state.branches);
   const selectedBranchId = useBranchStore((state) => state.selectedBranchId);
@@ -59,26 +71,26 @@ const DoctorForm = () => {
       ? {
           name: "",
           gender: "MALE",
-          summary: "",
+          remarks: "",
           about: "",
           imageUrl: "",
           experienceYears: 0,
-          speciality: "",
           branchId: selectedBranchId || "",
           // No password field for edit mode
+          // Note: specializations are managed separately via state
         }
       : {
           name: "",
           email: "",
           phone: "",
           gender: "MALE",
-          summary: "",
+          remarks: "",
           about: "",
           imageUrl: "",
           experienceYears: 0,
-          speciality: "",
           password: "",
           branchId: selectedBranchId || "",
+          // Note: specializations are managed separately via state
         },
   });
 
@@ -162,12 +174,12 @@ const DoctorForm = () => {
       const doctor = doctorData.data;
       setValue("name", doctor.name || "");
       setValue("gender", doctor.gender || "MALE");
-      setValue("summary", doctor.summary || "");
+      setValue("remarks", doctor.remarks || "");
       setValue("about", doctor.about || "");
       setValue("imageUrl", doctor.imageUrl || "");
       setValue("experienceYears", doctor.experienceYears || 0);
-      setValue("speciality", doctor.speciality || "");
       setValue("branchId", selectedBranchId || "");
+      // Note: specializations are fetched separately via useEffect
 
       // If doctor has an existing image, set it as the preview
       if (doctor.imageUrl) {
@@ -231,6 +243,109 @@ const DoctorForm = () => {
       // The doctor service will handle user updates internally
     }
   }, [doctorData, isEdit, setValue, selectedBranchId, zoom]);
+
+  // Fetch all specializations (ID-based)
+  useEffect(() => {
+    const fetchAllSpecializations = async () => {
+      try {
+        setSpecializationsLoading(true);
+        const response = await doctorService.getAllSpecializations();
+        if (response && response.data) {
+          // Convert to react-select format: [{value: "uuid", label: "Cardiology"}]
+          const options = response.data.map((spec) => ({
+            value: spec.id, // Use ID instead of name
+            label: spec.name,
+            description: spec.description, // Store for tooltip/info
+          }));
+          setAvailableSpecializations(options);
+        }
+      } catch (error) {
+        console.error("Failed to fetch specializations:", error);
+        toast.error("Failed to load specializations");
+      } finally {
+        setSpecializationsLoading(false);
+      }
+    };
+
+    fetchAllSpecializations();
+  }, []); // Run only on component mount
+
+  // Handler for creating new specialization
+  const handleCreateSpecialization = async (inputValue) => {
+    if (!inputValue || inputValue.trim() === "") {
+      toast.error("Specialization name cannot be empty");
+      return;
+    }
+
+    try {
+      setSpecializationsLoading(true);
+      const newSpec = await doctorService.createSpecialization({
+        name: inputValue.trim(),
+        description: `${inputValue.trim()} specialist`,
+      });
+
+      if (newSpec && newSpec.data) {
+        const newOption = {
+          value: newSpec.data.id,
+          label: newSpec.data.name,
+          description: newSpec.data.description,
+        };
+
+        // Add to available options
+        setAvailableSpecializations((prev) => [...prev, newOption]);
+
+        // Add to selected
+        setSelectedSpecializations((prev) => [...prev, newOption]);
+
+        toast.success(`Created specialization: ${newSpec.data.name}`);
+        return newOption;
+      }
+    } catch (error) {
+      console.error("Failed to create specialization:", error);
+      toast.error(error.message || "Failed to create specialization");
+    } finally {
+      setSpecializationsLoading(false);
+    }
+  };
+
+  // Fetch doctor's specializations in edit mode
+  useEffect(() => {
+    const fetchDoctorSpecializations = async () => {
+      if (isEdit && doctorId && availableSpecializations.length > 0) {
+        try {
+          const response = await doctorService.getDoctorSpecializations(
+            doctorId
+          );
+          if (response && response.data) {
+            // Find matching specializations from available list by name
+            // (until backend returns specializationId directly)
+            const selectedOptions = response.data
+              .map((spec) => {
+                // Find the matching option in availableSpecializations by name
+                const matchingOption = availableSpecializations.find(
+                  (option) => option.label === spec.speciality
+                );
+                if (matchingOption) {
+                  return {
+                    ...matchingOption,
+                    subspecialization: spec.subspecialization || null,
+                  };
+                }
+                return null;
+              })
+              .filter(Boolean); // Remove null entries
+
+            setSelectedSpecializations(selectedOptions);
+          }
+        } catch (error) {
+          console.error("Failed to fetch doctor specializations:", error);
+          // Don't show error toast here as it's not critical for form loading
+        }
+      }
+    };
+
+    fetchDoctorSpecializations();
+  }, [isEdit, doctorId, availableSpecializations]);
 
   const onSubmit = async (data) => {
     console.log("🚀 onSubmit called - Form submitted with data:", data);
@@ -314,6 +429,16 @@ const DoctorForm = () => {
       userId: userId,
     };
 
+    // Add specializations array to submit data (ID-based)
+    if (selectedSpecializations && selectedSpecializations.length > 0) {
+      submitData.specializations = selectedSpecializations.map((spec) => ({
+        specializationId: spec.value, // Send ID instead of name
+        subspecialization: spec.subspecialization || null,
+      }));
+    } else {
+      submitData.specializations = [];
+    }
+
     // Remove password field if empty (for updates)
     if (isEdit && !submitData.password) {
       delete submitData.password;
@@ -327,6 +452,7 @@ const DoctorForm = () => {
     }
 
     console.log("🚀 Submit data:", submitData);
+    console.log("🚀 Specializations:", submitData.specializations);
 
     if (isEdit) {
       // Show confirmation modal for updates
@@ -336,9 +462,39 @@ const DoctorForm = () => {
       // Direct create for new doctors
       try {
         await createDoctorMutation.mutateAsync(submitData);
+        toast.success("Doctor created successfully!");
         navigate({ to: "/doctors" });
       } catch (error) {
         console.error("Failed to create doctor:", error);
+
+        // Extract user-friendly error message
+        let errorMessage = "Failed to create doctor. Please try again.";
+
+        if (error.message) {
+          // Check for common duplicate errors
+          if (
+            error.message.includes("email address already exists") ||
+            (error.message.includes("email") &&
+              error.message.includes("already exists"))
+          ) {
+            errorMessage =
+              "A doctor with this email address already exists. Please use a different email.";
+          } else if (
+            error.message.includes("phone number already exists") ||
+            (error.message.includes("phone") &&
+              error.message.includes("already exists"))
+          ) {
+            errorMessage =
+              "A doctor with this phone number already exists. Please use a different phone number.";
+          } else if (error.message.includes("already exists")) {
+            errorMessage =
+              "A doctor with this information already exists. Please check your input.";
+          } else {
+            errorMessage = error.message;
+          }
+        }
+
+        toast.error(errorMessage);
       }
     }
   };
@@ -364,10 +520,21 @@ const DoctorForm = () => {
           "Doctor updated successfully - user updates handled by doctor service"
         );
 
+        toast.success("Doctor updated successfully!");
+
         // Navigate back to doctors list and trigger refresh
         navigate({ to: "/doctors" });
       } catch (error) {
         console.error("Failed to update doctor:", error);
+
+        // Extract user-friendly error message
+        let errorMessage = "Failed to update doctor. Please try again.";
+
+        if (error.message) {
+          errorMessage = error.message;
+        }
+
+        toast.error(errorMessage);
       } finally {
         setUpdateModal(false);
       }
@@ -401,6 +568,38 @@ const DoctorForm = () => {
       </div>
     );
   }
+
+  // Handle photo save from modal
+  const handlePhotoSave = (file, url) => {
+    console.log("📸 Photo saved from modal:", { file, url });
+    setSelectedImageFile(file);
+    setImagePreviewUrl(url);
+
+    // Draw the cropped image to canvas for backward compatibility with existing upload logic
+    setTimeout(() => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          const size = canvas.width;
+          ctx.clearRect(0, 0, size, size);
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, size, size);
+          ctx.drawImage(img, 0, 0, size, size);
+          console.log("✅ Image drawn to canvas successfully");
+        };
+        img.onerror = (e) => {
+          console.error("❌ Failed to load image for canvas:", e);
+        };
+        img.src = url;
+      } catch (err) {
+        console.error("❌ Failed to render image to canvas:", err);
+      }
+    }, 0);
+  };
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -477,15 +676,50 @@ const DoctorForm = () => {
               </div>
 
               <div>
-                <Label htmlFor="speciality">Speciality *</Label>
-                <Input
-                  id="speciality"
-                  {...register("speciality")}
-                  placeholder="e.g., Cardiology"
+                <Label htmlFor="specializations">Specializations</Label>
+                <CreatableSelect
+                  id="specializations"
+                  isMulti
+                  isClearable
+                  isLoading={specializationsLoading}
+                  isDisabled={isSubmitting}
+                  options={availableSpecializations}
+                  value={selectedSpecializations}
+                  onChange={(selected) =>
+                    setSelectedSpecializations(selected || [])
+                  }
+                  onCreateOption={handleCreateSpecialization}
+                  placeholder="Select existing or type to create new..."
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      minHeight: "36px",
+                      borderColor: errors.specializations
+                        ? "#ef4444"
+                        : base.borderColor,
+                    }),
+                    multiValue: (base) => ({
+                      ...base,
+                      backgroundColor: "#e0f2fe",
+                    }),
+                    multiValueLabel: (base) => ({
+                      ...base,
+                      color: "#0369a1",
+                    }),
+                  }}
+                  formatCreateLabel={(inputValue) => `Create "${inputValue}"`}
                 />
-                {errors.speciality && (
+                {selectedSpecializations.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Optional: Select from existing specializations or type to
+                    create new ones
+                  </p>
+                )}
+                {errors.specializations && (
                   <p className="text-sm text-red-600 mt-1">
-                    {errors.speciality.message}
+                    {errors.specializations.message}
                   </p>
                 )}
               </div>
@@ -538,160 +772,77 @@ const DoctorForm = () => {
               </div>
             </div>
 
-            {/* Profile Image Uploader with circular crop */}
-            <div className="space-y-2">
+            {/* Profile Image Uploader */}
+            <div className="space-y-3">
               <Label>Profile Photo *</Label>
               <div className="flex items-start gap-4">
-                <div className="flex flex-col items-center gap-2">
-                  <div
-                    className="w-28 h-28 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border"
-                    style={{
-                      maskImage:
-                        "radial-gradient(circle at center, black 99%, transparent 100%)",
-                      WebkitMaskImage:
-                        "radial-gradient(circle at center, black 99%, transparent 100%)",
-                    }}
-                  >
+                {/* Circular Preview */}
+                <div className="relative">
+                  <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-2 border-gray-200">
                     {imagePreviewUrl ? (
-                      <canvas
-                        ref={canvasRef}
-                        width={256}
-                        height={256}
-                        className="scale-50"
+                      <img
+                        src={imagePreviewUrl}
+                        alt="Profile preview"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-gray-400 text-xs text-center px-2">
-                        No image
-                      </span>
+                      <div className="flex flex-col items-center text-gray-400">
+                        <Camera className="h-8 w-8 mb-1" />
+                        <span className="text-xs">No photo</span>
+                      </div>
                     )}
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setSelectedImageFile(file);
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const url = reader.result;
-                        setImagePreviewUrl(url);
-                        // Draw into canvas centered with current zoom
-                        setTimeout(() => {
-                          try {
-                            const img = new Image();
-                            img.onload = () => {
-                              const canvas = canvasRef.current;
-                              if (!canvas) return;
-                              const ctx = canvas.getContext("2d");
-                              if (!ctx) return;
-                              const size = canvas.width; // square canvas
-                              ctx.clearRect(0, 0, size, size);
-                              // Fill transparent background
-                              ctx.fillStyle = "#ffffff";
-                              ctx.fillRect(0, 0, size, size);
-                              // Compute scaled draw to cover square
-                              const scale = Math.max(
-                                (size / img.width) * zoom,
-                                (size / img.height) * zoom
-                              );
-                              const drawWidth = img.width * scale;
-                              const drawHeight = img.height * scale;
-                              const dx = (size - drawWidth) / 2;
-                              const dy = (size - drawHeight) / 2;
-                              ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
-                              // Apply circular mask by drawing circle and compositing
-                              ctx.globalCompositeOperation = "destination-in";
-                              ctx.beginPath();
-                              ctx.arc(
-                                size / 2,
-                                size / 2,
-                                size / 2,
-                                0,
-                                Math.PI * 2
-                              );
-                              ctx.closePath();
-                              ctx.fill();
-                              ctx.globalCompositeOperation = "source-over";
-                            };
-                            img.src = url;
-                          } catch (err) {
-                            console.warn("Failed to render preview", err);
-                          }
-                        }, 0);
-                      };
-                      reader.readAsDataURL(file);
-                    }}
-                  />
+                  {imagePreviewUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImagePreviewUrl("");
+                        setSelectedImageFile(null);
+                      }}
+                      className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      title="Remove photo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Upload Button and Info */}
+                <div className="flex-1 space-y-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setPhotoModalOpen(true)}
+                    className="w-full sm:w-auto"
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    {imagePreviewUrl ? "Change Photo" : "Choose Photo"}
+                  </Button>
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-600">
+                      Upload a profile photo for the doctor.
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      You can drag and drop, zoom, and reposition the image.
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Supported: JPG, PNG, GIF, WEBP (max 5MB)
+                    </p>
+                  </div>
                   {errors.imageUrl && (
                     <p className="text-sm text-red-600 mt-1">
                       {errors.imageUrl.message}
                     </p>
                   )}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="zoom">Zoom</Label>
-                    <input
-                      id="zoom"
-                      type="range"
-                      min="1"
-                      max="2.5"
-                      step="0.01"
-                      value={zoom}
-                      onChange={(e) => {
-                        const z = parseFloat(e.target.value);
-                        setZoom(z);
-                        if (!imagePreviewUrl) return;
-                        try {
-                          const img = new Image();
-                          img.onload = () => {
-                            const canvas = canvasRef.current;
-                            if (!canvas) return;
-                            const ctx = canvas.getContext("2d");
-                            if (!ctx) return;
-                            const size = canvas.width;
-                            ctx.clearRect(0, 0, size, size);
-                            ctx.fillStyle = "#ffffff";
-                            ctx.fillRect(0, 0, size, size);
-                            const scale = Math.max(
-                              (size / img.width) * z,
-                              (size / img.height) * z
-                            );
-                            const drawWidth = img.width * scale;
-                            const drawHeight = img.height * scale;
-                            const dx = (size - drawWidth) / 2;
-                            const dy = (size - drawHeight) / 2;
-                            ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
-                            ctx.globalCompositeOperation = "destination-in";
-                            ctx.beginPath();
-                            ctx.arc(
-                              size / 2,
-                              size / 2,
-                              size / 2,
-                              0,
-                              Math.PI * 2
-                            );
-                            ctx.closePath();
-                            ctx.fill();
-                            ctx.globalCompositeOperation = "source-over";
-                          };
-                          img.src = imagePreviewUrl;
-                        } catch (err) {
-                          console.warn("Failed to update zoom preview", err);
-                        }
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Upload and adjust your photo. It will be saved as a circle.
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Note: Requires VITE_UPLOAD_ENDPOINT to upload and store the
-                    image.
-                  </p>
-                </div>
               </div>
+              {/* Hidden canvas for backward compatibility with upload logic */}
+              <canvas
+                ref={canvasRef}
+                width={512}
+                height={512}
+                className="hidden"
+              />
             </div>
 
             {!isEdit && (
@@ -712,15 +863,15 @@ const DoctorForm = () => {
             )}
 
             <div>
-              <Label htmlFor="summary">Summary</Label>
+              <Label htmlFor="remarks">Remarks</Label>
               <Input
-                id="summary"
-                {...register("summary")}
-                placeholder="Brief summary"
+                id="remarks"
+                {...register("remarks")}
+                placeholder="Brief remarks or notes"
               />
-              {errors.summary && (
+              {errors.remarks && (
                 <p className="text-sm text-red-600 mt-1">
-                  {errors.summary.message}
+                  {errors.remarks.message}
                 </p>
               )}
             </div>
@@ -786,6 +937,15 @@ const DoctorForm = () => {
         cancelText="Cancel"
         variant="default"
         onConfirm={handleUpdateConfirm}
+      />
+
+      {/* Photo Upload Modal */}
+      <PhotoUploadModal
+        open={photoModalOpen}
+        onOpenChange={setPhotoModalOpen}
+        onSave={handlePhotoSave}
+        initialImage={imagePreviewUrl || null}
+        title="Upload Profile Photo"
       />
     </div>
   );
