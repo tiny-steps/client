@@ -195,7 +195,7 @@ class TimingService {
 
   async updateAvailability(doctorId, availabilityId, data) {
     const response = await fetch(
-      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/durations`,
+      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}`,
       {
         method: "PUT",
         credentials: "include",
@@ -214,11 +214,11 @@ class TimingService {
   }
 
   async deleteAvailability(doctorId, availabilityId) {
-    // Use soft delete for availability to preserve historical data
+    // Use hard delete for availability
     const response = await fetch(
-      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}/soft-delete`,
+      `/api/v1/timings/doctors/${doctorId}/availabilities/${availabilityId}`,
       {
-        method: "PATCH",
+        method: "DELETE",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -369,6 +369,34 @@ class TimingService {
       throw new Error("Failed to fetch time slots");
     }
     return response.json();
+  }
+
+  // Get doctors with availability
+  async getDoctorIdsWithAvailability(branchId = null) {
+    try {
+      let url =
+        "/api/v1/timings/doctors/00000000-0000-0000-0000-000000000000/availabilities/doctors-with-availability";
+
+      if (branchId) {
+        url = `/api/v1/timings/doctors/00000000-0000-0000-0000-000000000000/availabilities/doctors-with-availability/branch/${branchId}`;
+      }
+
+      const response = await fetch(url, {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch doctors with availability");
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching doctors with availability:", error);
+      return [];
+    }
   }
 }
 

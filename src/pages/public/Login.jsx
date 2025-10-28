@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuthQuery";
 import useAuthStore from "../../store/useAuthStore";
+import { performCompleteLogout } from "../../utils/storageUtils.js";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -37,6 +38,8 @@ const Login = () => {
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
+    // Clear all storage and cookies when login page loads
+    performCompleteLogout();
   }, []);
 
   // Redirect if already authenticated

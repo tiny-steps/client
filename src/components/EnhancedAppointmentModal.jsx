@@ -19,6 +19,10 @@ import useAddressStore from "../store/useAddressStore.js";
 import useUserStore from "../store/useUserStore.js";
 import { useGetTimeSlots } from "../hooks/useTimingQueries.js";
 import {
+  getActiveDoctors,
+  getDoctorDisplayName,
+} from "../utils/doctorUtils.js";
+import {
   isPastDate,
   isPastTimeSlot,
   validateAppointmentBooking,
@@ -73,6 +77,9 @@ const EnhancedAppointmentModal = ({
   const [currentDuration, setCurrentDuration] = useState(30);
   const [validationErrors, setValidationErrors] = useState([]);
   const [conflictWarning, setConflictWarning] = useState("");
+
+  // Filter to show only active doctors
+  const activeDoctors = getActiveDoctors(doctors);
 
   // Get branch information - try multiple sources
   const branches = useBranchStore((state) => state.branches);
@@ -152,11 +159,11 @@ const EnhancedAppointmentModal = ({
 
   // Set the first doctor as default when doctors data changes and no doctor is selected
   useEffect(() => {
-    if (doctors.length > 0 && !form.watch("doctorId")) {
-      const firstDoctor = doctors[0];
+    if (activeDoctors.length > 0 && !form.watch("doctorId")) {
+      const firstDoctor = activeDoctors[0];
       form.setValue("doctorId", firstDoctor.id);
     }
-  }, [doctors, form]);
+  }, [activeDoctors, form]);
 
   // Watch for form changes to validate in real-time
   const watchedDate = form.watch("appointmentDate");
@@ -426,9 +433,9 @@ const EnhancedAppointmentModal = ({
                         disabled={!form.watch("branchId")} // Disable until branch is selected
                       >
                         <option value="">Select a doctor...</option>
-                        {doctors.map((doctor) => (
+                        {activeDoctors.map((doctor) => (
                           <option key={doctor.id} value={doctor.id}>
-                            {doctor.firstName} {doctor.lastName}
+                            {getDoctorDisplayName(doctor)}
                             {doctor.specializations &&
                             doctor.specializations.length > 0
                               ? ` - ${doctor.specializations[0].speciality}`
@@ -500,7 +507,7 @@ const EnhancedAppointmentModal = ({
                             .map((session) => (
                               <option key={session.id} value={session.id}>
                                 {session.sessionType?.name || "Unknown Session"}{" "}
-                                - ${session.price}
+                                - ₹{session.price}
                                 {session.sessionType?.defaultDurationMinutes &&
                                   ` (${formatTime(
                                     session.sessionType.defaultDurationMinutes

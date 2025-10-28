@@ -98,7 +98,10 @@ export const navItems = [
     name: "Timing",
     route: "/timing",
     icon: Clock,
-    subItems: null,
+    subItems: [
+      { name: "Availability", route: "/timing", icon: Clock },
+      { name: "Time Off", route: "/timeoff", icon: Calendar },
+    ],
     description: "Effortless Timing Management",
   },
   {

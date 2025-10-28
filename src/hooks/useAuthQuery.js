@@ -6,6 +6,7 @@ import useAddressStore from "../store/useAddressStore.js";
 import useBranchStore from "../store/useBranchStore.js";
 import { useDoctorStore } from "../store/doctorStore.js";
 import * as authService from "../services/authService.js";
+import { performCompleteLogout } from "../utils/storageUtils.js";
 
 export const authKeys = {
   all: ["auth"],
@@ -32,6 +33,19 @@ export const useAuth = () => {
     },
     onError: (error) => {
       console.error("Login failed:", error);
+
+      // Clear all storage and cookies on any login error
+      performCompleteLogout();
+
+      // Clear any stale authentication state on connection errors
+      if (
+        error?.message?.includes("ECONNREFUSED") ||
+        error?.message?.includes("NetworkError") ||
+        error?.message?.includes("Failed to fetch")
+      ) {
+        useAuthStore.getState().clearAuthState();
+        useUserStore.getState().clearUser();
+      }
     },
   });
 
@@ -59,6 +73,11 @@ export const useAuth = () => {
     },
     onError: (error) => {
       console.error("Logout failed:", error);
+
+      // Even if logout API fails, clear local state
+      // This ensures user is logged out locally even if server is unreachable
+      useAuthStore.getState().logout();
+      useUserStore.getState().clearUser();
     },
   });
 

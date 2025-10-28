@@ -1,4 +1,5 @@
 // API service for user-related operations
+import { performCompleteLogout } from "../utils/storageUtils.js";
 
 class UserService {
   async getUserById(userId) {
@@ -26,6 +27,8 @@ class UserService {
     });
 
     if (!response.ok) {
+      // Clear all storage and cookies when /me endpoint fails
+      performCompleteLogout();
       const error = await response.json();
       throw new Error(error.message || "Failed to fetch current user");
     }

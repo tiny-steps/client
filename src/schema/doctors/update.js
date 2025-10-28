@@ -33,7 +33,7 @@ export const UpdateDoctorSchema = z.object({
     .number()
     .int()
     .min(0, "Experience years must be non-negative")
-    .max(100, "Experience years must not exceed 100")
+    .max(80, "Experience years must not exceed 80")
     .optional(),
   isVerified: z.boolean().optional(),
   ratingAverage: z
@@ -88,7 +88,7 @@ export const PartialUpdateDoctorSchema = z
       .number()
       .int()
       .min(0, "Experience years must be non-negative")
-      .max(100, "Experience years must not exceed 100")
+      .max(80, "Experience years must not exceed 80")
       .optional(),
     isVerified: z.boolean().optional(),
     ratingAverage: z
@@ -130,7 +130,7 @@ export const UpdateDoctorFormSchema = z.object({
     .number({ required_error: "Experience years is required" })
     .int()
     .min(0, "Experience years must be non-negative")
-    .max(100, "Experience years must not exceed 100"),
+    .max(80, "Experience years must not exceed 80"),
   speciality: z.string().optional(),
   branchId: z.string().min(1, "Branch selection is required"),
   // Password is optional for updates - only validate if not empty

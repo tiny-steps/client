@@ -501,7 +501,7 @@ const EnhancedAppointmentModal = ({
                             .map((session) => (
                               <option key={session.id} value={session.id}>
                                 {session.sessionType?.name || "Unknown Session"}{" "}
-                                - ${session.price}
+                                - ₹{session.price}
                                 {session.sessionType?.defaultDurationMinutes &&
                                   ` (${formatTime(
                                     session.sessionType.defaultDurationMinutes

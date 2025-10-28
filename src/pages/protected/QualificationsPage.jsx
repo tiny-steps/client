@@ -286,10 +286,20 @@ const QualificationsPage = () => {
   };
 
   const handleInputChange = (field, value) => {
-    setSearchInputs((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    // Special validation for year fields - only allow numeric values
+    if (field === "minYear" || field === "maxYear") {
+      // Only allow digits and empty string
+      const numericValue = value.replace(/[^0-9]/g, "");
+      setSearchInputs((prev) => ({
+        ...prev,
+        [field]: numericValue,
+      }));
+    } else {
+      setSearchInputs((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
     setCurrentPage(0);
   };
 
@@ -372,18 +382,42 @@ const QualificationsPage = () => {
             <label className="block text-sm font-medium mb-1">Min Year</label>
             <Input
               type="number"
+              min="1900"
+              max="2100"
+              step="1"
               placeholder="2000"
               value={searchInputs.minYear}
               onChange={(e) => handleInputChange("minYear", e.target.value)}
+              onKeyDown={(e) => {
+                // Prevent non-numeric keys except backspace, delete, arrow keys, tab
+                if (
+                  !/[0-9]/.test(e.key) &&
+                  !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Enter"].includes(e.key)
+                ) {
+                  e.preventDefault();
+                }
+              }}
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Max Year</label>
             <Input
               type="number"
+              min="1900"
+              max="2100"
+              step="1"
               placeholder="2024"
               value={searchInputs.maxYear}
               onChange={(e) => handleInputChange("maxYear", e.target.value)}
+              onKeyDown={(e) => {
+                // Prevent non-numeric keys except backspace, delete, arrow keys, tab
+                if (
+                  !/[0-9]/.test(e.key) &&
+                  !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Enter"].includes(e.key)
+                ) {
+                  e.preventDefault();
+                }
+              }}
             />
           </div>
         </div>

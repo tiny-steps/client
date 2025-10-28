@@ -366,7 +366,7 @@ const SessionsList = () => {
                         : ""
                     }
                   >
-                    ${session.price}
+                    ₹{session.price}
                   </span>
                 </p>
                 <p className="text-sm">

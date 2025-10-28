@@ -244,10 +244,20 @@ const DoctorsList = () => {
 
   // Real-time search input handlers (instant filtering)
   const handleInputChange = (field, value) => {
-    setSearchInputs((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    // Special validation for experience field - only allow numeric values
+    if (field === "minExperience") {
+      // Only allow digits and empty string
+      const numericValue = value.replace(/[^0-9]/g, "");
+      setSearchInputs((prev) => ({
+        ...prev,
+        [field]: numericValue,
+      }));
+    } else {
+      setSearchInputs((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
   };
 
   if (isLoading) {
@@ -326,12 +336,41 @@ const DoctorsList = () => {
                   name="minExperience"
                   type="number"
                   min="0"
-                  placeholder="Minimum years"
+                  step="1"
+                  placeholder="Minimum years (1-80)"
                   value={searchInputs.minExperience}
                   onChange={(e) =>
                     handleInputChange("minExperience", e.target.value)
                   }
+                  onKeyDown={(e) => {
+                    // Prevent non-numeric keys except backspace, delete, arrow keys, tab
+                    if (
+                      !/[0-9]/.test(e.key) &&
+                      ![
+                        "Backspace",
+                        "Delete",
+                        "ArrowLeft",
+                        "ArrowRight",
+                        "Tab",
+                        "Enter",
+                      ].includes(e.key)
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  className={
+                    searchInputs.minExperience &&
+                    parseInt(searchInputs.minExperience) > 80
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : ""
+                  }
                 />
+                {searchInputs.minExperience &&
+                  parseInt(searchInputs.minExperience) > 80 && (
+                    <p className="text-sm text-red-600 mt-1">
+                      Please enter a valid number between 1-80
+                    </p>
+                  )}
               </div>
             </div>
             <div className="flex gap-2 items-center">

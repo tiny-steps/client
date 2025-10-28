@@ -446,6 +446,33 @@ class SessionService {
     const { isActive, active, ...restParams } = params;
     return this.getAllSessionTypes(restParams);
   }
+
+  // Get doctors with sessions
+  async getDoctorIdsWithSessions(branchId = null) {
+    try {
+      let url = "/api/v1/sessions/doctors-with-sessions";
+
+      if (branchId) {
+        url = `/api/v1/sessions/doctors-with-sessions/branch/${branchId}`;
+      }
+
+      const response = await fetch(url, {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch doctors with sessions");
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching doctors with sessions:", error);
+      return [];
+    }
+  }
 }
 
 export const sessionService = new SessionService();

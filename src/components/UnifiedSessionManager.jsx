@@ -587,7 +587,7 @@ const UnifiedSessionManager = () => {
                     <strong>Practice:</strong> {item.practice?.name || "N/A"}
                   </p>
                   <p className="text-sm">
-                    <strong>Price:</strong> ${item.price}
+                    <strong>Price:</strong> ₹{item.price}
                   </p>
                   <p className="text-sm">
                     <strong>Duration:</strong>{" "}

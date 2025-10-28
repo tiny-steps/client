@@ -730,8 +730,9 @@ const DoctorForm = () => {
                   id="experienceYears"
                   type="number"
                   min="0"
+                  step="1"
                   {...register("experienceYears", { valueAsNumber: true })}
-                  placeholder="Years of experience"
+                  placeholder="Years of experience (1-80)"
                 />
                 {errors.experienceYears && (
                   <p className="text-sm text-red-600 mt-1">

@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import AppointmentActions from "../../components/AppointmentActions.jsx";
 import { ErrorModal } from "../../components/ui/error-modal.jsx";
 import { useGetAllEnrichedDoctors } from "../../hooks/useEnrichedDoctorQueries";
+import { useGetDoctorsWithAvailabilityAndSessions } from "../../hooks/useFilteredDoctorQueries";
 import { useGetAllEnrichedPatients } from "../../hooks/useEnrichedPatientQueries";
 import {
   useGetAllAppointments,
@@ -41,11 +42,9 @@ const DayDetailView = ({
   });
 
   // Fetch data
-  const { data: doctorsData } = useGetAllEnrichedDoctors(
+  const { data: doctorsData } = useGetDoctorsWithAvailabilityAndSessions(
     {
-      size: 100,
-      status: "ACTIVE", // Only fetch active doctors for selection
-      ...(branchId && { branchId }), // Only include branchId if it's not null
+      branchId, // Only include branchId if it's not null
     },
     {
       enabled: hasSelection, // Fetch when we have a selection (including "all")

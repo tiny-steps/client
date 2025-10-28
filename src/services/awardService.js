@@ -1,17 +1,41 @@
 // API service for award-related operations
 
 class AwardService {
+  // Get JWT token from cookies (matching other services pattern)
+  getJwtToken() {
+    const name = "token=";
+    const decodedCookie = decodeURIComponent(document.cookie);
+    const ca = decodedCookie.split(";");
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) === " ") {
+        c = c.substring(1);
+      }
+      if (c.indexOf(name) === 0) {
+        return c.substring(name.length, c.length);
+      }
+    }
+    return "";
+  }
+
   async getAllAwards(params = {}) {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append("page", params.page);
     if (params.size) queryParams.append("size", params.size);
     if (params.doctorId) queryParams.append("doctorId", params.doctorId);
 
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`/api/v1/awards?${queryParams}`, {
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -23,11 +47,18 @@ class AwardService {
   }
 
   async getAwardById(awardId) {
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`/api/v1/awards/${awardId}`, {
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -43,13 +74,20 @@ class AwardService {
     if (params.page) queryParams.append("page", params.page);
     if (params.size) queryParams.append("size", params.size);
 
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(
       `/api/v1/awards/doctor/${doctorId}?${queryParams}`,
       {
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
       }
     );
 
@@ -62,12 +100,19 @@ class AwardService {
   }
 
   async createAward(doctorId, awardData) {
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`/api/v1/awards/doctor/${doctorId}`, {
       method: "POST",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(awardData),
     });
 
@@ -80,12 +125,19 @@ class AwardService {
   }
 
   async updateAward(awardId, awardData) {
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`/api/v1/awards/${awardId}`, {
       method: "PUT",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(awardData),
     });
 
@@ -99,12 +151,19 @@ class AwardService {
 
   async deleteAward(awardId) {
     // Use hard delete for awards as per backend implementation
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`/api/v1/awards/${awardId}`, {
       method: "DELETE",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -123,12 +182,19 @@ class AwardService {
   // Note: Awards are hard deleted, so no reactivate method needed
 
   async createAwardsBatch(doctorId, awardsData) {
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`/api/v1/awards/doctor/${doctorId}/batch`, {
       method: "POST",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(awardsData),
     });
 
@@ -141,12 +207,19 @@ class AwardService {
   }
 
   async deleteAwardsByDoctor(doctorId) {
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`/api/v1/awards/doctor/${doctorId}`, {
       method: "DELETE",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -156,11 +229,18 @@ class AwardService {
   }
 
   async getAwardCount() {
+    const token = this.getJwtToken();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch("/api/v1/awards/statistics/count", {
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {

@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { timingService } from "../services/timingService.js";
+import { timeoffService } from "../services/timeoffService.js";
 import {
   useGetAllDoctors,
   useGetDoctorBranches,
 } from "../hooks/useDoctorQueries.js";
+import { useGetDoctorsWithAvailability } from "../hooks/useFilteredDoctorQueries.js";
 import { useBranchFilter } from "../hooks/useBranchFilter.js";
 import useAddressStore from "../store/useAddressStore.js";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card.jsx";
 import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
+import { Label } from "./ui/label.jsx";
 import { ErrorModal } from "./ui/error-modal.jsx";
+import TimeoffRequestForm from "./TimeoffRequestForm.jsx";
+import TimeoffList from "./TimeoffList.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.jsx";
+import { Calendar, List, Plus } from "lucide-react";
 
 function getMinutes(timeStr) {
   const [h, m] = timeStr.split(":").map(Number);
@@ -26,6 +33,7 @@ const TimingManager = () => {
       timingService.updateDuration(doctorId, availabilityId, durationId, data),
     onSuccess: () => {
       queryClient.invalidateQueries(["availability"]);
+      queryClient.refetchQueries(["availability"]);
       setEditModal({ open: false, slot: null, duration: null });
     },
     onError: (error) => {
@@ -44,7 +52,10 @@ const TimingManager = () => {
     mutationFn: ({ doctorId, availabilityId, durationId }) =>
       timingService.deleteDuration(doctorId, availabilityId, durationId),
     onSuccess: (_, { availabilityId, remainingDurations }) => {
+      // Invalidate and refetch availability data immediately
       queryClient.invalidateQueries(["availability"]);
+      queryClient.refetchQueries(["availability"]);
+
       // If no durations left, delete the availability
       if (remainingDurations === 0) {
         deleteAvailabilityMutation.mutate({ availabilityId });
@@ -63,9 +74,18 @@ const TimingManager = () => {
 
   // Mutation for deleting an availability
   const deleteAvailabilityMutation = useMutation({
-    mutationFn: ({ availabilityId }) =>
-      timingService.deleteAvailability(availabilityId),
-    onSuccess: () => queryClient.invalidateQueries(["availability"]),
+    mutationFn: ({ availabilityId }) => {
+      console.log("Deleting availability with:", {
+        selectedDoctor,
+        availabilityId,
+      });
+      return timingService.deleteAvailability(selectedDoctor, availabilityId);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch availability data immediately
+      queryClient.invalidateQueries(["availability"]);
+      queryClient.refetchQueries(["availability"]);
+    },
   });
 
   // Add missing editModal state for editing durations
@@ -85,6 +105,11 @@ const TimingManager = () => {
     title: "",
     message: "",
   });
+
+  // Timeoff management state
+  const [showTimeoffForm, setShowTimeoffForm] = useState(false);
+  const [editingTimeoff, setEditingTimeoff] = useState(null);
+  const [activeTab, setActiveTab] = useState("availability");
 
   // Helper to check overlap between timeoff and duration
   function isOverlap(timeOff, duration) {
@@ -196,17 +221,23 @@ const TimingManager = () => {
     enabled: !!selectedDoctor,
   });
 
-  const { data: timeOffsData } = useQuery({
+  const { data: timeOffsData, error: timeOffsError } = useQuery({
     queryKey: ["timeoffs", selectedDoctor],
     queryFn: () => timingService.getDoctorTimeOffs(selectedDoctor),
     enabled: !!selectedDoctor,
   });
+
+  // Debug time offs error
+  if (timeOffsError) {
+    console.error("Time offs error:", timeOffsError);
+  }
 
   const createAvailability = useMutation({
     mutationFn: (data) =>
       timingService.createAvailability(selectedDoctor, data),
     onSuccess: () => {
       queryClient.invalidateQueries(["availability"]);
+      queryClient.refetchQueries(["availability"]);
       setShowAddModal(false);
       setSelectedDays([]);
       setSessions([
@@ -224,44 +255,67 @@ const TimingManager = () => {
     mutationFn: (data) => timingService.createTimeOff(selectedDoctor, data),
     onSuccess: () => {
       queryClient.invalidateQueries(["timeoffs"]);
+      queryClient.refetchQueries(["timeoffs"]);
     },
   });
+
+  // Timeoff handlers
+  const handleAddTimeoff = () => {
+    setEditingTimeoff(null);
+    setShowTimeoffForm(true);
+  };
+
+  const handleEditTimeoff = (timeoff) => {
+    setEditingTimeoff(timeoff);
+    setShowTimeoffForm(true);
+  };
+
+  const handleTimeoffFormSuccess = () => {
+    setShowTimeoffForm(false);
+    setEditingTimeoff(null);
+  };
+
+  const handleTimeoffFormCancel = () => {
+    setShowTimeoffForm(false);
+    setEditingTimeoff(null);
+  };
 
   const availability = Array.isArray(availabilityData)
     ? availabilityData
     : availabilityData?.data || [];
   const timeOffs = timeOffsData?.data || [];
 
-  const weekDays = [
-    {
-      name: "Monday",
-      value: 1,
-    },
-    {
-      name: "Tuesday",
-      value: 2,
-    },
-    {
-      name: "Wednesday",
-      value: 3,
-    },
-    {
-      name: "Thursday",
-      value: 4,
-    },
-    {
-      name: "Friday",
-      value: 5,
-    },
-    {
-      name: "Saturday",
-      value: 6,
-    },
-    {
-      name: "Sunday",
-      value: 7,
-    },
-  ];
+  // Generate week days with current date context
+  const getWeekDays = () => {
+    const today = new Date();
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+
+    return dayNames.map((name, index) => {
+      const dayValue = index === 0 ? 7 : index; // Sunday = 7, Monday = 1, etc.
+      const isToday = today.getDay() === index;
+
+      return {
+        name: name,
+        value: dayValue,
+        isToday: isToday,
+        date: new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate() - today.getDay() + index
+        ),
+      };
+    });
+  };
+
+  const weekDays = getWeekDays();
 
   // Reset doctor selection when address changes
   useEffect(() => {
@@ -269,11 +323,11 @@ const TimingManager = () => {
   }, [branchId]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-gray-50/20 p-6 space-y-6">
       {/* Edit Duration Modal */}
       {editModal.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-gray-50/20 bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md bg-white">
             <CardHeader>
               <CardTitle>Edit Duration</CardTitle>
             </CardHeader>
@@ -385,508 +439,581 @@ const TimingManager = () => {
 
       {selectedDoctor && (
         <>
-          <Card>
-            <CardHeader className="flex flex-row justify-between items-center">
-              <CardTitle>Weekly Availability</CardTitle>
-              <Button
-                onClick={() => setShowAddModal(true)}
-                className="bg-blue-600 hover:bg-blue-700"
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger
+                value="availability"
+                className="flex items-center gap-2"
               >
-                Add Availability
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center p-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {weekDays.map((day) => {
-                    const dayAvailability = availability.filter(
-                      (a) => a.dayOfWeek === day.value && a.active
-                    );
-                    return (
-                      <Card key={day.value} className="p-4">
-                        <h3 className="font-semibold mb-2">{day.name}</h3>
-                        {dayAvailability.length > 0 ? (
-                          <div className="space-y-2">
-                            {dayAvailability.map((slot, idx) => (
-                              <div key={idx} className="mb-2">
-                                {slot.durations && slot.durations.length > 0 ? (
-                                  slot.durations.map((duration, dIdx) => (
-                                    <div
-                                      key={duration.id || dIdx}
-                                      className="text-sm bg-green-50 p-2 rounded mb-1 flex justify-between items-center"
-                                    >
-                                      <div>
-                                        <p>
-                                          {duration.startTime} -{" "}
-                                          {duration.endTime}
-                                          {duration.emergency ? (
-                                            <span className="ml-2 text-red-500">
-                                              (Emergency)
-                                            </span>
-                                          ) : null}
-                                        </p>
-                                        {duration.description && (
-                                          <p className="text-xs text-gray-600">
-                                            {duration.description}
-                                          </p>
-                                        )}
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          title="Edit Duration"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setEditModal({
-                                              open: true,
-                                              slot,
-                                              duration,
-                                            });
-                                          }}
-                                        >
-                                          <span role="img" aria-label="edit">
-                                            ✏️
-                                          </span>
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          title="Delete Duration"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (
-                                              window.confirm(
-                                                `Are you sure you want to delete this time slot (${duration.startTime} - ${duration.endTime})?`
-                                              )
-                                            ) {
-                                              deleteDurationMutation.mutate({
-                                                doctorId: selectedDoctor,
-                                                availabilityId: slot.id,
-                                                durationId: duration.id,
-                                                remainingDurations:
-                                                  slot.durations.length - 1,
-                                              });
-                                            }
-                                          }}
-                                        >
-                                          <span role="img" aria-label="delete">
-                                            🗑️
-                                          </span>
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <p className="text-sm text-gray-500">
-                                    No sessions
-                                  </p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500">
-                            No availability
-                          </p>
-                        )}
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                <Calendar className="h-4 w-4" />
+                Availability
+              </TabsTrigger>
+              <TabsTrigger value="timeoffs" className="flex items-center gap-2">
+                <List className="h-4 w-4" />
+                Time Offs
+              </TabsTrigger>
+            </TabsList>
 
-          <Card>
-            <CardHeader className="flex flex-row justify-between items-center">
-              <CardTitle>Time Offs</CardTitle>
-              <Button
-                onClick={() => {
-                  // Show a modal to add time off (not implemented here)
-                  // For demo, use prompt
-                  const startDate = prompt("Start Date (YYYY-MM-DD)");
-                  const endDate = prompt("End Date (YYYY-MM-DD)");
-                  const startTime = prompt("Start Time (HH:mm:ss)");
-                  const endTime = prompt("End Time (HH:mm:ss)");
-                  const reason = prompt("Reason");
-                  if (startDate && endDate && startTime && endTime) {
-                    handleAddTimeOff({
-                      startDate,
-                      endDate,
-                      startTime,
-                      endTime,
-                      reason,
-                    });
-                  }
-                }}
-                variant="outline"
-              >
-                Add Time Off
-              </Button>
-              {/* Conflict Modal for TimeOff */}
-              {conflictModal.open && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                  <Card className="w-full max-w-md">
-                    <CardHeader>
-                      <CardTitle>Time Off Conflict</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="mb-2">
-                        The following durations overlap with the time off you
-                        are trying to add:
-                      </p>
-                      <ul className="mb-4">
-                        {conflictModal.conflicts.map(
-                          ({ slot, duration }, idx) => (
-                            <li key={idx} className="mb-2">
-                              <strong>Day:</strong>{" "}
-                              {
-                                weekDays.find(
-                                  (wd) => wd.value === slot.dayOfWeek
-                                )?.name
-                              }
-                              <br />
-                              <strong>Time:</strong> {duration.startTime} -{" "}
-                              {duration.endTime}
-                            </li>
-                          )
-                        )}
-                      </ul>
-                      <div className="flex gap-2 mt-4">
-                        <Button
-                          onClick={() => {
-                            // Delete all conflicting durations
-                            conflictModal.conflicts.forEach(
-                              ({ slot, duration }) => {
-                                deleteDurationMutation.mutate({
-                                  availabilityId: slot.id,
-                                  durationId: duration.id,
-                                  remainingDurations: slot.durations.length - 1,
-                                });
-                              }
-                            );
-                            // Add the time off
-                            createTimeOff.mutate(conflictModal.timeOff);
-                            setConflictModal({
-                              open: false,
-                              conflicts: [],
-                              timeOff: null,
-                            });
-                          }}
-                        >
-                          Delete Conflicting Durations & Add Time Off
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() =>
-                            setConflictModal({
-                              open: false,
-                              conflicts: [],
-                              timeOff: null,
-                            })
-                          }
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {timeOffs.length > 0 ? (
-                  timeOffs.map((timeOff) => (
-                    <div
-                      key={timeOff.id}
-                      className="flex justify-between items-center p-3 bg-red-50 rounded"
+            <TabsContent value="availability" className="mt-6">
+              <Card>
+                <CardHeader className="flex flex-row justify-between items-center">
+                  <CardTitle>Weekly Availability</CardTitle>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        setEditingTimeoff(null);
+                        setShowTimeoffForm(true);
+                      }}
+                      variant="outline"
+                      className="border-orange-200 text-orange-700 hover:bg-orange-50"
                     >
-                      <div>
-                        <p className="font-medium">
-                          {new Date(timeOff.startDate).toLocaleDateString()} -{" "}
-                          {new Date(timeOff.endDate).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {timeOff.reason}
-                        </p>
-                      </div>
-                      <Button size="sm" variant="destructive">
-                        Remove
-                      </Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Time Off
+                    </Button>
+                    <Button
+                      onClick={() => setShowAddModal(true)}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Add Availability
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex justify-center p-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500">No time offs scheduled</p>
-                )}
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {weekDays.map((day) => {
+                        const dayAvailability = availability.filter(
+                          (a) => a.dayOfWeek === day.value && a.active
+                        );
+                        return (
+                          <Card
+                            key={day.value}
+                            className={`p-4 ${
+                              day.isToday
+                                ? "ring-2 ring-blue-500 bg-blue-50"
+                                : ""
+                            }`}
+                          >
+                            <h3
+                              className={`font-semibold mb-2 ${
+                                day.isToday ? "text-blue-700" : ""
+                              }`}
+                            >
+                              {day.name}
+                              {day.isToday && (
+                                <span className="ml-2 text-sm text-blue-600">
+                                  (Today)
+                                </span>
+                              )}
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-2">
+                              {day.date.toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </p>
+
+                            {/* Show time offs for this day */}
+                            {(() => {
+                              const dayTimeOffs = timeOffs.filter((timeoff) => {
+                                const startDate = new Date(
+                                  timeoff.startDatetime
+                                );
+                                const endDate = new Date(timeoff.endDatetime);
+                                const dayStart = new Date(day.date);
+                                dayStart.setHours(0, 0, 0, 0);
+                                const dayEnd = new Date(day.date);
+                                dayEnd.setHours(23, 59, 59, 999);
+
+                                return (
+                                  startDate <= dayEnd && endDate >= dayStart
+                                );
+                              });
+
+                              return (
+                                dayTimeOffs.length > 0 && (
+                                  <div className="mb-2 space-y-1">
+                                    {dayTimeOffs.map((timeoff, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded"
+                                      >
+                                        🚫 {timeoff.description}
+                                        <div className="text-xs text-red-600">
+                                          {new Date(
+                                            timeoff.startDatetime
+                                          ).toLocaleTimeString("en-US", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            hour12: true,
+                                          })}{" "}
+                                          -{" "}
+                                          {new Date(
+                                            timeoff.endDatetime
+                                          ).toLocaleTimeString("en-US", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            hour12: true,
+                                          })}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              );
+                            })()}
+
+                            {dayAvailability.length > 0 ? (
+                              <div className="space-y-2">
+                                {dayAvailability.map((slot, idx) => (
+                                  <div key={idx} className="mb-2">
+                                    {slot.durations &&
+                                    slot.durations.length > 0 ? (
+                                      slot.durations.map((duration, dIdx) => (
+                                        <div
+                                          key={duration.id || dIdx}
+                                          className="text-sm bg-green-50 p-2 rounded mb-1 flex justify-between items-center"
+                                        >
+                                          <div>
+                                            <p>
+                                              {duration.startTime} -{" "}
+                                              {duration.endTime}
+                                              {duration.emergency ? (
+                                                <span className="ml-2 text-red-500">
+                                                  (Emergency)
+                                                </span>
+                                              ) : null}
+                                            </p>
+                                            {duration.description && (
+                                              <p className="text-xs text-gray-600">
+                                                {duration.description}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <div className="flex gap-2">
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              title="Edit Duration"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditModal({
+                                                  open: true,
+                                                  slot,
+                                                  duration,
+                                                });
+                                              }}
+                                            >
+                                              <span
+                                                role="img"
+                                                aria-label="edit"
+                                              >
+                                                ✏️
+                                              </span>
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="destructive"
+                                              title="Delete Duration"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (
+                                                  window.confirm(
+                                                    `Are you sure you want to delete this time slot (${duration.startTime} - ${duration.endTime})?`
+                                                  )
+                                                ) {
+                                                  console.log(
+                                                    "Deleting duration with data:",
+                                                    {
+                                                      doctorId: selectedDoctor,
+                                                      availabilityId: slot.id,
+                                                      durationId: duration.id,
+                                                      remainingDurations:
+                                                        slot.durations.length -
+                                                        1,
+                                                      slot: slot,
+                                                    }
+                                                  );
+                                                  deleteDurationMutation.mutate(
+                                                    {
+                                                      doctorId: selectedDoctor,
+                                                      availabilityId: slot.id,
+                                                      durationId: duration.id,
+                                                      remainingDurations:
+                                                        slot.durations.length -
+                                                        1,
+                                                    }
+                                                  );
+                                                }
+                                              }}
+                                            >
+                                              <span
+                                                role="img"
+                                                aria-label="delete"
+                                              >
+                                                🗑️
+                                              </span>
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <p className="text-sm text-gray-500">
+                                        No sessions
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500">
+                                No availability
+                              </p>
+                            )}
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="timeoffs" className="mt-6">
+              <TimeoffList
+                doctorId={selectedDoctor}
+                timeoffs={timeOffs}
+                isLoading={false}
+                onEdit={handleEditTimeoff}
+                onAdd={handleAddTimeoff}
+                showActions={true}
+                showFilters={true}
+              />
+            </TabsContent>
+          </Tabs>
+
+          {/* Timeoff Form Modal */}
+          {showTimeoffForm && (
+            <div className="fixed inset-0 bg-gray-50/20 bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg">
+                <TimeoffRequestForm
+                  doctorId={selectedDoctor}
+                  initialData={editingTimeoff}
+                  onSuccess={handleTimeoffFormSuccess}
+                  onCancel={handleTimeoffFormCancel}
+                />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </>
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Add Availability</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
+        <div className="fixed inset-0 bg-gray-50/20 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-2xl mx-auto">
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle>Add Availability</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
 
-                  if (selectedDays.length === 0) {
-                    alert("Please select at least one day");
-                    return;
-                  }
+                    if (selectedDays.length === 0) {
+                      alert("Please select at least one day");
+                      return;
+                    }
 
-                  const formData = new FormData(e.target);
-                  const practiceId =
-                    selectedPracticeId || formData.get("practiceId") || "";
+                    const formData = new FormData(e.target);
+                    const practiceId =
+                      selectedPracticeId || formData.get("practiceId") || "";
 
-                  if (!practiceId) {
-                    alert("Please select a branch/practice");
-                    return;
-                  }
-                  const isActive = true;
+                    if (!practiceId) {
+                      alert("Please select a branch/practice");
+                      return;
+                    }
+                    const isActive = true;
 
-                  // Calculate slot duration as the max duration among sessions
-                  const durations = sessions.map((s, idx) => ({
-                    sessionIndex: idx + 1,
-                    startTime: s.startTime,
-                    endTime: s.endTime,
-                    isEmergency: s.isEmergency,
-                    description: s.description,
-                  }));
-                  const slotDurationMinutes = Math.max(
-                    ...sessions.map(
-                      (s) => getMinutes(s.endTime) - getMinutes(s.startTime)
-                    )
-                  );
+                    // Calculate slot duration as the max duration among sessions
+                    const durations = sessions.map((s, idx) => ({
+                      sessionIndex: idx + 1,
+                      startTime: s.startTime,
+                      endTime: s.endTime,
+                      isEmergency: s.isEmergency,
+                      description: s.description,
+                    }));
+                    const slotDurationMinutes = Math.max(
+                      ...sessions.map(
+                        (s) => getMinutes(s.endTime) - getMinutes(s.startTime)
+                      )
+                    );
 
-                  // Create availability for each selected day
-                  selectedDays.forEach((dayOfWeek) => {
-                    createAvailability.mutate({
-                      practiceId,
-                      dayOfWeek,
-                      slotDurationMinutes,
-                      isActive,
-                      durations: durations.map((d) => ({ ...d })), // Clone durations for each day
+                    // Create availability for each selected day
+                    selectedDays.forEach((dayOfWeek) => {
+                      createAvailability.mutate({
+                        practiceId,
+                        dayOfWeek,
+                        slotDurationMinutes,
+                        isActive,
+                        durations: durations.map((d) => ({ ...d })), // Clone durations for each day
+                      });
                     });
-                  });
-                }}
-                className="space-y-4"
-              >
-                {/* Practice ID / Branch Selection */}
-                {(() => {
-                  const doctorAddresses = addresses.filter((addr) =>
-                    doctorBranches.includes(addr.id)
-                  );
-
-                  if (doctorAddresses.length === 0) {
-                    return (
-                      <Input
-                        name="practiceId"
-                        placeholder="Practice ID (optional)"
-                        value={selectedPracticeId}
-                        onChange={(e) => setSelectedPracticeId(e.target.value)}
-                      />
-                    );
-                  } else if (doctorAddresses.length === 1) {
-                    return (
-                      <Input
-                        name="practiceId"
-                        placeholder="Practice ID"
-                        value={selectedPracticeId}
-                        onChange={(e) => setSelectedPracticeId(e.target.value)}
-                        readOnly
-                        className="bg-gray-50"
-                      />
-                    );
-                  } else {
-                    return (
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Select Branch/Practice *
-                        </label>
-                        <select
-                          name="practiceId"
-                          value={selectedPracticeId}
-                          onChange={(e) =>
-                            setSelectedPracticeId(e.target.value)
-                          }
-                          className="w-full px-3 py-2 border rounded-md"
-                        >
-                          <option value="">Select a branch...</option>
-                          {doctorAddresses.map((address) => (
-                            <option
-                              key={address.id}
-                              value={
-                                address.name ||
-                                `${address.type} - ${address.city}`
-                              }
-                            >
-                              {address.name ||
-                                `${address.type} - ${address.city}`}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  }
-                })()}
-                {/* Multi-day selection */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Select Days (check multiple to apply to all selected days)
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {weekDays.map((day) => (
-                      <label
-                        key={day.value}
-                        className="flex items-center space-x-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedDays.includes(day.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedDays([...selectedDays, day.value]);
-                            } else {
-                              setSelectedDays(
-                                selectedDays.filter((d) => d !== day.value)
-                              );
-                            }
-                          }}
-                        />
-                        <span className="text-sm">{day.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {selectedDays.length === 0 && (
-                    <p className="text-red-500 text-sm">
-                      Please select at least one day
-                    </p>
-                  )}
-                </div>
-                {/* Sessions UI */}
-                {sessions.map((session, idx) => (
-                  <div key={idx} className="border p-3 rounded mb-2">
-                    <div className="flex gap-2 mb-2">
-                      <Input
-                        type="time"
-                        value={session.startTime}
-                        onChange={(e) => {
-                          const newSessions = [...sessions];
-                          newSessions[idx].startTime = e.target.value;
-                          setSessions(newSessions);
-                        }}
-                        required
-                        placeholder="Start time"
-                      />
-                      <Input
-                        type="time"
-                        value={session.endTime}
-                        onChange={(e) => {
-                          const newSessions = [...sessions];
-                          newSessions[idx].endTime = e.target.value;
-                          setSessions(newSessions);
-                        }}
-                        required
-                        placeholder="End time"
-                      />
-                    </div>
-                    <Input
-                      value={session.description}
-                      onChange={(e) => {
-                        const newSessions = [...sessions];
-                        newSessions[idx].description = e.target.value;
-                        setSessions(newSessions);
-                      }}
-                      placeholder="Description"
-                    />
-                    <label className="flex items-center mt-2">
-                      <input
-                        type="checkbox"
-                        checked={session.isEmergency}
-                        onChange={(e) => {
-                          const newSessions = [...sessions];
-                          newSessions[idx].isEmergency = e.target.checked;
-                          setSessions(newSessions);
-                        }}
-                      />
-                      <span className="ml-2">Emergency</span>
-                    </label>
-                    <div className="flex gap-2 mt-2">
-                      {sessions.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          onClick={() => {
-                            setSessions(sessions.filter((_, i) => i !== idx));
-                          }}
-                        >
-                          Remove Session
-                        </Button>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Duration:{" "}
-                      {session.startTime && session.endTime
-                        ? getMinutes(session.endTime) -
-                          getMinutes(session.startTime)
-                        : 0}{" "}
-                      minutes
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setSessions([
-                      ...sessions,
-                      {
-                        startTime: "",
-                        endTime: "",
-                        description: "",
-                        isEmergency: false,
-                      },
-                    ])
-                  }
+                  }}
+                  className="space-y-4"
                 >
-                  + Add Session
-                </Button>
-                <div className="flex gap-2 mt-4">
-                  <Button type="submit">Add</Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowAddModal(false);
-                      setSessions([
-                        {
-                          startTime: "",
-                          endTime: "",
-                          description: "",
-                          isEmergency: false,
-                        },
-                      ]);
-                      setSelectedDays([]);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                  {/* Practice ID / Branch Selection */}
+                  <div>
+                    <Label htmlFor="practiceId">Select Branch/Practice *</Label>
+                    {(() => {
+                      const doctorAddresses = addresses.filter((addr) =>
+                        doctorBranches.includes(addr.id)
+                      );
+
+                      if (doctorAddresses.length === 0) {
+                        return (
+                          <Input
+                            id="practiceId"
+                            name="practiceId"
+                            placeholder="Practice ID (optional)"
+                            value={selectedPracticeId}
+                            onChange={(e) =>
+                              setSelectedPracticeId(e.target.value)
+                            }
+                          />
+                        );
+                      } else if (doctorAddresses.length === 1) {
+                        return (
+                          <Input
+                            id="practiceId"
+                            name="practiceId"
+                            placeholder="Practice ID"
+                            value={selectedPracticeId}
+                            onChange={(e) =>
+                              setSelectedPracticeId(e.target.value)
+                            }
+                            readOnly
+                            className="bg-gray-50"
+                          />
+                        );
+                      } else {
+                        return (
+                          <select
+                            id="practiceId"
+                            name="practiceId"
+                            value={selectedPracticeId}
+                            onChange={(e) =>
+                              setSelectedPracticeId(e.target.value)
+                            }
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <option value="">Select a branch...</option>
+                            {doctorAddresses.map((address) => (
+                              <option
+                                key={address.id}
+                                value={
+                                  address.name ||
+                                  `${address.type} - ${address.city}`
+                                }
+                              >
+                                {address.name ||
+                                  `${address.type} - ${address.city}`}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      }
+                    })()}
+                  </div>
+                  {/* Multi-day selection */}
+                  <div>
+                    <Label>Select Days *</Label>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Check multiple to apply to all selected days
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {weekDays.map((day) => (
+                        <label
+                          key={day.value}
+                          className="flex items-center space-x-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedDays.includes(day.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDays([...selectedDays, day.value]);
+                              } else {
+                                setSelectedDays(
+                                  selectedDays.filter((d) => d !== day.value)
+                                );
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="text-sm">{day.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedDays.length === 0 && (
+                      <p className="text-sm text-red-600 mt-1">
+                        Please select at least one day
+                      </p>
+                    )}
+                  </div>
+                  {/* Sessions UI */}
+                  {sessions.map((session, idx) => (
+                    <div
+                      key={idx}
+                      className="border border-gray-200 p-4 rounded-lg mb-4"
+                    >
+                      <h4 className="text-sm font-medium mb-3">
+                        Session {idx + 1}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor={`startTime-${idx}`}>
+                            Start Time *
+                          </Label>
+                          <Input
+                            id={`startTime-${idx}`}
+                            type="time"
+                            value={session.startTime}
+                            onChange={(e) => {
+                              const newSessions = [...sessions];
+                              newSessions[idx].startTime = e.target.value;
+                              setSessions(newSessions);
+                            }}
+                            required
+                            placeholder="Start time"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`endTime-${idx}`}>End Time *</Label>
+                          <Input
+                            id={`endTime-${idx}`}
+                            type="time"
+                            value={session.endTime}
+                            onChange={(e) => {
+                              const newSessions = [...sessions];
+                              newSessions[idx].endTime = e.target.value;
+                              setSessions(newSessions);
+                            }}
+                            required
+                            placeholder="End time"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <Label htmlFor={`description-${idx}`}>
+                          Description
+                        </Label>
+                        <Input
+                          id={`description-${idx}`}
+                          value={session.description}
+                          onChange={(e) => {
+                            const newSessions = [...sessions];
+                            newSessions[idx].description = e.target.value;
+                            setSessions(newSessions);
+                          }}
+                          placeholder="Session description"
+                        />
+                      </div>
+                      <div className="mt-4">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={session.isEmergency}
+                            onChange={(e) => {
+                              const newSessions = [...sessions];
+                              newSessions[idx].isEmergency = e.target.checked;
+                              setSessions(newSessions);
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="ml-2 text-sm">Emergency Slot</span>
+                        </label>
+                      </div>
+                      <div className="flex justify-between items-center mt-4">
+                        <div className="text-sm text-gray-500">
+                          Duration:{" "}
+                          {session.startTime && session.endTime
+                            ? getMinutes(session.endTime) -
+                              getMinutes(session.startTime)
+                            : 0}{" "}
+                          minutes
+                        </div>
+                        {sessions.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setSessions(sessions.filter((_, i) => i !== idx));
+                            }}
+                          >
+                            Remove Session
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="mt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        setSessions([
+                          ...sessions,
+                          {
+                            startTime: "",
+                            endTime: "",
+                            description: "",
+                            isEmergency: false,
+                          },
+                        ])
+                      }
+                    >
+                      + Add Session
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      type="submit"
+                      disabled={createAvailability.isPending}
+                      className="flex-1"
+                    >
+                      {createAvailability.isPending
+                        ? "Creating..."
+                        : "Add Availability"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowAddModal(false);
+                        setSessions([
+                          {
+                            startTime: "",
+                            endTime: "",
+                            description: "",
+                            isEmergency: false,
+                          },
+                        ]);
+                        setSelectedDays([]);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
 

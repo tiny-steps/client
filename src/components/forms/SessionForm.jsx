@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,8 +10,13 @@ import {
 } from "../../hooks/useSessionQueries.js";
 import { useGetAllSessionTypes } from "../../hooks/useSessionQueries.js";
 import { useGetAllDoctors } from "../../hooks/useDoctorQueries.js";
+import { useGetDoctorsWithAvailability } from "../../hooks/useFilteredDoctorQueries.js";
 import useAddressStore from "../../store/useAddressStore.js";
 import useUserStore from "../../store/useUserStore.js";
+import {
+  getActiveDoctors,
+  getDoctorDisplayName,
+} from "../../utils/doctorUtils.js";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card.jsx";
 import { Button } from "../ui/button.jsx";
 import { Input } from "../ui/input.jsx";
@@ -78,12 +83,45 @@ const SessionForm = ({ mode = "create" }) => {
     size: 100,
     branchId: form.watch("branchId") || selectedBranchId,
   });
-  // Filter doctors by selected branch - only active doctors for selection
-  const { data: doctorsData } = useGetAllDoctors({
-    size: 100,
-    status: "ACTIVE", // Only fetch active doctors for selection
+  // Filter doctors by selected branch - only doctors with availability for sessions
+  const { data: doctorsData } = useGetDoctorsWithAvailability({
     branchId: form.watch("branchId") || selectedBranchId,
   });
+
+  // For edit mode, also get all doctors to include the existing session's doctor
+  const { data: allDoctorsData } = useGetAllDoctors({
+    size: 100,
+    status: "ACTIVE",
+    branchId: form.watch("branchId") || selectedBranchId,
+  });
+
+  // Combine filtered doctors with existing session's doctor for edit mode
+  const doctors = useMemo(() => {
+    let doctorList = [];
+
+    if (isEditMode && existingSession?.doctorId) {
+      const filteredDoctors = doctorsData?.data?.content || [];
+      const allDoctors = allDoctorsData?.data?.content || [];
+      const existingDoctor = allDoctors.find(
+        (d) => d.id === existingSession.doctorId
+      );
+
+      // If existing doctor is not in filtered list, add them
+      if (
+        existingDoctor &&
+        !filteredDoctors.find((d) => d.id === existingSession.doctorId)
+      ) {
+        doctorList = [existingDoctor, ...filteredDoctors];
+      } else {
+        doctorList = filteredDoctors;
+      }
+    } else {
+      doctorList = doctorsData?.data?.content || [];
+    }
+
+    // Additional filter to ensure only active doctors are shown
+    return getActiveDoctors(doctorList);
+  }, [isEditMode, existingSession?.doctorId, doctorsData, allDoctorsData]);
 
   // Load existing data for edit mode
   useEffect(() => {
@@ -149,7 +187,6 @@ const SessionForm = ({ mode = "create" }) => {
   // Ensure we have valid data structures
   const sessionTypes =
     sessionTypesData?.content || sessionTypesData?.data?.content || [];
-  const doctors = doctorsData?.content || doctorsData?.data?.content || [];
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -239,7 +276,7 @@ const SessionForm = ({ mode = "create" }) => {
                                 }}
                               />
                               <span className="text-sm">
-                                {doctor?.name}
+                                {getDoctorDisplayName(doctor)}
                                 {doctor?.speciality
                                   ? ` - ${doctor?.speciality}`
                                   : ""}

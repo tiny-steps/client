@@ -17,6 +17,8 @@ import {
 } from "@/hooks/useTimingQueries.js";
 import { useGetAllSessions } from "@/hooks/useSessionQueries.js";
 import { useBranchFilter } from "@/hooks/useBranchFilter.js";
+import { useGetDoctorsWithAvailability } from "@/hooks/useFilteredDoctorQueries.js";
+import { useGetDoctorsWithAvailabilityAndSessions } from "@/hooks/useFilteredDoctorQueries.js";
 
 const SchedulePage = () => {
   const location = useLocation();
@@ -110,11 +112,9 @@ const SchedulePage = () => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [showDayDetail, setShowDayDetail] = useState(false);
 
-  const { data: doctorsData } = useGetAllEnrichedDoctors(
+  const { data: doctorsData } = useGetDoctorsWithAvailabilityAndSessions(
     {
-      size: 100,
-      status: "ACTIVE", // Only fetch active doctors for selection
-      ...(branchId && { branchId }), // Only include branchId if it's not null
+      branchId, // Only include branchId if it's not null
     },
     {
       enabled: hasSelection, // Fetch when we have a selection (including "all")

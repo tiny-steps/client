@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { sessionService } from "../services/sessionService.js";
 import { doctorService } from "../services/doctorService.js";
 import { addressService } from "../services/addressService.js";
+import { timingService } from "../services/timingService.js";
 
 // Helper function to enrich a single session with doctor and practice details
 const enrichSessionWithDetails = async (session) => {
@@ -11,16 +12,24 @@ const enrichSessionWithDetails = async (session) => {
     // Fetch doctor details if doctorId exists
     if (session.doctorId) {
       try {
+        console.log(
+          `🔍 Enriching session ${session.id} with doctor ${session.doctorId}`
+        );
         const doctorResponse = await doctorService.getDoctorById(
           session.doctorId
         );
+        console.log(
+          `🔍 Doctor response for ${session.doctorId}:`,
+          doctorResponse
+        );
         enrichedSession.doctor = {
-          id: doctorResponse.id,
-          name: doctorResponse.name || "Unknown Doctor",
-          email: doctorResponse.email || "",
-          phone: doctorResponse.phone || "",
-          speciality: doctorResponse.speciality || "",
+          id: doctorResponse.data.id,
+          name: doctorResponse.data.name || "Unknown Doctor",
+          email: doctorResponse.data.email || "",
+          phone: doctorResponse.data.phone || "",
+          speciality: doctorResponse.data.speciality || "",
         };
+        console.log(`🔍 Enriched doctor:`, enrichedSession.doctor);
       } catch (error) {
         console.warn(`Failed to fetch doctor ${session.doctorId}:`, error);
         enrichedSession.doctor = {
@@ -83,9 +92,39 @@ export const useGetAllEnrichedSessions = (params = {}, options = {}) => {
       const response = await sessionService.getAllSessions(params);
 
       if (response.content) {
-        const enrichedSessions = await enrichSessionsWithDetails(
-          response.content
+        console.log(
+          "🔍 Raw sessions from API:",
+          response.content.map((s) => ({ id: s.id, doctorId: s.doctorId }))
         );
+
+        // Get doctors with availability to filter sessions
+        const doctorsWithAvailability =
+          await timingService.getDoctorIdsWithAvailability(params.branchId);
+
+        console.log("🔍 Doctors with availability:", doctorsWithAvailability);
+
+        // Filter sessions to only include those from doctors with availability
+        // TEMPORARILY DISABLED FOR DEBUGGING
+        const filteredSessions = response.content; // .filter((session) => doctorsWithAvailability.includes(session.doctorId));
+
+        console.log(
+          "🔍 Filtered sessions:",
+          filteredSessions.map((s) => ({ id: s.id, doctorId: s.doctorId }))
+        );
+
+        const enrichedSessions = await enrichSessionsWithDetails(
+          filteredSessions
+        );
+
+        console.log(
+          "🔍 Final enriched sessions:",
+          enrichedSessions.map((s) => ({
+            id: s.id,
+            doctorId: s.doctorId,
+            doctorName: s.doctor?.name,
+          }))
+        );
+
         return {
           ...response,
           content: enrichedSessions,

@@ -21,6 +21,7 @@ import DashboardPage from "./pages/protected/DashboardPage.jsx";
 import DoctorsPage from "./pages/protected/DoctorsPage.jsx";
 import PatientsPage from "./pages/protected/PatientsPage.jsx";
 import TimingPage from "./pages/protected/TimingPage.jsx";
+import TimeoffManagement from "./pages/protected/TimeoffManagement.jsx";
 import SessionPage from "./pages/protected/SessionPage.jsx";
 import SessionTypesPage from "./pages/protected/SessionTypesPage.jsx";
 import SchedulePage from "./pages/protected/SchedulePage.jsx";
@@ -509,6 +510,18 @@ const timingRoute = createRoute({
   ),
 });
 
+const timeoffRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/timeoff",
+  component: () => (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <TimeoffManagement />
+      </DashboardLayout>
+    </ProtectedRoute>
+  ),
+});
+
 const sessionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/sessions",
@@ -651,6 +664,7 @@ const routeTree = rootRoute.addChildren([
   patientDetailRoute,
   patientEditRoute,
   timingRoute,
+  timeoffRoute,
   sessionsRoute,
   sessionAddRoute,
   sessionTypesRoute,

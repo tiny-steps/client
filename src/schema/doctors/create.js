@@ -41,7 +41,7 @@ export const CreateDoctorSchema = z.object({
     .number()
     .int()
     .min(0, "Experience years must be non-negative")
-    .max(100, "Experience years must not exceed 100")
+    .max(80, "Experience years must not exceed 80")
     .optional(),
   isVerified: z.boolean().optional(),
   ratingAverage: z
@@ -89,7 +89,7 @@ export const CreateDoctorFormSchema = z.object({
     .number({ required_error: "Experience years is required" })
     .int()
     .min(0, "Experience years must be non-negative")
-    .max(100, "Experience years must not exceed 100"),
+    .max(80, "Experience years must not exceed 80"),
   speciality: z.string().optional(), // Optional: handled separately via specializations array
   branchId: z.string().min(1, "Branch selection is required"),
 });

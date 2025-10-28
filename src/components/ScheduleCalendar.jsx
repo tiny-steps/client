@@ -12,6 +12,7 @@ import {
   useDeleteAppointment,
 } from "../hooks/useScheduleQueries.js";
 import { useGetAllDoctors } from "../hooks/useDoctorQueries.js";
+import { useGetDoctorsWithAvailabilityAndSessions } from "../hooks/useFilteredDoctorQueries.js";
 import { useGetAllPatients } from "../hooks/usePatientQueries.js";
 import {
   useGetDoctorAvailability,
@@ -64,8 +65,7 @@ const ScheduleCalendar = () => {
     branchId: selectedAddressId, // Use selected address ID as branchId
   });
 
-  const { data: doctorsData } = useGetAllDoctors({
-    size: 100,
+  const { data: doctorsData } = useGetDoctorsWithAvailabilityAndSessions({
     branchId: selectedAddressId, // Use selected address ID as branchId
   });
   const { data: patientsData } = useGetAllPatients({
